@@ -1,0 +1,3544 @@
+{
+  "version": 1,
+  "id": "prj-s1mssfqmbs",
+  "name": "Beispiel: UHF-Rack Funkstrecken",
+  "createdAt": "2026-11-22T22:21:21.160Z",
+  "updatedAt": "2026-11-22T22:21:21.160Z",
+  "racks": [
+    {
+      "id": "rack-gu7n3e2mbs",
+      "name": "UHF Rack 1",
+      "type": {
+        "id": "shock-10u-450",
+        "name": "Shockmount-Case 10 HE (450 mm)",
+        "kind": "shockmount",
+        "heightU": 10,
+        "depth": 450,
+        "rackStandard": 19,
+        "hasRearRails": true,
+        "outer": {
+          "w": 623,
+          "h": 565,
+          "d": 610
+        },
+        "color": "#2b2b2b",
+        "frontLid": true,
+        "rearLid": true
+      },
+      "devices": [
+        {
+          "id": "d-bnc",
+          "templateId": "gen-patch-bnc8",
+          "u": 10,
+          "mount": "front",
+          "slot": 0,
+          "label": "Antennen-Patch"
+        },
+        {
+          "id": "d-xlr",
+          "templateId": "gen-patch-xlr16",
+          "u": 9,
+          "mount": "front",
+          "slot": 0,
+          "label": "Audio-Patch"
+        },
+        {
+          "id": "d-dist",
+          "templateId": "shure-ua844",
+          "u": 8,
+          "mount": "front",
+          "slot": 0,
+          "label": "Antennenverteiler"
+        },
+        {
+          "id": "d-rx1",
+          "templateId": "shure-ulxd4q",
+          "u": 7,
+          "mount": "front",
+          "slot": 0,
+          "label": "RX 1–4",
+          "rf": {
+            "band": "G50",
+            "zone": "Bühne",
+            "channels": [
+              {
+                "name": "Vox 1",
+                "f": 470.275
+              },
+              {
+                "name": "Vox 2",
+                "f": 472.825
+              },
+              {
+                "name": "Vox 3",
+                "f": 476.15
+              },
+              {
+                "name": "Vox 4",
+                "f": 481.425
+              }
+            ]
+          }
+        },
+        {
+          "id": "d-rx2",
+          "templateId": "shure-ulxd4q",
+          "u": 6,
+          "mount": "front",
+          "slot": 0,
+          "label": "RX 5–8",
+          "rf": {
+            "band": "G50",
+            "zone": "Bühne",
+            "channels": [
+              {
+                "name": "Vox 5",
+                "f": 484.9
+              },
+              {
+                "name": "Vox 6",
+                "f": 491.075
+              },
+              {
+                "name": "Vox 7",
+                "f": 495.35
+              },
+              {
+                "name": "Vox 8",
+                "f": 502.625
+              }
+            ]
+          }
+        },
+        {
+          "id": "d-iem",
+          "templateId": "shure-p10t",
+          "u": 5,
+          "mount": "front",
+          "slot": 0,
+          "label": "IEM 1/2",
+          "rf": {
+            "band": "G10E",
+            "zone": "Bühne",
+            "channels": [
+              {
+                "name": "IEM MD",
+                "f": 518.4
+              },
+              {
+                "name": "IEM Drums",
+                "f": 524.125
+              }
+            ]
+          }
+        },
+        {
+          "id": "d-sw",
+          "templateId": "gen-switch8",
+          "u": 4,
+          "mount": "front",
+          "slot": 1,
+          "label": "Control Switch"
+        },
+        {
+          "id": "d-pdu",
+          "templateId": "gen-pdu-iec8",
+          "u": 3,
+          "mount": "front",
+          "slot": 0,
+          "label": "Strom"
+        },
+        {
+          "id": "d-drawer",
+          "templateId": "gen-drawer2",
+          "u": 1,
+          "mount": "front",
+          "slot": 0,
+          "label": "Ersatz & Zubehör",
+          "contents": [
+            {
+              "qty": 2,
+              "text": "Shure ULXD2/B58 Handsender"
+            },
+            {
+              "qty": 2,
+              "text": "Shure ULXD1 Taschensender"
+            },
+            {
+              "qty": 24,
+              "text": "Batterien AA (Mignon)"
+            },
+            {
+              "qty": 4,
+              "text": "Shure SB900B Akku"
+            },
+            {
+              "qty": 4,
+              "text": "BNC-Kabel 1 m (Ersatz)"
+            },
+            {
+              "qty": 2,
+              "text": "XLR-Kabel 1 m (Ersatz)"
+            },
+            {
+              "qty": 2,
+              "text": "Antenne UA860SWB (Stab)"
+            },
+            {
+              "text": "Gaffa schwarz + Edding"
+            },
+            {
+              "qty": 1,
+              "text": "Kopfhörer HPA"
+            },
+            {
+              "qty": 1,
+              "text": "Ladegerät SBC220"
+            }
+          ]
+        }
+      ],
+      "cables": [
+        {
+          "id": "c1",
+          "number": 1,
+          "a": {
+            "deviceId": "d-bnc",
+            "portId": "p9"
+          },
+          "b": {
+            "deviceId": "d-dist",
+            "portId": "p19"
+          },
+          "typeId": "ct-rg58",
+          "lengthMode": "auto",
+          "label": "Ant A"
+        },
+        {
+          "id": "c2",
+          "number": 2,
+          "a": {
+            "deviceId": "d-bnc",
+            "portId": "p10"
+          },
+          "b": {
+            "deviceId": "d-dist",
+            "portId": "p8"
+          },
+          "typeId": "ct-rg58",
+          "lengthMode": "auto",
+          "label": "Ant B"
+        },
+        {
+          "id": "c3",
+          "number": 3,
+          "a": {
+            "deviceId": "d-dist",
+            "portId": "p14"
+          },
+          "b": {
+            "deviceId": "d-rx1",
+            "portId": "p11"
+          },
+          "typeId": "ct-rg58",
+          "lengthMode": "auto"
+        },
+        {
+          "id": "c4",
+          "number": 4,
+          "a": {
+            "deviceId": "d-dist",
+            "portId": "p10"
+          },
+          "b": {
+            "deviceId": "d-rx1",
+            "portId": "p2"
+          },
+          "typeId": "ct-rg58",
+          "lengthMode": "auto"
+        },
+        {
+          "id": "c5",
+          "number": 5,
+          "a": {
+            "deviceId": "d-dist",
+            "portId": "p15"
+          },
+          "b": {
+            "deviceId": "d-rx2",
+            "portId": "p11"
+          },
+          "typeId": "ct-rg58",
+          "lengthMode": "auto"
+        },
+        {
+          "id": "c6",
+          "number": 6,
+          "a": {
+            "deviceId": "d-dist",
+            "portId": "p11"
+          },
+          "b": {
+            "deviceId": "d-rx2",
+            "portId": "p2"
+          },
+          "typeId": "ct-rg58",
+          "lengthMode": "auto"
+        },
+        {
+          "id": "c7",
+          "number": 7,
+          "a": {
+            "deviceId": "d-iem",
+            "portId": "p15"
+          },
+          "b": {
+            "deviceId": "d-bnc",
+            "portId": "p11"
+          },
+          "typeId": "ct-rg58",
+          "lengthMode": "auto",
+          "label": "IEM Ant 1"
+        },
+        {
+          "id": "c8",
+          "number": 8,
+          "a": {
+            "deviceId": "d-iem",
+            "portId": "p4"
+          },
+          "b": {
+            "deviceId": "d-bnc",
+            "portId": "p12"
+          },
+          "typeId": "ct-rg58",
+          "lengthMode": "auto",
+          "label": "IEM Ant 2"
+        },
+        {
+          "id": "c9",
+          "number": 9,
+          "a": {
+            "deviceId": "d-rx1",
+            "portId": "p7"
+          },
+          "b": {
+            "deviceId": "d-xlr",
+            "portId": "p17"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "Vox 1"
+        },
+        {
+          "id": "c10",
+          "number": 10,
+          "a": {
+            "deviceId": "d-rx1",
+            "portId": "p6"
+          },
+          "b": {
+            "deviceId": "d-xlr",
+            "portId": "p18"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "Vox 2"
+        },
+        {
+          "id": "c11",
+          "number": 11,
+          "a": {
+            "deviceId": "d-rx1",
+            "portId": "p5"
+          },
+          "b": {
+            "deviceId": "d-xlr",
+            "portId": "p19"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "Vox 3"
+        },
+        {
+          "id": "c12",
+          "number": 12,
+          "a": {
+            "deviceId": "d-rx1",
+            "portId": "p4"
+          },
+          "b": {
+            "deviceId": "d-xlr",
+            "portId": "p20"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "Vox 4"
+        },
+        {
+          "id": "c13",
+          "number": 13,
+          "a": {
+            "deviceId": "d-rx2",
+            "portId": "p7"
+          },
+          "b": {
+            "deviceId": "d-xlr",
+            "portId": "p21"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "Vox 5"
+        },
+        {
+          "id": "c14",
+          "number": 14,
+          "a": {
+            "deviceId": "d-rx2",
+            "portId": "p6"
+          },
+          "b": {
+            "deviceId": "d-xlr",
+            "portId": "p22"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "Vox 6"
+        },
+        {
+          "id": "c15",
+          "number": 15,
+          "a": {
+            "deviceId": "d-rx2",
+            "portId": "p5"
+          },
+          "b": {
+            "deviceId": "d-xlr",
+            "portId": "p23"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "Vox 7"
+        },
+        {
+          "id": "c16",
+          "number": 16,
+          "a": {
+            "deviceId": "d-rx2",
+            "portId": "p4"
+          },
+          "b": {
+            "deviceId": "d-xlr",
+            "portId": "p24"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "Vox 8"
+        },
+        {
+          "id": "c17",
+          "number": 17,
+          "a": {
+            "deviceId": "d-xlr",
+            "portId": "p29"
+          },
+          "b": {
+            "deviceId": "d-iem",
+            "portId": "p11"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "IEM 1 L"
+        },
+        {
+          "id": "c18",
+          "number": 18,
+          "a": {
+            "deviceId": "d-xlr",
+            "portId": "p30"
+          },
+          "b": {
+            "deviceId": "d-iem",
+            "portId": "p12"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "IEM 1 R"
+        },
+        {
+          "id": "c19",
+          "number": 19,
+          "a": {
+            "deviceId": "d-xlr",
+            "portId": "p31"
+          },
+          "b": {
+            "deviceId": "d-iem",
+            "portId": "p7"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "IEM 2 L"
+        },
+        {
+          "id": "c20",
+          "number": 20,
+          "a": {
+            "deviceId": "d-xlr",
+            "portId": "p32"
+          },
+          "b": {
+            "deviceId": "d-iem",
+            "portId": "p8"
+          },
+          "typeId": "ct-xlr",
+          "lengthMode": "auto",
+          "label": "IEM 2 R"
+        },
+        {
+          "id": "c21",
+          "number": 21,
+          "a": {
+            "deviceId": "d-rx1",
+            "portId": "p9"
+          },
+          "b": {
+            "deviceId": "d-sw",
+            "portId": "p1"
+          },
+          "typeId": "ct-cat",
+          "lengthMode": "auto"
+        },
+        {
+          "id": "c22",
+          "number": 22,
+          "a": {
+            "deviceId": "d-rx2",
+            "portId": "p9"
+          },
+          "b": {
+            "deviceId": "d-sw",
+            "portId": "p2"
+          },
+          "typeId": "ct-cat",
+          "lengthMode": "auto"
+        },
+        {
+          "id": "c23",
+          "number": 23,
+          "a": {
+            "deviceId": "d-iem",
+            "portId": "p9"
+          },
+          "b": {
+            "deviceId": "d-sw",
+            "portId": "p3"
+          },
+          "typeId": "ct-cat",
+          "lengthMode": "auto"
+        },
+        {
+          "id": "c24",
+          "number": 24,
+          "a": {
+            "deviceId": "d-pdu",
+            "portId": "p4"
+          },
+          "b": {
+            "deviceId": "d-rx1",
+            "portId": "p1"
+          },
+          "typeId": "ct-iec",
+          "lengthMode": "auto"
+        },
+        {
+          "id": "c25",
+          "number": 25,
+          "a": {
+            "deviceId": "d-pdu",
+            "portId": "p5"
+          },
+          "b": {
+            "deviceId": "d-rx2",
+            "portId": "p1"
+          },
+          "typeId": "ct-iec",
+          "lengthMode": "auto"
+        },
+        {
+          "id": "c26",
+          "number": 26,
+          "a": {
+            "deviceId": "d-pdu",
+            "portId": "p6"
+          },
+          "b": {
+            "deviceId": "d-iem",
+            "portId": "p2"
+          },
+          "typeId": "ct-iec",
+          "lengthMode": "auto"
+        }
+      ],
+      "notes": "Antennen A/B über BNC-Patch vorne (Front 1/2), IEM-Antennen über Front 3/4. UA844+ über externes 15-V-Netzteil (PS45), Switch über eigenes Netzteil."
+    }
+  ],
+  "templates": {
+    "gen-patch-bnc8": {
+      "textColor": "#e5e7eb",
+      "rackStandard": 19,
+      "id": "gen-patch-bnc8",
+      "name": "Patchfeld 8× BNC",
+      "manufacturer": "Generisch",
+      "category": "Patchfeld",
+      "heightU": 1,
+      "slots": 1,
+      "depth": 40,
+      "color": "#18191c",
+      "ports": [
+        {
+          "id": "p1",
+          "name": "Front 1",
+          "connector": "BNC-D",
+          "side": "front",
+          "x": 100,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p2",
+          "name": "Front 2",
+          "connector": "BNC-D",
+          "side": "front",
+          "x": 140,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p3",
+          "name": "Front 3",
+          "connector": "BNC-D",
+          "side": "front",
+          "x": 180,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p4",
+          "name": "Front 4",
+          "connector": "BNC-D",
+          "side": "front",
+          "x": 220,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p5",
+          "name": "Front 5",
+          "connector": "BNC-D",
+          "side": "front",
+          "x": 260,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p6",
+          "name": "Front 6",
+          "connector": "BNC-D",
+          "side": "front",
+          "x": 300,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p7",
+          "name": "Front 7",
+          "connector": "BNC-D",
+          "side": "front",
+          "x": 340,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p8",
+          "name": "Front 8",
+          "connector": "BNC-D",
+          "side": "front",
+          "x": 380,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p9",
+          "name": "Rear 1",
+          "connector": "BNC-D",
+          "side": "rear",
+          "x": 102.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p10",
+          "name": "Rear 2",
+          "connector": "BNC-D",
+          "side": "rear",
+          "x": 142.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p11",
+          "name": "Rear 3",
+          "connector": "BNC-D",
+          "side": "rear",
+          "x": 182.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p12",
+          "name": "Rear 4",
+          "connector": "BNC-D",
+          "side": "rear",
+          "x": 222.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p13",
+          "name": "Rear 5",
+          "connector": "BNC-D",
+          "side": "rear",
+          "x": 262.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p14",
+          "name": "Rear 6",
+          "connector": "BNC-D",
+          "side": "rear",
+          "x": 302.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p15",
+          "name": "Rear 7",
+          "connector": "BNC-D",
+          "side": "rear",
+          "x": 342.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p16",
+          "name": "Rear 8",
+          "connector": "BNC-D",
+          "side": "rear",
+          "x": 382.6,
+          "y": 22,
+          "dir": "io"
+        }
+      ]
+    },
+    "gen-patch-xlr16": {
+      "textColor": "#e5e7eb",
+      "rackStandard": 19,
+      "id": "gen-patch-xlr16",
+      "name": "Patchfeld 16× XLR",
+      "manufacturer": "Generisch",
+      "category": "Patchfeld",
+      "heightU": 1,
+      "slots": 1,
+      "depth": 50,
+      "color": "#18191c",
+      "ports": [
+        {
+          "id": "p1",
+          "name": "1",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 50,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p2",
+          "name": "2",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 76.5,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p3",
+          "name": "3",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 103,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p4",
+          "name": "4",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 129.5,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p5",
+          "name": "5",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 156,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p6",
+          "name": "6",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 182.5,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p7",
+          "name": "7",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 209,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p8",
+          "name": "8",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 235.5,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p9",
+          "name": "9",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 262,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p10",
+          "name": "10",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 288.5,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p11",
+          "name": "11",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 315,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p12",
+          "name": "12",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 341.5,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p13",
+          "name": "13",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 368,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p14",
+          "name": "14",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 394.5,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p15",
+          "name": "15",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 421,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p16",
+          "name": "16",
+          "connector": "XLR3F",
+          "side": "front",
+          "x": 447.5,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p17",
+          "name": "R1",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 34.1,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p18",
+          "name": "R2",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 60.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p19",
+          "name": "R3",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 87.1,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p20",
+          "name": "R4",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 113.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p21",
+          "name": "R5",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 140.1,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p22",
+          "name": "R6",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 166.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p23",
+          "name": "R7",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 193.1,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p24",
+          "name": "R8",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 219.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p25",
+          "name": "R9",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 246.1,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p26",
+          "name": "R10",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 272.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p27",
+          "name": "R11",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 299.1,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p28",
+          "name": "R12",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 325.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p29",
+          "name": "R13",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 352.1,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p30",
+          "name": "R14",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 378.6,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p31",
+          "name": "R15",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 405.1,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p32",
+          "name": "R16",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 431.6,
+          "y": 22,
+          "dir": "io"
+        }
+      ]
+    },
+    "shure-ua844": {
+      "textColor": "#e5e7eb",
+      "rackStandard": 19,
+      "id": "shure-ua844",
+      "name": "UA844+SWB",
+      "manufacturer": "Shure",
+      "category": "Antennenverteiler",
+      "heightU": 1,
+      "slots": 1,
+      "depth": 172,
+      "color": "#1f2124",
+      "weight": 1.62,
+      "power": 15,
+      "source": "Shure UA844+SWB Bedienungsanleitung – Vorder- und Rückseite",
+      "notes": "Aktiver Antennenverteiler 1:4 (A/B) + Kaskade. Versorgung über externes 15-V-Netzteil, 4 DC-Ausgänge für Empfänger. Front-BNC nur mit Front-Montage-Kit.",
+      "ports": [
+        {
+          "id": "p1",
+          "name": "Ant A (Front-Kit)",
+          "connector": "BNC",
+          "side": "front",
+          "x": 30.6,
+          "y": 21.3,
+          "dir": "in"
+        },
+        {
+          "id": "p2",
+          "name": "Ant B (Front-Kit)",
+          "connector": "BNC",
+          "side": "front",
+          "x": 452,
+          "y": 21.3,
+          "dir": "in"
+        },
+        {
+          "id": "p3",
+          "name": "DC In",
+          "connector": "DC",
+          "side": "rear",
+          "x": 35.9,
+          "y": 12.3,
+          "dir": "in"
+        },
+        {
+          "id": "p4",
+          "name": "DC Out 1",
+          "connector": "DC",
+          "side": "rear",
+          "x": 65,
+          "y": 12.3,
+          "dir": "out"
+        },
+        {
+          "id": "p5",
+          "name": "DC Out 2",
+          "connector": "DC",
+          "side": "rear",
+          "x": 94.1,
+          "y": 12.3,
+          "dir": "out"
+        },
+        {
+          "id": "p6",
+          "name": "DC Out 3",
+          "connector": "DC",
+          "side": "rear",
+          "x": 50.5,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p7",
+          "name": "DC Out 4",
+          "connector": "DC",
+          "side": "rear",
+          "x": 79.1,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p8",
+          "name": "Ant B In",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 118.9,
+          "y": 28.4,
+          "dir": "in"
+        },
+        {
+          "id": "p9",
+          "name": "B Cascade",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 148.7,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p10",
+          "name": "B Out 1",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 177.8,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p11",
+          "name": "B Out 2",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 206.9,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p12",
+          "name": "B Out 3",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 236.1,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p13",
+          "name": "B Out 4",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 264.7,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p14",
+          "name": "A Out 1",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 298,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p15",
+          "name": "A Out 2",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 327.1,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p16",
+          "name": "A Out 3",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 356.2,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p17",
+          "name": "A Out 4",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 384.8,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p18",
+          "name": "A Cascade",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 414,
+          "y": 29.6,
+          "dir": "out"
+        },
+        {
+          "id": "p19",
+          "name": "Ant A In",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 443.6,
+          "y": 29.6,
+          "dir": "in"
+        }
+      ],
+      "art": {
+        "front": [
+          {
+            "t": "text",
+            "x": 50,
+            "y": 7.5,
+            "text": "SHURE",
+            "size": 3.2,
+            "weight": 900,
+            "italic": true,
+            "spacing": 0.2
+          },
+          {
+            "t": "text",
+            "x": 50,
+            "y": 12,
+            "text": "UA844+SWB",
+            "size": 2.6
+          },
+          {
+            "t": "text",
+            "x": 50,
+            "y": 15.5,
+            "text": "Antenna/Power Distribution System",
+            "size": 1.6
+          },
+          {
+            "t": "line",
+            "x1": 16,
+            "y1": 39.5,
+            "x2": 466.6,
+            "y2": 39.5,
+            "stroke": "#000",
+            "sw": 1.2
+          },
+          {
+            "t": "leds",
+            "x": 353.8,
+            "y": 26.4,
+            "n": 1,
+            "colors": [
+              "#22c55e"
+            ],
+            "r": 1
+          },
+          {
+            "t": "text",
+            "x": 353.8,
+            "y": 21.5,
+            "text": "power",
+            "size": 1.6,
+            "anchor": "middle"
+          },
+          {
+            "t": "switch",
+            "x": 379.8,
+            "y": 14,
+            "w": 5,
+            "h": 14
+          },
+          {
+            "t": "labelArea",
+            "x": 120,
+            "y": 17,
+            "w": 60,
+            "h": 6
+          }
+        ],
+        "rear": [
+          {
+            "t": "line",
+            "x1": 102.6,
+            "y1": 1,
+            "x2": 102.6,
+            "y2": 42.6,
+            "stroke": "#9aa0a8",
+            "sw": 0.4
+          },
+          {
+            "t": "line",
+            "x1": 135.9,
+            "y1": 1,
+            "x2": 135.9,
+            "y2": 42.6,
+            "stroke": "#9aa0a8",
+            "sw": 0.4
+          },
+          {
+            "t": "line",
+            "x1": 427.8,
+            "y1": 1,
+            "x2": 427.8,
+            "y2": 42.6,
+            "stroke": "#9aa0a8",
+            "sw": 0.4
+          },
+          {
+            "t": "text",
+            "x": 160,
+            "y": 10,
+            "text": "SHURE",
+            "size": 3.6,
+            "weight": 900,
+            "italic": true,
+            "spacing": 0.2
+          },
+          {
+            "t": "text",
+            "x": 221,
+            "y": 6,
+            "text": "RF output B",
+            "size": 1.8,
+            "anchor": "middle"
+          },
+          {
+            "t": "text",
+            "x": 341,
+            "y": 6,
+            "text": "RF output A",
+            "size": 1.8,
+            "anchor": "middle"
+          },
+          {
+            "t": "text",
+            "x": 400,
+            "y": 11,
+            "text": "antenna/power distribution system",
+            "size": 1.8,
+            "anchor": "middle"
+          }
+        ]
+      }
+    },
+    "shure-ulxd4q": {
+      "textColor": "#e5e7eb",
+      "rackStandard": 19,
+      "id": "shure-ulxd4q",
+      "name": "ULXD4Q",
+      "manufacturer": "Shure",
+      "category": "UHF Empfänger",
+      "heightU": 1,
+      "slots": 1,
+      "depth": 274,
+      "color": "#2b2d31",
+      "earWidth": 36,
+      "fields": [
+        "Frequenz",
+        "Kanal / Name",
+        "Gruppe"
+      ],
+      "weight": 3.7,
+      "power": 30,
+      "source": "Shure ULX-D Dual/Quad User Guide – Front Panel / Back Panel",
+      "ports": [
+        {
+          "id": "p1",
+          "name": "Power",
+          "connector": "IEC_C14",
+          "side": "rear",
+          "x": 61.5,
+          "y": 19.8,
+          "dir": "in"
+        },
+        {
+          "id": "p2",
+          "name": "Ant B",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 95,
+          "y": 10.5,
+          "dir": "in"
+        },
+        {
+          "id": "p3",
+          "name": "Ant B Cascade",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 117,
+          "y": 29.5,
+          "dir": "out"
+        },
+        {
+          "id": "p4",
+          "name": "Out 4",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 172.7,
+          "y": 21,
+          "dir": "out"
+        },
+        {
+          "id": "p5",
+          "name": "Out 3",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 220,
+          "y": 21,
+          "dir": "out"
+        },
+        {
+          "id": "p6",
+          "name": "Out 2",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 331,
+          "y": 21,
+          "dir": "out"
+        },
+        {
+          "id": "p7",
+          "name": "Out 1",
+          "connector": "XLR3M",
+          "side": "rear",
+          "x": 378.3,
+          "y": 21,
+          "dir": "out"
+        },
+        {
+          "id": "p8",
+          "name": "Dante Sec.",
+          "connector": "RJ45",
+          "side": "rear",
+          "x": 256.8,
+          "y": 21.5,
+          "dir": "io"
+        },
+        {
+          "id": "p9",
+          "name": "Dante Prim.",
+          "connector": "RJ45",
+          "side": "rear",
+          "x": 279,
+          "y": 21.5,
+          "dir": "io"
+        },
+        {
+          "id": "p10",
+          "name": "Ant A Cascade",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 414.2,
+          "y": 29.5,
+          "dir": "out"
+        },
+        {
+          "id": "p11",
+          "name": "Ant A",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 436.6,
+          "y": 10.5,
+          "dir": "in"
+        }
+      ],
+      "art": {
+        "front": [
+          {
+            "t": "line",
+            "x1": 35.6,
+            "y1": 0.6,
+            "x2": 35.6,
+            "y2": 43.05,
+            "stroke": "#000",
+            "sw": 0.5
+          },
+          {
+            "t": "line",
+            "x1": 447,
+            "y1": 0.6,
+            "x2": 447,
+            "y2": 43.05,
+            "stroke": "#000",
+            "sw": 0.5
+          },
+          {
+            "t": "circle",
+            "x": 25,
+            "y": 21.825,
+            "r": 6.6,
+            "fill": "#0a0a0a"
+          },
+          {
+            "t": "circle",
+            "x": 457.6,
+            "y": 21.825,
+            "r": 6.6,
+            "fill": "#0a0a0a"
+          },
+          {
+            "t": "text",
+            "x": 44.5,
+            "y": 8.6,
+            "text": "SHURE",
+            "size": 3.6,
+            "weight": 900,
+            "italic": true,
+            "spacing": 0.2
+          },
+          {
+            "t": "text",
+            "x": 44.5,
+            "y": 14,
+            "text": "ULXD4Q",
+            "size": 3.6
+          },
+          {
+            "t": "text",
+            "x": 44.5,
+            "y": 17,
+            "text": "Digital Wireless Receiver",
+            "size": 1.6
+          },
+          {
+            "t": "labelArea",
+            "x": 44.9,
+            "y": 27.5,
+            "w": 22.6,
+            "h": 5.3
+          },
+          {
+            "t": "rect",
+            "x": 79.4,
+            "y": 8.9,
+            "w": 8.7,
+            "h": 23.6,
+            "fill": "#4b4f56"
+          },
+          {
+            "t": "text",
+            "x": 83.7,
+            "y": 37.5,
+            "text": "IR",
+            "size": 2,
+            "anchor": "middle"
+          },
+          {
+            "t": "lcd",
+            "x": 98,
+            "y": 9.6,
+            "w": 50.6,
+            "h": 22.9,
+            "tint": "#e5f3ff",
+            "info": true
+          },
+          {
+            "t": "button",
+            "x": 155.2,
+            "y": 12.3,
+            "w": 14,
+            "h": 5.9,
+            "label": "ENTER"
+          },
+          {
+            "t": "button",
+            "x": 155.2,
+            "y": 22.5,
+            "w": 14,
+            "h": 6,
+            "label": "EXIT"
+          },
+          {
+            "t": "button",
+            "x": 155.2,
+            "y": 32.5,
+            "w": 14,
+            "h": 5.9,
+            "label": "SCAN"
+          },
+          {
+            "t": "text",
+            "x": 186.1,
+            "y": 5,
+            "text": "control",
+            "size": 2,
+            "anchor": "middle"
+          },
+          {
+            "t": "knob",
+            "x": 186.1,
+            "y": 20.5,
+            "r": 10
+          },
+          {
+            "t": "text",
+            "x": 186.1,
+            "y": 37.5,
+            "text": "push",
+            "size": 2,
+            "anchor": "middle"
+          },
+          {
+            "t": "line",
+            "x1": 201.4,
+            "y1": 7,
+            "x2": 201.4,
+            "y2": 37,
+            "stroke": "#000",
+            "sw": 0.6
+          },
+          {
+            "t": "text",
+            "x": 207.4,
+            "y": 8.2,
+            "text": "RX1",
+            "size": 3,
+            "weight": 700
+          },
+          {
+            "t": "button",
+            "x": 206.70000000000002,
+            "y": 12.9,
+            "w": 10.6,
+            "h": 10.9,
+            "label": "SEL"
+          },
+          {
+            "t": "button",
+            "x": 206.70000000000002,
+            "y": 29.3,
+            "w": 10.6,
+            "h": 3.4,
+            "label": "sync"
+          },
+          {
+            "t": "text",
+            "x": 223.9,
+            "y": 6.8,
+            "text": "RF",
+            "size": 1.9
+          },
+          {
+            "t": "text",
+            "x": 232.9,
+            "y": 6.8,
+            "text": "audio",
+            "size": 1.9
+          },
+          {
+            "t": "text",
+            "x": 245,
+            "y": 6.8,
+            "text": "gain",
+            "size": 1.9
+          },
+          {
+            "t": "leds",
+            "x": 225,
+            "y": 13.2,
+            "n": 2,
+            "dx": 5,
+            "colors": [
+              "#3b82f6",
+              "#3b82f6"
+            ],
+            "r": 1
+          },
+          {
+            "t": "leds",
+            "x": 227.6,
+            "y": 16.9,
+            "n": 6,
+            "dy": 3,
+            "colors": [
+              "#ef4444",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b"
+            ],
+            "r": 1
+          },
+          {
+            "t": "leds",
+            "x": 236.3,
+            "y": 13.2,
+            "n": 7,
+            "dy": 3.1,
+            "colors": [
+              "#ef4444",
+              "#eab308",
+              "#eab308",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e"
+            ],
+            "r": 1
+          },
+          {
+            "t": "button",
+            "x": 244,
+            "y": 12.3,
+            "w": 8,
+            "h": 7.9
+          },
+          {
+            "t": "path",
+            "d": "M246.4,17.26 L249.6,17.26 L248,15.02 Z",
+            "fill": "#e5e7eb"
+          },
+          {
+            "t": "button",
+            "x": 244,
+            "y": 24.8,
+            "w": 8,
+            "h": 7.9
+          },
+          {
+            "t": "path",
+            "d": "M246.4,27.84 L249.6,27.84 L248,30.080000000000002 Z",
+            "fill": "#e5e7eb"
+          },
+          {
+            "t": "line",
+            "x1": 257.6,
+            "y1": 7,
+            "x2": 257.6,
+            "y2": 37,
+            "stroke": "#000",
+            "sw": 0.6
+          },
+          {
+            "t": "text",
+            "x": 263.6,
+            "y": 8.2,
+            "text": "RX2",
+            "size": 3,
+            "weight": 700
+          },
+          {
+            "t": "button",
+            "x": 262.90000000000003,
+            "y": 12.9,
+            "w": 10.6,
+            "h": 10.9,
+            "label": "SEL"
+          },
+          {
+            "t": "button",
+            "x": 262.90000000000003,
+            "y": 29.3,
+            "w": 10.6,
+            "h": 3.4,
+            "label": "sync"
+          },
+          {
+            "t": "text",
+            "x": 280.1,
+            "y": 6.8,
+            "text": "RF",
+            "size": 1.9
+          },
+          {
+            "t": "text",
+            "x": 289.1,
+            "y": 6.8,
+            "text": "audio",
+            "size": 1.9
+          },
+          {
+            "t": "text",
+            "x": 301.20000000000005,
+            "y": 6.8,
+            "text": "gain",
+            "size": 1.9
+          },
+          {
+            "t": "leds",
+            "x": 281.20000000000005,
+            "y": 13.2,
+            "n": 2,
+            "dx": 5,
+            "colors": [
+              "#3b82f6",
+              "#3b82f6"
+            ],
+            "r": 1
+          },
+          {
+            "t": "leds",
+            "x": 283.8,
+            "y": 16.9,
+            "n": 6,
+            "dy": 3,
+            "colors": [
+              "#ef4444",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b"
+            ],
+            "r": 1
+          },
+          {
+            "t": "leds",
+            "x": 292.5,
+            "y": 13.2,
+            "n": 7,
+            "dy": 3.1,
+            "colors": [
+              "#ef4444",
+              "#eab308",
+              "#eab308",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e"
+            ],
+            "r": 1
+          },
+          {
+            "t": "button",
+            "x": 300.20000000000005,
+            "y": 12.3,
+            "w": 8,
+            "h": 7.9
+          },
+          {
+            "t": "path",
+            "d": "M302.6,17.26 L305.80000000000007,17.26 L304.20000000000005,15.02 Z",
+            "fill": "#e5e7eb"
+          },
+          {
+            "t": "button",
+            "x": 300.20000000000005,
+            "y": 24.8,
+            "w": 8,
+            "h": 7.9
+          },
+          {
+            "t": "path",
+            "d": "M302.6,27.84 L305.80000000000007,27.84 L304.20000000000005,30.080000000000002 Z",
+            "fill": "#e5e7eb"
+          },
+          {
+            "t": "line",
+            "x1": 316,
+            "y1": 7,
+            "x2": 316,
+            "y2": 37,
+            "stroke": "#000",
+            "sw": 0.6
+          },
+          {
+            "t": "text",
+            "x": 322,
+            "y": 8.2,
+            "text": "RX3",
+            "size": 3,
+            "weight": 700
+          },
+          {
+            "t": "button",
+            "x": 321.3,
+            "y": 12.9,
+            "w": 10.6,
+            "h": 10.9,
+            "label": "SEL"
+          },
+          {
+            "t": "button",
+            "x": 321.3,
+            "y": 29.3,
+            "w": 10.6,
+            "h": 3.4,
+            "label": "sync"
+          },
+          {
+            "t": "text",
+            "x": 338.5,
+            "y": 6.8,
+            "text": "RF",
+            "size": 1.9
+          },
+          {
+            "t": "text",
+            "x": 347.5,
+            "y": 6.8,
+            "text": "audio",
+            "size": 1.9
+          },
+          {
+            "t": "text",
+            "x": 359.6,
+            "y": 6.8,
+            "text": "gain",
+            "size": 1.9
+          },
+          {
+            "t": "leds",
+            "x": 339.6,
+            "y": 13.2,
+            "n": 2,
+            "dx": 5,
+            "colors": [
+              "#3b82f6",
+              "#3b82f6"
+            ],
+            "r": 1
+          },
+          {
+            "t": "leds",
+            "x": 342.2,
+            "y": 16.9,
+            "n": 6,
+            "dy": 3,
+            "colors": [
+              "#ef4444",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b"
+            ],
+            "r": 1
+          },
+          {
+            "t": "leds",
+            "x": 350.9,
+            "y": 13.2,
+            "n": 7,
+            "dy": 3.1,
+            "colors": [
+              "#ef4444",
+              "#eab308",
+              "#eab308",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e"
+            ],
+            "r": 1
+          },
+          {
+            "t": "button",
+            "x": 358.6,
+            "y": 12.3,
+            "w": 8,
+            "h": 7.9
+          },
+          {
+            "t": "path",
+            "d": "M361,17.26 L364.20000000000005,17.26 L362.6,15.02 Z",
+            "fill": "#e5e7eb"
+          },
+          {
+            "t": "button",
+            "x": 358.6,
+            "y": 24.8,
+            "w": 8,
+            "h": 7.9
+          },
+          {
+            "t": "path",
+            "d": "M361,27.84 L364.20000000000005,27.84 L362.6,30.080000000000002 Z",
+            "fill": "#e5e7eb"
+          },
+          {
+            "t": "line",
+            "x1": 372.5,
+            "y1": 7,
+            "x2": 372.5,
+            "y2": 37,
+            "stroke": "#000",
+            "sw": 0.6
+          },
+          {
+            "t": "text",
+            "x": 378.5,
+            "y": 8.2,
+            "text": "RX4",
+            "size": 3,
+            "weight": 700
+          },
+          {
+            "t": "button",
+            "x": 377.8,
+            "y": 12.9,
+            "w": 10.6,
+            "h": 10.9,
+            "label": "SEL"
+          },
+          {
+            "t": "button",
+            "x": 377.8,
+            "y": 29.3,
+            "w": 10.6,
+            "h": 3.4,
+            "label": "sync"
+          },
+          {
+            "t": "text",
+            "x": 395,
+            "y": 6.8,
+            "text": "RF",
+            "size": 1.9
+          },
+          {
+            "t": "text",
+            "x": 404,
+            "y": 6.8,
+            "text": "audio",
+            "size": 1.9
+          },
+          {
+            "t": "text",
+            "x": 416.1,
+            "y": 6.8,
+            "text": "gain",
+            "size": 1.9
+          },
+          {
+            "t": "leds",
+            "x": 396.1,
+            "y": 13.2,
+            "n": 2,
+            "dx": 5,
+            "colors": [
+              "#3b82f6",
+              "#3b82f6"
+            ],
+            "r": 1
+          },
+          {
+            "t": "leds",
+            "x": 398.7,
+            "y": 16.9,
+            "n": 6,
+            "dy": 3,
+            "colors": [
+              "#ef4444",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b",
+              "#f59e0b"
+            ],
+            "r": 1
+          },
+          {
+            "t": "leds",
+            "x": 407.4,
+            "y": 13.2,
+            "n": 7,
+            "dy": 3.1,
+            "colors": [
+              "#ef4444",
+              "#eab308",
+              "#eab308",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e"
+            ],
+            "r": 1
+          },
+          {
+            "t": "button",
+            "x": 415.1,
+            "y": 12.3,
+            "w": 8,
+            "h": 7.9
+          },
+          {
+            "t": "path",
+            "d": "M417.5,17.26 L420.70000000000005,17.26 L419.1,15.02 Z",
+            "fill": "#e5e7eb"
+          },
+          {
+            "t": "button",
+            "x": 415.1,
+            "y": 24.8,
+            "w": 8,
+            "h": 7.9
+          },
+          {
+            "t": "path",
+            "d": "M417.5,27.84 L420.70000000000005,27.84 L419.1,30.080000000000002 Z",
+            "fill": "#e5e7eb"
+          },
+          {
+            "t": "line",
+            "x1": 427,
+            "y1": 7,
+            "x2": 427,
+            "y2": 37,
+            "stroke": "#000",
+            "sw": 0.6
+          },
+          {
+            "t": "text",
+            "x": 434.6,
+            "y": 7,
+            "text": "power",
+            "size": 2,
+            "anchor": "middle"
+          },
+          {
+            "t": "switch",
+            "x": 429,
+            "y": 12.3,
+            "w": 11.3,
+            "h": 23.5
+          }
+        ],
+        "rear": [
+          {
+            "t": "rect",
+            "x": 44,
+            "y": 5,
+            "w": 33,
+            "h": 34,
+            "rx": 1,
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 103,
+            "y": 6.5,
+            "text": "B",
+            "size": 3.2,
+            "weight": 700
+          },
+          {
+            "t": "text",
+            "x": 407,
+            "y": 6.5,
+            "text": "A",
+            "size": 3.2,
+            "weight": 700
+          },
+          {
+            "t": "rect",
+            "x": 142.7,
+            "y": 3,
+            "w": 43,
+            "h": 37,
+            "rx": 2.5,
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 164.2,
+            "y": 6.2,
+            "text": "output 4",
+            "size": 2.2,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 152.2,
+            "y": 18,
+            "w": 3,
+            "h": 6,
+            "rx": 1,
+            "fill": "#111",
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 150.7,
+            "y": 31,
+            "text": "line/mic",
+            "size": 1.4,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 190,
+            "y": 3,
+            "w": 43,
+            "h": 37,
+            "rx": 2.5,
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 211.5,
+            "y": 6.2,
+            "text": "output 3",
+            "size": 2.2,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 199.5,
+            "y": 18,
+            "w": 3,
+            "h": 6,
+            "rx": 1,
+            "fill": "#111",
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 198,
+            "y": 31,
+            "text": "line/mic",
+            "size": 1.4,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 301,
+            "y": 3,
+            "w": 43,
+            "h": 37,
+            "rx": 2.5,
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 322.5,
+            "y": 6.2,
+            "text": "output 2",
+            "size": 2.2,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 310.5,
+            "y": 18,
+            "w": 3,
+            "h": 6,
+            "rx": 1,
+            "fill": "#111",
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 309,
+            "y": 31,
+            "text": "line/mic",
+            "size": 1.4,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 348.3,
+            "y": 3,
+            "w": 43,
+            "h": 37,
+            "rx": 2.5,
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 369.8,
+            "y": 6.2,
+            "text": "output 1",
+            "size": 2.2,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 357.8,
+            "y": 18,
+            "w": 3,
+            "h": 6,
+            "rx": 1,
+            "fill": "#111",
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 356.3,
+            "y": 31,
+            "text": "line/mic",
+            "size": 1.4,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 244,
+            "y": 3,
+            "w": 48,
+            "h": 37,
+            "rx": 2.5,
+            "stroke": "#9aa0a8"
+          },
+          {
+            "t": "text",
+            "x": 256.8,
+            "y": 11.5,
+            "text": "Secondary",
+            "size": 1.7,
+            "anchor": "middle"
+          },
+          {
+            "t": "text",
+            "x": 279,
+            "y": 11.5,
+            "text": "Primary",
+            "size": 1.7,
+            "anchor": "middle"
+          }
+        ]
+      }
+    },
+    "shure-p10t": {
+      "textColor": "#e5e7eb",
+      "rackStandard": 19,
+      "id": "shure-p10t",
+      "name": "P10T (PSM1000)",
+      "manufacturer": "Shure",
+      "category": "IEM Sender",
+      "heightU": 1,
+      "slots": 1,
+      "depth": 343,
+      "color": "#1d1f22",
+      "earWidth": 31,
+      "fields": [
+        "Frequenz",
+        "Kanal / Name",
+        "Gruppe"
+      ],
+      "weight": 3.6,
+      "power": 40,
+      "source": "Shure PSM1000 User Guide – Front Panel Controls / Rear Panel",
+      "notes": "Doppelsender. Eingänge: XLR/6,3-mm-Combo. Kaltgeräte-Ausgang (unswitched) zum Durchschleifen.",
+      "ports": [
+        {
+          "id": "p1",
+          "name": "Phones",
+          "connector": "JACK",
+          "side": "front",
+          "x": 410.6,
+          "y": 32.4,
+          "dir": "out"
+        },
+        {
+          "id": "p2",
+          "name": "Power In",
+          "connector": "IEC_C14",
+          "side": "rear",
+          "x": 73.5,
+          "y": 21.4,
+          "dir": "in"
+        },
+        {
+          "id": "p3",
+          "name": "Power Out",
+          "connector": "IEC_C13",
+          "side": "rear",
+          "x": 118.1,
+          "y": 19.9,
+          "dir": "out"
+        },
+        {
+          "id": "p4",
+          "name": "Antenna 2 Out",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 158.5,
+          "y": 27.5,
+          "dir": "out"
+        },
+        {
+          "id": "p5",
+          "name": "TX2 Loop Out L",
+          "connector": "JACK",
+          "side": "rear",
+          "x": 193.9,
+          "y": 13.3,
+          "dir": "out"
+        },
+        {
+          "id": "p6",
+          "name": "TX2 Loop Out R",
+          "connector": "JACK",
+          "side": "rear",
+          "x": 193.9,
+          "y": 32.5,
+          "dir": "out"
+        },
+        {
+          "id": "p7",
+          "name": "TX2 In L/CH1",
+          "connector": "COMBO",
+          "side": "rear",
+          "x": 226.1,
+          "y": 26,
+          "dir": "in"
+        },
+        {
+          "id": "p8",
+          "name": "TX2 In R/CH2",
+          "connector": "COMBO",
+          "side": "rear",
+          "x": 256.5,
+          "y": 26,
+          "dir": "in"
+        },
+        {
+          "id": "p9",
+          "name": "Network 1",
+          "connector": "RJ45",
+          "side": "rear",
+          "x": 295.6,
+          "y": 14.2,
+          "dir": "io"
+        },
+        {
+          "id": "p10",
+          "name": "Network 2",
+          "connector": "RJ45",
+          "side": "rear",
+          "x": 295.6,
+          "y": 31.8,
+          "dir": "io"
+        },
+        {
+          "id": "p11",
+          "name": "TX1 In L/CH1",
+          "connector": "COMBO",
+          "side": "rear",
+          "x": 348.4,
+          "y": 26,
+          "dir": "in"
+        },
+        {
+          "id": "p12",
+          "name": "TX1 In R/CH2",
+          "connector": "COMBO",
+          "side": "rear",
+          "x": 379.7,
+          "y": 26,
+          "dir": "in"
+        },
+        {
+          "id": "p13",
+          "name": "TX1 Loop Out L",
+          "connector": "JACK",
+          "side": "rear",
+          "x": 405.9,
+          "y": 13.3,
+          "dir": "out"
+        },
+        {
+          "id": "p14",
+          "name": "TX1 Loop Out R",
+          "connector": "JACK",
+          "side": "rear",
+          "x": 405.9,
+          "y": 32.5,
+          "dir": "out"
+        },
+        {
+          "id": "p15",
+          "name": "Antenna 1 Out",
+          "connector": "BNC",
+          "side": "rear",
+          "x": 445,
+          "y": 27.5,
+          "dir": "out"
+        }
+      ],
+      "art": {
+        "front": [
+          {
+            "t": "line",
+            "x1": 31.2,
+            "y1": 0.6,
+            "x2": 31.2,
+            "y2": 43.05,
+            "stroke": "#000",
+            "sw": 0.5
+          },
+          {
+            "t": "line",
+            "x1": 451.40000000000003,
+            "y1": 0.6,
+            "x2": 451.40000000000003,
+            "y2": 43.05,
+            "stroke": "#000",
+            "sw": 0.5
+          },
+          {
+            "t": "circle",
+            "x": 27,
+            "y": 21.825,
+            "r": 3,
+            "fill": "#0a0a0a"
+          },
+          {
+            "t": "circle",
+            "x": 455.6,
+            "y": 21.825,
+            "r": 3,
+            "fill": "#0a0a0a"
+          },
+          {
+            "t": "text",
+            "x": 40,
+            "y": 5.2,
+            "text": "SHURE",
+            "size": 3.2,
+            "weight": 900,
+            "italic": true,
+            "spacing": 0.2
+          },
+          {
+            "t": "text",
+            "x": 40,
+            "y": 9.6,
+            "text": "PSM1000",
+            "size": 2.5
+          },
+          {
+            "t": "text",
+            "x": 40,
+            "y": 13.8,
+            "text": "P10T",
+            "size": 2.5
+          },
+          {
+            "t": "text",
+            "x": 40,
+            "y": 17,
+            "text": "Dual Wireless Transmitter",
+            "size": 1.4
+          },
+          {
+            "t": "rect",
+            "x": 37.5,
+            "y": 34.1,
+            "w": 12.5,
+            "h": 5,
+            "fill": "#08090a"
+          },
+          {
+            "t": "text",
+            "x": 43.7,
+            "y": 41.8,
+            "text": "sync",
+            "size": 1.5,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 70.7,
+            "y": 8.4,
+            "w": 139.4,
+            "h": 33,
+            "rx": 1.2,
+            "stroke": "#4b4f56",
+            "sw": 0.5
+          },
+          {
+            "t": "text",
+            "x": 73,
+            "y": 7.2,
+            "text": "RF",
+            "size": 2
+          },
+          {
+            "t": "text",
+            "x": 99.8,
+            "y": 7.2,
+            "text": "L",
+            "size": 2
+          },
+          {
+            "t": "text",
+            "x": 105.6,
+            "y": 7.2,
+            "text": "R",
+            "size": 2
+          },
+          {
+            "t": "text",
+            "x": 203,
+            "y": 7.2,
+            "text": "navigate",
+            "size": 2,
+            "anchor": "end"
+          },
+          {
+            "t": "leds",
+            "x": 74.9,
+            "y": 17.6,
+            "n": 2,
+            "dy": 13.5,
+            "colors": [
+              "#3b82f6",
+              "#3b82f6"
+            ],
+            "r": 1
+          },
+          {
+            "t": "switch",
+            "x": 81.9,
+            "y": 14.3,
+            "w": 12.9,
+            "h": 22.7
+          },
+          {
+            "t": "leds",
+            "x": 100.7,
+            "y": 13.4,
+            "n": 7,
+            "dy": 3.7,
+            "colors": [
+              "#ef4444",
+              "#eab308",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e"
+            ],
+            "r": 0.9
+          },
+          {
+            "t": "leds",
+            "x": 106.5,
+            "y": 13.4,
+            "n": 7,
+            "dy": 3.7,
+            "colors": [
+              "#ef4444",
+              "#eab308",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e"
+            ],
+            "r": 0.9
+          },
+          {
+            "t": "lcd",
+            "x": 114.4,
+            "y": 13.4,
+            "w": 75.7,
+            "h": 21.9,
+            "tint": "#fbbf24",
+            "info": true,
+            "channel": 0
+          },
+          {
+            "t": "button",
+            "x": 194.7,
+            "y": 13.9,
+            "w": 10.4,
+            "h": 5
+          },
+          {
+            "t": "button",
+            "x": 194.7,
+            "y": 21,
+            "w": 10.4,
+            "h": 5
+          },
+          {
+            "t": "button",
+            "x": 194.7,
+            "y": 28.1,
+            "w": 10.4,
+            "h": 5
+          },
+          {
+            "t": "button",
+            "x": 194.7,
+            "y": 35.3,
+            "w": 10.4,
+            "h": 5
+          },
+          {
+            "t": "rect",
+            "x": 212.10000000000002,
+            "y": 8.4,
+            "w": 139.4,
+            "h": 33,
+            "rx": 1.2,
+            "stroke": "#4b4f56",
+            "sw": 0.5
+          },
+          {
+            "t": "text",
+            "x": 214.4,
+            "y": 7.2,
+            "text": "RF",
+            "size": 2
+          },
+          {
+            "t": "text",
+            "x": 241.2,
+            "y": 7.2,
+            "text": "L",
+            "size": 2
+          },
+          {
+            "t": "text",
+            "x": 247,
+            "y": 7.2,
+            "text": "R",
+            "size": 2
+          },
+          {
+            "t": "text",
+            "x": 344.4,
+            "y": 7.2,
+            "text": "navigate",
+            "size": 2,
+            "anchor": "end"
+          },
+          {
+            "t": "leds",
+            "x": 216.3,
+            "y": 17.6,
+            "n": 2,
+            "dy": 13.5,
+            "colors": [
+              "#3b82f6",
+              "#3b82f6"
+            ],
+            "r": 1
+          },
+          {
+            "t": "switch",
+            "x": 223.3,
+            "y": 14.3,
+            "w": 12.9,
+            "h": 22.7
+          },
+          {
+            "t": "leds",
+            "x": 242.10000000000002,
+            "y": 13.4,
+            "n": 7,
+            "dy": 3.7,
+            "colors": [
+              "#ef4444",
+              "#eab308",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e"
+            ],
+            "r": 0.9
+          },
+          {
+            "t": "leds",
+            "x": 247.9,
+            "y": 13.4,
+            "n": 7,
+            "dy": 3.7,
+            "colors": [
+              "#ef4444",
+              "#eab308",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e",
+              "#22c55e"
+            ],
+            "r": 0.9
+          },
+          {
+            "t": "lcd",
+            "x": 255.8,
+            "y": 13.4,
+            "w": 75.7,
+            "h": 21.9,
+            "tint": "#fbbf24",
+            "info": true,
+            "channel": 2
+          },
+          {
+            "t": "button",
+            "x": 336.1,
+            "y": 13.9,
+            "w": 10.4,
+            "h": 5
+          },
+          {
+            "t": "button",
+            "x": 336.1,
+            "y": 21,
+            "w": 10.4,
+            "h": 5
+          },
+          {
+            "t": "button",
+            "x": 336.1,
+            "y": 28.1,
+            "w": 10.4,
+            "h": 5
+          },
+          {
+            "t": "button",
+            "x": 336.1,
+            "y": 35.3,
+            "w": 10.4,
+            "h": 5
+          },
+          {
+            "t": "button",
+            "x": 352.7,
+            "y": 14.3,
+            "w": 10,
+            "h": 8.4,
+            "label": "enter",
+            "fill": "#7f1d1d"
+          },
+          {
+            "t": "button",
+            "x": 352.7,
+            "y": 25.2,
+            "w": 10,
+            "h": 8.4,
+            "label": "exit",
+            "fill": "#7f1d1d"
+          },
+          {
+            "t": "text",
+            "x": 377.7,
+            "y": 9,
+            "text": "control",
+            "size": 2,
+            "anchor": "middle"
+          },
+          {
+            "t": "knob",
+            "x": 377.7,
+            "y": 24,
+            "r": 9
+          },
+          {
+            "t": "text",
+            "x": 405,
+            "y": 9,
+            "text": "monitor",
+            "size": 2,
+            "anchor": "middle"
+          },
+          {
+            "t": "leds",
+            "x": 397.3,
+            "y": 14.3,
+            "n": 3,
+            "dy": 8,
+            "colors": [
+              "#ef4444",
+              "#22c55e",
+              "#22c55e"
+            ],
+            "r": 0.9
+          },
+          {
+            "t": "knob",
+            "x": 412.6,
+            "y": 18.5,
+            "r": 4.8
+          },
+          {
+            "t": "text",
+            "x": 432.6,
+            "y": 9,
+            "text": "power",
+            "size": 2,
+            "anchor": "middle"
+          },
+          {
+            "t": "switch",
+            "x": 427.2,
+            "y": 14.3,
+            "w": 10.8,
+            "h": 21
+          }
+        ],
+        "rear": [
+          {
+            "t": "switch",
+            "x": 22,
+            "y": 6,
+            "w": 22,
+            "h": 32
+          },
+          {
+            "t": "text",
+            "x": 30,
+            "y": 4,
+            "text": "P10T",
+            "size": 1.8
+          },
+          {
+            "t": "rect",
+            "x": 136,
+            "y": 2,
+            "w": 45,
+            "h": 39,
+            "rx": 1,
+            "stroke": "#4b4f56"
+          },
+          {
+            "t": "text",
+            "x": 158.5,
+            "y": 5.5,
+            "text": "antenna 2 out",
+            "size": 1.8,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 184,
+            "y": 2,
+            "w": 92,
+            "h": 39,
+            "rx": 1,
+            "stroke": "#4b4f56"
+          },
+          {
+            "t": "text",
+            "x": 230,
+            "y": 5.5,
+            "text": "transmitter 2 inputs",
+            "size": 1.8,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 285,
+            "y": 2,
+            "w": 21,
+            "h": 39,
+            "rx": 1,
+            "stroke": "#4b4f56"
+          },
+          {
+            "t": "rect",
+            "x": 329,
+            "y": 2,
+            "w": 89,
+            "h": 39,
+            "rx": 1,
+            "stroke": "#4b4f56"
+          },
+          {
+            "t": "text",
+            "x": 373,
+            "y": 5.5,
+            "text": "transmitter 1 inputs",
+            "size": 1.8,
+            "anchor": "middle"
+          },
+          {
+            "t": "rect",
+            "x": 423,
+            "y": 2,
+            "w": 43,
+            "h": 39,
+            "rx": 1,
+            "stroke": "#4b4f56"
+          },
+          {
+            "t": "text",
+            "x": 445,
+            "y": 5.5,
+            "text": "antenna 1 out",
+            "size": 1.8,
+            "anchor": "middle"
+          }
+        ]
+      }
+    },
+    "gen-pdu-iec8": {
+      "textColor": "#e5e7eb",
+      "rackStandard": 19,
+      "id": "gen-pdu-iec8",
+      "name": "Stromverteiler 8× IEC C13",
+      "manufacturer": "Generisch",
+      "category": "Strom",
+      "heightU": 1,
+      "slots": 1,
+      "depth": 150,
+      "color": "#1f2126",
+      "ports": [
+        {
+          "id": "p1",
+          "name": "Netz In",
+          "connector": "TRUE1_IN",
+          "side": "front",
+          "x": 40,
+          "y": 22,
+          "dir": "in"
+        },
+        {
+          "id": "p2",
+          "name": "Thru",
+          "connector": "TRUE1_OUT",
+          "side": "front",
+          "x": 80,
+          "y": 22,
+          "dir": "out"
+        },
+        {
+          "id": "p3",
+          "name": "Out 1",
+          "connector": "IEC_C13",
+          "side": "rear",
+          "x": 60,
+          "y": 22,
+          "dir": "out"
+        },
+        {
+          "id": "p4",
+          "name": "Out 2",
+          "connector": "IEC_C13",
+          "side": "rear",
+          "x": 108,
+          "y": 22,
+          "dir": "out"
+        },
+        {
+          "id": "p5",
+          "name": "Out 3",
+          "connector": "IEC_C13",
+          "side": "rear",
+          "x": 156,
+          "y": 22,
+          "dir": "out"
+        },
+        {
+          "id": "p6",
+          "name": "Out 4",
+          "connector": "IEC_C13",
+          "side": "rear",
+          "x": 204,
+          "y": 22,
+          "dir": "out"
+        },
+        {
+          "id": "p7",
+          "name": "Out 5",
+          "connector": "IEC_C13",
+          "side": "rear",
+          "x": 252,
+          "y": 22,
+          "dir": "out"
+        },
+        {
+          "id": "p8",
+          "name": "Out 6",
+          "connector": "IEC_C13",
+          "side": "rear",
+          "x": 300,
+          "y": 22,
+          "dir": "out"
+        },
+        {
+          "id": "p9",
+          "name": "Out 7",
+          "connector": "IEC_C13",
+          "side": "rear",
+          "x": 348,
+          "y": 22,
+          "dir": "out"
+        },
+        {
+          "id": "p10",
+          "name": "Out 8",
+          "connector": "IEC_C13",
+          "side": "rear",
+          "x": 396,
+          "y": 22,
+          "dir": "out"
+        }
+      ]
+    },
+    "gen-switch8": {
+      "textColor": "#e5e7eb",
+      "rackStandard": 19,
+      "id": "gen-switch8",
+      "name": "Netzwerk-Switch 8-Port",
+      "manufacturer": "Generisch",
+      "category": "Netzwerk",
+      "heightU": 1,
+      "slots": 2,
+      "depth": 160,
+      "color": "#2d3640",
+      "ports": [
+        {
+          "id": "p1",
+          "name": "Port 1",
+          "connector": "RJ45",
+          "side": "front",
+          "x": 50,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p2",
+          "name": "Port 2",
+          "connector": "RJ45",
+          "side": "front",
+          "x": 70,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p3",
+          "name": "Port 3",
+          "connector": "RJ45",
+          "side": "front",
+          "x": 90,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p4",
+          "name": "Port 4",
+          "connector": "RJ45",
+          "side": "front",
+          "x": 110,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p5",
+          "name": "Port 5",
+          "connector": "RJ45",
+          "side": "front",
+          "x": 130,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p6",
+          "name": "Port 6",
+          "connector": "RJ45",
+          "side": "front",
+          "x": 150,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p7",
+          "name": "Port 7",
+          "connector": "RJ45",
+          "side": "front",
+          "x": 170,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p8",
+          "name": "Port 8",
+          "connector": "RJ45",
+          "side": "front",
+          "x": 190,
+          "y": 22,
+          "dir": "io"
+        },
+        {
+          "id": "p9",
+          "name": "DC In",
+          "connector": "DC",
+          "side": "rear",
+          "x": 30,
+          "y": 22,
+          "dir": "in"
+        }
+      ]
+    },
+    "gen-drawer2": {
+      "textColor": "#e5e7eb",
+      "rackStandard": 19,
+      "id": "gen-drawer2",
+      "name": "Schublade 2 HE",
+      "manufacturer": "Generisch",
+      "category": "Schubladen",
+      "heightU": 2,
+      "slots": 1,
+      "depth": 400,
+      "color": "#202022",
+      "drawer": true,
+      "ports": [],
+      "notes": "Inhalt im Eigenschaften-Bereich eintragen – er wird auf der Front, im Viewer und im PDF gezeigt."
+    }
+  },
+  "cableTypes": [
+    {
+      "id": "ct-rg58",
+      "name": "Koax RG58 (BNC)",
+      "signal": "rf",
+      "color": "#eab308",
+      "width": 2.2,
+      "stockLengths": [
+        0.25,
+        0.5,
+        1,
+        1.5,
+        2,
+        3,
+        5,
+        10,
+        15,
+        20
+      ],
+      "connectors": [
+        "BNC",
+        "BNC-D",
+        "TNC",
+        "SMA"
+      ]
+    },
+    {
+      "id": "ct-lowloss",
+      "name": "Koax Low-Loss (N)",
+      "signal": "rf",
+      "color": "#ea580c",
+      "width": 3,
+      "stockLengths": [
+        1,
+        2,
+        3,
+        5,
+        10,
+        15,
+        20,
+        30
+      ],
+      "connectors": [
+        "N",
+        "N-D"
+      ]
+    },
+    {
+      "id": "ct-wordclock",
+      "name": "Wordclock 75 Ω (BNC)",
+      "signal": "clock",
+      "color": "#0891b2",
+      "width": 2,
+      "stockLengths": [
+        0.3,
+        0.5,
+        1,
+        2,
+        3,
+        5
+      ],
+      "connectors": [
+        "BNC75"
+      ]
+    },
+    {
+      "id": "ct-xlr",
+      "name": "Audio XLR",
+      "signal": "audio",
+      "color": "#2563eb",
+      "width": 2.5,
+      "stockLengths": [
+        0.3,
+        0.5,
+        1,
+        1.5,
+        2,
+        3,
+        5,
+        10,
+        15,
+        20
+      ],
+      "connectors": [
+        "XLR3F",
+        "XLR3M",
+        "XLR5F",
+        "XLR5M",
+        "COMBO"
+      ]
+    },
+    {
+      "id": "ct-jack",
+      "name": "Audio Klinke",
+      "signal": "audio",
+      "color": "#60a5fa",
+      "width": 2,
+      "stockLengths": [
+        0.3,
+        0.5,
+        1,
+        1.5,
+        2,
+        3,
+        5,
+        10,
+        15,
+        20
+      ],
+      "connectors": [
+        "JACK",
+        "JACK-D",
+        "MINIJACK"
+      ]
+    },
+    {
+      "id": "ct-aes",
+      "name": "AES/EBU 110 Ω",
+      "signal": "aes",
+      "color": "#9333ea",
+      "width": 2.5,
+      "stockLengths": [
+        0.3,
+        0.5,
+        1,
+        1.5,
+        2,
+        3,
+        5,
+        10,
+        15,
+        20
+      ],
+      "connectors": [
+        "AES-XLR"
+      ]
+    },
+    {
+      "id": "ct-speakon",
+      "name": "Lautsprecher speakON",
+      "signal": "audio",
+      "color": "#1e3a8a",
+      "width": 3,
+      "stockLengths": [
+        1,
+        2,
+        5,
+        10,
+        15,
+        20
+      ],
+      "connectors": [
+        "SPEAKON"
+      ]
+    },
+    {
+      "id": "ct-cat",
+      "name": "Cat6 / etherCON",
+      "signal": "network",
+      "color": "#16a34a",
+      "width": 2.2,
+      "stockLengths": [
+        0.25,
+        0.5,
+        1,
+        2,
+        3,
+        5,
+        10,
+        20
+      ],
+      "connectors": [
+        "RJ45",
+        "ETHERCON"
+      ]
+    },
+    {
+      "id": "ct-fiber",
+      "name": "LWL",
+      "signal": "network",
+      "color": "#84cc16",
+      "width": 2,
+      "stockLengths": [
+        1,
+        2,
+        5,
+        10,
+        50,
+        100
+      ],
+      "connectors": [
+        "SFP",
+        "OPTICALCON"
+      ]
+    },
+    {
+      "id": "ct-iec",
+      "name": "Kaltgeräte IEC",
+      "signal": "power",
+      "color": "#dc2626",
+      "width": 3,
+      "stockLengths": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3,
+        5
+      ],
+      "connectors": [
+        "IEC_C13",
+        "IEC_C14",
+        "SCHUKO"
+      ]
+    },
+    {
+      "id": "ct-powercon",
+      "name": "powerCON / TRUE1",
+      "signal": "power",
+      "color": "#991b1b",
+      "width": 3,
+      "stockLengths": [
+        0.5,
+        1,
+        1.5,
+        2,
+        3,
+        5,
+        10
+      ],
+      "connectors": [
+        "POWERCON_IN",
+        "POWERCON_OUT",
+        "TRUE1_IN",
+        "TRUE1_OUT"
+      ]
+    },
+    {
+      "id": "ct-dc",
+      "name": "DC Versorgung",
+      "signal": "power",
+      "color": "#f87171",
+      "width": 1.6,
+      "dash": "6 3",
+      "stockLengths": [
+        0.3,
+        0.5,
+        1,
+        2
+      ],
+      "connectors": [
+        "DC"
+      ]
+    },
+    {
+      "id": "ct-usb",
+      "name": "USB",
+      "signal": "data",
+      "color": "#64748b",
+      "width": 1.8,
+      "stockLengths": [
+        0.5,
+        1,
+        2,
+        3,
+        5
+      ],
+      "connectors": [
+        "USB",
+        "USB-D"
+      ]
+    },
+    {
+      "id": "ct-hdmi",
+      "name": "HDMI",
+      "signal": "video",
+      "color": "#db2777",
+      "width": 2.2,
+      "stockLengths": [
+        0.5,
+        1,
+        2,
+        3,
+        5,
+        10
+      ],
+      "connectors": [
+        "HDMI",
+        "HDMI-D"
+      ]
+    },
+    {
+      "id": "ct-generic",
+      "name": "Sonstiges Kabel",
+      "signal": "other",
+      "color": "#6b7280",
+      "width": 2,
+      "stockLengths": [
+        0.3,
+        0.5,
+        1,
+        1.5,
+        2,
+        3,
+        5,
+        10,
+        15,
+        20
+      ]
+    }
+  ],
+  "rackTypes": [],
+  "settings": {
+    "slackPercent": 15,
+    "serviceLoop": 150,
+    "exitLength": 40,
+    "roundToStock": true,
+    "curveStyle": "orthogonal",
+    "showPortLabels": true,
+    "showCableLabels": true,
+    "cableLabel": "length"
+  },
+  "libraryVersion": 3,
+  "author": ""
+}

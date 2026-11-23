@@ -1,0 +1,288 @@
+import { useState } from 'react';
+import { allRackTypes, useActiveRack, useStore } from '../model/store';
+import type { CableType, Face, RackKind, RackType, SignalType } from '../model/types';
+import { RACK_KIND_LABELS } from '../library/rackTypes';
+import { SIGNAL_LABELS } from '../model/connectors';
+import { faceWidth, U } from '../model/geometry';
+import { deepClone, downloadBlob, safeFileName, uid } from '../model/util';
+import { Field, Modal, NumberInput } from './Modal';
+import { rackSvgSize, rackSvgString, svgToPngBlob } from '../export/render';
+import { buildInteractiveHtml } from '../export/html';
+import { RfExportCard } from './RfDialogs';
+
+// ----------------------------------------------------------------------------- rack types
+
+export function RackTypeEditor() {
+  const project = useStore((s) => s.project);
+  const rack = useActiveRack();
+  const types = allRackTypes(project);
+  const [draft, setDraft] = useState<RackType>(() => ({ ...deepClone(rack.type), id: uid('rt-'), name: rack.type.name + ' (eigen)', custom: true }));
+  const set = (p: Partial<RackType>) => setDraft((d) => ({ ...d, ...p }));
+  const isExisting = project.rackTypes.some((t) => t.id === draft.id);
+  const st = useStore.getState;
+
+  const save = (apply: boolean) => {
+    st().upsertRackType(draft);
+    if (apply) st().updateRack(rack.id, { type: draft });
+    st().showToast(`Rack-Typ „${draft.name}“ gespeichert`);
+  };
+
+  return (
+    <Modal wide title="Rack-Typen" footer={
+      <>
+        {isExisting ? <button className="btn danger" onClick={() => { st().deleteRackType(draft.id); setDraft({ ...draft, id: uid('rt-') }); }}>Löschen</button> : null}
+        <span className="spacer" />
+        <button className="btn" onClick={() => save(false)}>Speichern</button>
+        <button className="btn primary" onClick={() => { save(true); st().openModal(null); }}>Speichern & auf „{rack.name}“ anwenden</button>
+      </>
+    }>
+      <div className="editor-grid">
+        <div className="type-list">
+          <div className="muted small">Vorlage wählen (wird als eigener Typ kopiert):</div>
+          {Object.entries(RACK_KIND_LABELS).map(([kind, label]) => (
+            <div key={kind}>
+              <div className="lib-cat static">{label}</div>
+              {types.filter((t) => t.kind === kind).map((t) => (
+                <button key={t.id} className={'list-btn' + (t.id === draft.id ? ' on' : '')}
+                  onClick={() => setDraft(t.custom ? deepClone(t) : { ...deepClone(t), id: uid('rt-'), name: t.name + ' (eigen)', custom: true })}>
+                  {t.custom ? '★ ' : ''}{t.name}
+                </button>
+              ))}
+            </div>
+          ))}
+        </div>
+        <div className="form-col">
+          <Field label="Name"><input value={draft.name} onChange={(e) => set({ name: e.target.value })} /></Field>
+          <div className="row gap8">
+            <Field label="Bauart">
+              <select value={draft.kind} onChange={(e) => set({ kind: e.target.value as RackKind })}>
+                {Object.entries(RACK_KIND_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              </select>
+            </Field>
+            <Field label="Standard">
+              <select value={draft.rackStandard} onChange={(e) => set({ rackStandard: Number(e.target.value) as 19 | 10 })}>
+                <option value={19}>19"</option><option value={10}>10"</option>
+              </select>
+            </Field>
+          </div>
+          <div className="row gap8">
+            <Field label="Höhe (HE)"><NumberInput value={draft.heightU} min={1} max={60} onChange={(v) => set({ heightU: Math.round(v), outer: { ...draft.outer, h: Math.round(Math.round(v) * U + (draft.outer.h - draft.heightU * U)) } })} /></Field>
+            <Field label="Einbautiefe (mm)" hint="Schiene vorne bis Schiene hinten"><NumberInput value={draft.depth} min={50} onChange={(v) => set({ depth: v })} /></Field>
+          </div>
+          <label className="check"><input type="checkbox" checked={draft.hasRearRails} onChange={(e) => set({ hasRearRails: e.target.checked })} /> Hintere Rackschienen (Rückseiten-Montage möglich)</label>
+          <div className="row gap8">
+            <Field label="Außen B"><NumberInput value={draft.outer.w} min={faceWidth(draft.rackStandard)} onChange={(v) => set({ outer: { ...draft.outer, w: v } })} /></Field>
+            <Field label="Außen H"><NumberInput value={draft.outer.h} onChange={(v) => set({ outer: { ...draft.outer, h: v } })} /></Field>
+            <Field label="Außen T"><NumberInput value={draft.outer.d} onChange={(v) => set({ outer: { ...draft.outer, d: v } })} /></Field>
+          </div>
+          <div className="row gap8">
+            <Field label="Leergewicht (kg)"><NumberInput value={draft.weight ?? 0} step={0.5} min={0} onChange={(v) => set({ weight: v })} /></Field>
+            <Field label="Farbe"><input type="color" value={draft.color} onChange={(e) => set({ color: e.target.value })} /></Field>
+          </div>
+          <div className="row gap8">
+            <label className="check"><input type="checkbox" checked={!!draft.frontLid} onChange={(e) => set({ frontLid: e.target.checked })} /> Frontdeckel</label>
+            <label className="check"><input type="checkbox" checked={!!draft.rearLid} onChange={(e) => set({ rearLid: e.target.checked })} /> Rückdeckel</label>
+          </div>
+          <Field label="Notizen"><textarea rows={3} value={draft.notes ?? ''} onChange={(e) => set({ notes: e.target.value })} /></Field>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+// ----------------------------------------------------------------------------- cable types
+
+export function CableTypeEditor() {
+  const project = useStore((s) => s.project);
+  const st = useStore.getState;
+  const usage = (id: string) => project.racks.reduce((n, r) => n + r.cables.filter((c) => c.typeId === id).length, 0);
+  const upd = (t: CableType, p: Partial<CableType>) => st().upsertCableType({ ...t, ...p });
+  return (
+    <Modal wide title="Kabeltypen & Farben" footer={
+      <>
+        <button className="btn" onClick={() => st().upsertCableType({ id: uid('ct-'), name: 'Neuer Kabeltyp', signal: 'other', color: '#14b8a6', width: 2, stockLengths: [0.5, 1, 2, 3, 5], custom: true })}>+ Kabeltyp</button>
+        <span className="spacer" />
+        <button className="btn primary" onClick={() => st().openModal(null)}>Fertig</button>
+      </>
+    }>
+      <div className="hint">Farben und Lagerlängen gelten für das ganze Projekt. Automatische Längen werden auf die nächste Lagerlänge aufgerundet (abschaltbar in den Einstellungen).</div>
+      <table className="ct-table">
+        <thead><tr><th>Farbe</th><th>Name</th><th>Signal</th><th>Strich</th><th>Lagerlängen (m)</th><th>Stecker (Auto-Zuordnung)</th><th>Verwendet</th><th /></tr></thead>
+        <tbody>
+          {project.cableTypes.map((t) => (
+            <tr key={t.id}>
+              <td><input type="color" value={t.color} onChange={(e) => upd(t, { color: e.target.value })} /></td>
+              <td><input value={t.name} onChange={(e) => upd(t, { name: e.target.value })} /></td>
+              <td>
+                <select value={t.signal} onChange={(e) => upd(t, { signal: e.target.value as SignalType })}>
+                  {Object.entries(SIGNAL_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+                </select>
+              </td>
+              <td>
+                <select value={t.dash ?? ''} onChange={(e) => upd(t, { dash: e.target.value || undefined })}>
+                  <option value="">durchgezogen</option><option value="6 3">gestrichelt</option><option value="2 2">gepunktet</option>
+                </select>
+              </td>
+              <td><LengthsInput value={t.stockLengths} onChange={(v) => upd(t, { stockLengths: v })} /></td>
+              <td><input value={(t.connectors ?? []).join(', ')} onChange={(e) => upd(t, { connectors: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} /></td>
+              <td className="muted">{usage(t.id)}</td>
+              <td><button className="icon-btn" disabled={usage(t.id) > 0} title="Löschen" onClick={() => st().deleteCableType(t.id)}>🗑</button></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Modal>
+  );
+}
+
+function LengthsInput({ value, onChange }: { value: number[]; onChange: (v: number[]) => void }) {
+  const [text, setText] = useState(value.map((v) => String(v).replace('.', ',')).join('; '));
+  return (
+    <input
+      value={text}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={() => {
+        const v = text.split(/[;\s]+/).map((s) => parseFloat(s.replace(',', '.'))).filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+        onChange(v);
+        setText(v.map((x) => String(x).replace('.', ',')).join('; '));
+      }}
+    />
+  );
+}
+
+// ----------------------------------------------------------------------------- settings
+
+export function SettingsDialog() {
+  const project = useStore((s) => s.project);
+  const s = project.settings;
+  const st = useStore.getState;
+  const up = st().updateSettings;
+  return (
+    <Modal title="Projekt-Einstellungen" footer={<><span className="spacer" /><button className="btn primary" onClick={() => st().openModal(null)}>Fertig</button></>}>
+      <Field label="Projektname"><input value={project.name} onChange={(e) => st().mutate((p) => { p.name = e.target.value; })} /></Field>
+      <Field label="Ersteller / Firma"><input value={project.author ?? ''} onChange={(e) => st().mutate((p) => { p.author = e.target.value; })} /></Field>
+      <h4>Kabellängen (automatisch)</h4>
+      <div className="row gap8">
+        <Field label="Zuschlag (%)"><NumberInput value={s.slackPercent} min={0} max={200} onChange={(v) => up({ slackPercent: v })} /></Field>
+        <Field label="Serviceschlaufe (mm)"><NumberInput value={s.serviceLoop} min={0} step={10} onChange={(v) => up({ serviceLoop: v })} /></Field>
+        <Field label="Biegeweg je Ende (mm)"><NumberInput value={s.exitLength} min={0} step={5} onChange={(v) => up({ exitLength: v })} /></Field>
+      </div>
+      <label className="check"><input type="checkbox" checked={s.roundToStock} onChange={(e) => up({ roundToStock: e.target.checked })} /> Auf Lagerlängen des Kabeltyps aufrunden (sonst auf 0,1 m)</label>
+      <div className="hint">Länge = (Weg orthogonal entlang Rack, Front↔Rück über die Seite + Biegewege) × (1 + Zuschlag) + Serviceschlaufe.</div>
+      <h4>Darstellung</h4>
+      <div className="row gap8">
+        <Field label="Kabelverlauf">
+          <select value={s.curveStyle} onChange={(e) => up({ curveStyle: e.target.value as typeof s.curveStyle })}>
+            <option value="orthogonal">orthogonal, 90° (Übersicht)</option><option value="curved">hängend (realistisch)</option><option value="straight">direkt (Linie)</option>
+          </select>
+        </Field>
+        <Field label="Kabel-Beschriftung">
+          <select value={s.cableLabel} onChange={(e) => up({ cableLabel: e.target.value as typeof s.cableLabel })}>
+            <option value="length">Länge</option><option value="number">Kabelnummer</option><option value="both">Nummer + Länge</option><option value="none">keine</option>
+          </select>
+        </Field>
+      </div>
+      <label className="check"><input type="checkbox" checked={s.showPortLabels} onChange={(e) => up({ showPortLabels: e.target.checked })} /> Anschlussnamen anzeigen</label>
+      <label className="check"><input type="checkbox" checked={s.showCableLabels} onChange={(e) => up({ showCableLabels: e.target.checked })} /> Kabel-Beschriftung anzeigen</label>
+      <div className="row gap8" style={{ marginTop: 8 }}>
+        <button className="btn sm" onClick={() => { if (confirm('Kabelnummern projektweit neu vergeben (W001 …)?')) st().renumberCables(); }}>Kabel neu nummerieren</button>
+      </div>
+    </Modal>
+  );
+}
+
+// ----------------------------------------------------------------------------- export
+
+export function ExportDialog() {
+  const project = useStore((s) => s.project);
+  const rack = useActiveRack();
+  const readOnly = useStore((s) => s.readOnly);
+  const [scope, setScope] = useState<'current' | 'all'>('current');
+  const [views, setViews] = useState<'both' | Face>('both');
+  const [format, setFormat] = useState<'a4' | 'a3'>('a3');
+  const [cableList, setCableList] = useState(true);
+  const [bom, setBom] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+  const st = useStore.getState;
+  const racks = scope === 'all' ? project.racks : [rack];
+  const viewList: Face[] = views === 'both' ? ['front', 'rear'] : [views];
+  const base = safeFileName(project.name);
+
+  const run = async (label: string, fn: () => Promise<void>) => {
+    setBusy(label);
+    try { await fn(); } catch (e) { st().showToast((e as Error).message, 'error'); console.error(e); } finally { setBusy(null); }
+  };
+
+  return (
+    <Modal title="Export" footer={<><span className="spacer" /><button className="btn" onClick={() => st().openModal(null)}>Schließen</button></>}>
+      <div className="row gap8 wrap">
+        <Field label="Umfang">
+          <select value={scope} onChange={(e) => setScope(e.target.value as 'current' | 'all')}>
+            <option value="current">Aktuelles Rack ({rack.name})</option>
+            <option value="all">Alle Racks ({project.racks.length})</option>
+          </select>
+        </Field>
+        <Field label="Ansichten">
+          <select value={views} onChange={(e) => setViews(e.target.value as 'both' | Face)}>
+            <option value="both">Vorder- + Rückansicht</option><option value="front">nur vorne</option><option value="rear">nur hinten</option>
+          </select>
+        </Field>
+      </div>
+
+      <div className="export-grid">
+        <div className="export-card">
+          <h4>📄 PDF</h4>
+          <p className="muted small">Zeichnung, Kabelliste mit Packliste, Geräteliste – zum Drucken & Versenden.</p>
+          <div className="row gap8 wrap">
+            <select value={format} onChange={(e) => setFormat(e.target.value as 'a4' | 'a3')}><option value="a3">A3 quer</option><option value="a4">A4 quer</option></select>
+            <label className="check"><input type="checkbox" checked={cableList} onChange={(e) => setCableList(e.target.checked)} /> Kabelliste</label>
+            <label className="check"><input type="checkbox" checked={bom} onChange={(e) => setBom(e.target.checked)} /> Geräteliste</label>
+          </div>
+          <button className="btn primary" disabled={!!busy} onClick={() => run('pdf', async () => {
+            const { exportPdf } = await import('../export/pdf');
+            downloadBlob(await exportPdf(project, { racks, views: viewList, format, includeCableList: cableList, includeBom: bom }), `${base}.pdf`);
+          })}>{busy === 'pdf' ? 'Erzeuge …' : 'PDF herunterladen'}</button>
+        </div>
+
+        <div className="export-card">
+          <h4>🖼 Bild</h4>
+          <p className="muted small">PNG in hoher Auflösung oder SVG (verlustfrei skalierbar, für Grafik-Programme).</p>
+          <div className="row gap8">
+            <button className="btn" disabled={!!busy} onClick={() => run('png', async () => {
+              for (const r of racks) {
+                const size = rackSvgSize(r, viewList.length);
+                const px = 4; // px per mm  ≈ 100 dpi
+                downloadBlob(await svgToPngBlob(rackSvgString(project, r, viewList, px), size.w * px, size.h * px), `${base}_${safeFileName(r.name)}.png`);
+              }
+            })}>PNG</button>
+            <button className="btn" disabled={!!busy} onClick={() => run('svg', async () => {
+              for (const r of racks) downloadBlob(new Blob([rackSvgString(project, r, viewList, 1)], { type: 'image/svg+xml' }), `${base}_${safeFileName(r.name)}.svg`);
+            })}>SVG</button>
+          </div>
+        </div>
+
+        <div className="export-card">
+          <h4>🌐 Interaktiv (HTML)</h4>
+          <p className="muted small">
+            Eine einzelne HTML-Datei, die in jedem Browser öffnet – ohne Installation, auch offline. Mit Vorder-/Rückansicht, 3D, Kabel-Hervorhebung,
+            Kabelliste und Zoom. Ideal zum Verschicken per Mail/Cloud.
+          </p>
+          <button className="btn primary" disabled={!!busy} onClick={() => run('html', async () => {
+            const html = buildInteractiveHtml(project);
+            downloadBlob(new Blob([html], { type: 'text/html' }), `${base}_interaktiv.html`);
+          })}>HTML herunterladen</button>
+        </div>
+
+        {!readOnly ? <RfExportCard scope={scope} /> : null}
+
+        {!readOnly ? (
+          <div className="export-card">
+            <h4>💾 Projektdatei</h4>
+            <p className="muted small">Komplettes Projekt inkl. eigener Geräte, Blenden und Kabeltypen (.rackplan.json) zum Weiterbearbeiten.</p>
+            <button className="btn" onClick={() => downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), `${base}.rackplan.json`)}>Projekt speichern</button>
+          </div>
+        ) : null}
+      </div>
+    </Modal>
+  );
+}

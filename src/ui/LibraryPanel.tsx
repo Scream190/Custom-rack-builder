@@ -1,0 +1,82 @@
+import { useMemo, useState } from 'react';
+import { allTemplates, useActiveRack, useStore } from '../model/store';
+import type { DeviceTemplate } from '../model/types';
+import { libraryDrag } from './RackCanvas';
+
+export function LibraryPanel() {
+  const project = useStore((s) => s.project);
+  const view = useStore((s) => s.view);
+  const rack = useActiveRack();
+  const [q, setQ] = useState('');
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const templates = useMemo(() => allTemplates(project), [project]);
+
+  const groups = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    const filtered = templates.filter((t) =>
+      !needle || `${t.manufacturer} ${t.name} ${t.category}`.toLowerCase().includes(needle),
+    );
+    const map = new Map<string, DeviceTemplate[]>();
+    for (const t of filtered) {
+      const cat = t.custom ? `★ ${t.category}` : t.category;
+      if (!map.has(cat)) map.set(cat, []);
+      map.get(cat)!.push(t);
+    }
+    return [...map.entries()].sort(([a], [b]) => (a.startsWith('★') ? -1 : b.startsWith('★') ? 1 : a.localeCompare(b)));
+  }, [templates, q]);
+
+  const add = (t: DeviceTemplate) => useStore.getState().addDeviceAuto(rack.id, t, view === 'rear' ? 'rear' : 'front');
+
+  return (
+    <aside className="panel library">
+      <div className="panel-head">
+        <strong>Bibliothek</strong>
+        <div className="row gap4">
+          <button className="btn sm" title="Neues Gerät anlegen" onClick={() => useStore.getState().openModal({ kind: 'device' })}>+ Gerät</button>
+          <button className="btn sm" title="Neue Rackblende entwerfen" onClick={() => useStore.getState().openModal({ kind: 'panel' })}>+ Blende</button>
+        </div>
+      </div>
+      <input className="search" placeholder="Suchen (z. B. Shure, BNC, Splitter) …" value={q} onChange={(e) => setQ(e.target.value)} />
+      <div className="hint">In das Rack ziehen oder doppelklicken.</div>
+      <div className="lib-list">
+        {groups.map(([cat, items]) => (
+          <div key={cat} className="lib-group">
+            <button className="lib-cat" onClick={() => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }))}>
+              <span>{collapsed[cat] ? '▸' : '▾'} {cat}</span>
+              <span className="muted">{items.length}</span>
+            </button>
+            {!collapsed[cat] &&
+              items.map((t) => (
+                <div
+                  key={t.id}
+                  className={'lib-item' + (t.rackStandard !== rack.type.rackStandard ? ' incompatible' : '')}
+                  draggable
+                  onDragStart={(e) => {
+                    libraryDrag.tpl = t;
+                    e.dataTransfer.setData('text/plain', t.id);
+                    e.dataTransfer.effectAllowed = 'copy';
+                  }}
+                  onDragEnd={() => { libraryDrag.tpl = null; }}
+                  onDoubleClick={() => add(t)}
+                  title={t.notes || `${t.manufacturer} ${t.name}`}
+                >
+                  <div className="swatch" style={{ background: t.color, height: 6 + t.heightU * 6 }} />
+                  <div className="lib-text">
+                    <div className="lib-name">{t.name}</div>
+                    <div className="muted small">
+                      {t.manufacturer} · {t.heightU} HE{t.slots > 1 ? ` · 1/${t.slots} Breite` : ''}{t.rackStandard === 10 ? ' · 10"' : ''} · {t.depth} mm
+                    </div>
+                  </div>
+                  <button
+                    className="icon-btn"
+                    title={t.panel ? 'Blende bearbeiten' : t.custom ? 'Bearbeiten' : 'Als eigene Vorlage kopieren & bearbeiten'}
+                    onClick={() => useStore.getState().openModal(t.panel ? { kind: 'panel', templateId: t.id } : { kind: 'device', templateId: t.id })}
+                  >✎</button>
+                </div>
+              ))}
+          </div>
+        ))}
+      </div>
+    </aside>
+  );
+}

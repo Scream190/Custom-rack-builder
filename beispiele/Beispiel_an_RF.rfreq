@@ -1,0 +1,54 @@
+{
+ "v": 1,
+ "t": "request",
+ "id": "50450fd2-aa55-48d7-b108-c6cb2c205bc4",
+ "from": {
+  "name": "RackPlanner",
+  "org": "Beispiel: UHF-Rack Funkstrecken",
+  "contact": ""
+ },
+ "zone": "Bühne",
+ "devices": [
+  {
+   "model": "Shure|ULXD4Q",
+   "profileId": "Shure|ULX-D|G50",
+   "units": 1,
+   "count": 4,
+   "name": "RX 1–4",
+   "names": [
+    "Vox 1",
+    "Vox 2",
+    "Vox 3",
+    "Vox 4"
+   ],
+   "label": "Shure ULXD4Q"
+  },
+  {
+   "model": "Shure|ULXD4Q",
+   "profileId": "Shure|ULX-D|G50",
+   "units": 1,
+   "count": 4,
+   "name": "RX 5–8",
+   "names": [
+    "Vox 5",
+    "Vox 6",
+    "Vox 7",
+    "Vox 8"
+   ],
+   "label": "Shure ULXD4Q"
+  },
+  {
+   "model": "Shure|P10T (PSM 1000)",
+   "profileId": "Shure|PSM 1000|G10E",
+   "units": 1,
+   "count": 2,
+   "name": "IEM 1/2",
+   "names": [
+    "IEM MD",
+    "IEM Drums"
+   ],
+   "label": "Shure P10T (PSM 1000)"
+  }
+ ],
+ "note": "Aus RackPlanner: UHF Rack 1"
+}
