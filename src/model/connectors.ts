@@ -2,7 +2,8 @@ import type { SignalType } from './types';
 
 export type ConnectorShape =
   | 'xlr' | 'combo' | 'bnc' | 'n' | 'sma' | 'jack' | 'rj45' | 'ethercon' | 'iec' | 'powercon'
-  | 'true1' | 'schuko' | 'speakon' | 'usb' | 'hdmi' | 'dc' | 'sfp' | 'opticalcon' | 'dsub' | 'generic';
+  | 'true1' | 'schuko' | 'speakon' | 'usb' | 'hdmi' | 'dc' | 'sfp' | 'opticalcon' | 'dsub' | 'generic'
+  | 'cee' | 'phoenix' | 'din';
 
 export interface ConnectorDef {
   key: string;
@@ -26,6 +27,8 @@ export const CONNECTORS: Record<string, ConnectorDef> = Object.fromEntries(
     // RF
     c('BNC', 'BNC (50 Ω)', 'rf', 'bnc', 12),
     c('BNC75', 'BNC (75 Ω)', 'clock', 'bnc', 12),
+    c('BNC-SDI', 'BNC SDI (75 Ω)', 'video', 'bnc', 12),
+    c('MADI-BNC', 'BNC MADI (75 Ω)', 'aes', 'bnc', 12),
     c('BNC-D', 'BNC Durchführung (D-Size)', 'rf', 'bnc', 20, 20, { dSize: true }),
     c('TNC', 'TNC', 'rf', 'bnc', 13),
     c('N', 'N-Type', 'rf', 'n', 18, 18, { dSize: false }),
@@ -42,6 +45,13 @@ export const CONNECTORS: Record<string, ConnectorDef> = Object.fromEntries(
     c('JACK-D', 'Klinke 6,3 mm (D-Size)', 'audio', 'jack', 22, 22, { dSize: true }),
     c('MINIJACK', 'Klinke 3,5 mm', 'audio', 'jack', 9),
     c('SPEAKON', 'speakON', 'audio', 'speakon', 24, 24, { dSize: true }),
+    c('SPEAKON8', 'speakON NL8', 'audio', 'speakon', 26, 26, { dSize: true }),
+    c('CACOM', 'CA-COM 8-pol (L-Acoustics)', 'audio', 'speakon', 28, 28),
+    c('PHOENIX3', 'Phoenix/Euroblock (Audio)', 'audio', 'phoenix', 15, 9),
+    c('PHOENIX-SPK', 'Phoenix (Lautsprecher)', 'audio', 'phoenix', 20, 10),
+    c('DSUB25', 'D-Sub 25 (8 Kanäle analog, AES59)', 'audio', 'dsub', 53, 12),
+    c('DSUB25-AES', 'D-Sub 25 (AES/EBU, AES59)', 'aes', 'dsub', 53, 12),
+    c('DIN5', 'MIDI (DIN 5-pol)', 'data', 'din', 16),
     // Network / data
     c('RJ45', 'RJ45', 'network', 'rj45', 14, 12),
     c('ETHERCON', 'etherCON', 'network', 'ethercon', 24, 24, { dSize: true }),
@@ -60,6 +70,12 @@ export const CONNECTORS: Record<string, ConnectorDef> = Object.fromEntries(
     c('TRUE1_IN', 'powerCON TRUE1 IN', 'power', 'true1', 26, 26, { dSize: true }),
     c('TRUE1_OUT', 'powerCON TRUE1 OUT', 'power', 'true1', 26, 26, { dSize: true }),
     c('SCHUKO', 'Schuko', 'power', 'schuko', 38, 38),
+    c('POWERCON32_IN', 'powerCON 32 A IN', 'power', 'powercon', 28, 28),
+    c('IEC_C20', 'IEC C20 (16 A Einbaustecker)', 'power', 'iec', 30, 22, { gender: 'm' }),
+    c('IEC_C19', 'IEC C19 (16 A Buchse)', 'power', 'iec', 30, 22, { gender: 'f' }),
+    c('CEE16', 'CEE 16 A 230 V (blau)', 'power', 'cee', 40, 40),
+    c('CEE16_3P', 'CEE 16 A 400 V (rot, 5-pol)', 'power', 'cee', 42, 42),
+    c('CEE32_3P', 'CEE 32 A 400 V (rot, 5-pol)', 'power', 'cee', 48, 48),
     c('DC', 'DC Hohlstecker', 'power', 'dc', 10),
     c('GENERIC', 'Sonstiger', 'other', 'generic', 14),
   ].map((d) => [d.key, d]),

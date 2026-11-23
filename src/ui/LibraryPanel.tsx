@@ -37,7 +37,19 @@ export function LibraryPanel() {
         </div>
       </div>
       <input className="search" placeholder="Suchen (z. B. Shure, BNC, Splitter) …" value={q} onChange={(e) => setQ(e.target.value)} />
-      <div className="hint">In das Rack ziehen oder doppelklicken.</div>
+      <div className="hint row" style={{ justifyContent: 'space-between' }}>
+        <span>In das Rack ziehen oder doppelklicken.</span>
+        <button
+          className="btn sm"
+          title="Alle Kategorien auf- bzw. zuklappen"
+          onClick={() => {
+            const allClosed = groups.every(([c]) => collapsed[c]);
+            setCollapsed(Object.fromEntries(groups.map(([c]) => [c, !allClosed])));
+          }}
+        >
+          {groups.length && groups.every(([c]) => collapsed[c]) ? 'Alle auf' : 'Alle zu'}
+        </button>
+      </div>
       <div className="lib-list">
         {groups.map(([cat, items]) => (
           <div key={cat} className="lib-group">
@@ -45,7 +57,7 @@ export function LibraryPanel() {
               <span>{collapsed[cat] ? '▸' : '▾'} {cat}</span>
               <span className="muted">{items.length}</span>
             </button>
-            {!collapsed[cat] &&
+            {(!collapsed[cat] || !!q.trim()) &&
               items.map((t) => (
                 <div
                   key={t.id}

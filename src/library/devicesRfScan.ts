@@ -363,7 +363,7 @@ export const RFSCAN_DEVICES: DeviceTemplate[] = [
     fields: UHF_FIELDS, power: 6, source: 'vermessen – Shure PSM300 User Guide (PDF), P3T Front/Rear Panel', notes: 'Halbe 19"-Breite. Eingänge 6,3 mm TRS.',
     ports: [
       p('DC In', 'DC', 'rear', 39.2, 25.8, 'in'), p('Loop Out L', 'JACK', 'rear', 121.3, 25.8, 'out'), p('Loop Out R', 'JACK', 'rear', 139.2, 25.8, 'out'),
-      p('In L/CH1', 'JACK', 'rear', 157.1, 25.8, 'in'), p('In R/CH2', 'JACK', 'rear', 175, 25.8, 'in'), p('Antenna', 'BNC', 'rear', 219, 25.8, 'out'),
+      p('In L/CH1', 'JACK', 'rear', 157.1, 25.8, 'in'), p('In R/CH2', 'JACK', 'rear', 175, 25.8, 'in'), p('Antenna', 'BNC', 'rear', 212.5, 25.8, 'out'),
     ],
     art: {
       front: [logo(25.5, 5.2, 'Shure', 2.8), T(47, 5.2, 'PSM300 Transmitter P3T', 1.9),

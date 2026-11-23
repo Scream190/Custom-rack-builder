@@ -1,12 +1,15 @@
-// Development-only page: renders every branded device (front + rear) for visual checks.
+// Development-only page: renders every branded device (front + rear) for visual checks (?id=…, ?cat=…).
 import { createRoot } from 'react-dom/client';
 import { BRANDED_DEVICES } from '../library/devicesBranded';
 import { RFSCAN_DEVICES } from '../library/devicesRfScan';
+import { PRO_DEVICES } from '../library/devicesPro';
 import { DeviceFace } from '../render/DeviceFace';
 import { faceWidth, panelHeight } from '../model/geometry';
 
-const only = new URLSearchParams(location.search).get('id');
-const list = [...BRANDED_DEVICES, ...RFSCAN_DEVICES].filter((t) => !only || t.id === only);
+const params = new URLSearchParams(location.search);
+const only = params.get('id');
+const cat = params.get('cat');
+const list = [...BRANDED_DEVICES, ...RFSCAN_DEVICES, ...PRO_DEVICES].filter((t) => (!only || t.id === only) && (!cat || t.category === cat));
 const S = 3; // px per mm
 
 function Gallery() {

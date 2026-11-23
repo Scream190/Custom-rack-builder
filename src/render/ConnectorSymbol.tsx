@@ -157,6 +157,47 @@ export function ConnectorSymbol({ connector, x, y, ring = true, state = 'normal'
         </>
       );
       break;
+    case 'cee': {
+      // housing colour: blue = 230 V, red = 400 V
+      const col = connector.includes('3P') ? '#dc2626' : '#2563eb';
+      const pins = connector.includes('3P') ? 5 : 3;
+      body = (
+        <>
+          <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={3} fill={col} stroke="#111" strokeWidth={0.5} />
+          <circle r={w * 0.36} fill="#111" stroke="#333" strokeWidth={0.5} />
+          {Array.from({ length: pins }, (_, i) => {
+            const a = (i / pins) * Math.PI * 2 - Math.PI / 2;
+            return <circle key={i} cx={Math.cos(a) * w * 0.22} cy={Math.sin(a) * w * 0.22} r={1.4} fill={METAL} />;
+          })}
+        </>
+      );
+      break;
+    }
+    case 'phoenix': {
+      const n = Math.max(2, Math.round(w / 5));
+      body = (
+        <>
+          <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={0.6} fill="#2f6f3a" stroke="#14351b" strokeWidth={0.4} />
+          {Array.from({ length: n }, (_, i) => (
+            <circle key={i} cx={-w / 2 + (w / n) * (i + 0.5)} cy={-h * 0.15} r={Math.min(1.4, w / n / 3)} fill={METAL} />
+          ))}
+        </>
+      );
+      break;
+    }
+    case 'din':
+      body = (
+        <>
+          <circle r={r} fill={METAL} />
+          <circle r={r * 0.78} fill={DARK} />
+          {[-60, -30, 0, 30, 60].map((d) => {
+            const a = ((d - 90) * Math.PI) / 180;
+            return <circle key={d} cx={Math.cos(a) * r * 0.5} cy={Math.sin(a) * r * 0.5} r={0.8} fill={METAL} />;
+          })}
+          <rect x={-1} y={r * 0.55} width={2} height={1.6} fill={METAL} />
+        </>
+      );
+      break;
     case 'dc':
       body = (<><circle r={r} fill={METAL} /><circle r={r * 0.55} fill={DARK} /><circle r={0.8} fill={METAL} /></>);
       break;

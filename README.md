@@ -53,6 +53,25 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   TinySA Basic/Ultra, RF Explorer. Jede Vorlage nennt in `source`, wie genau sie ist: **vermessen** (Herstellerzeichnung),
   **abgeleitet** (gleiches Gehäuse wie ein vermessenes Gerät) oder **Datenblatt** (Anschlüsse laut Hersteller, Positionen
   geschätzt). Portable Empfänger/Sender stehen unter „Portabel (Rackwanne)“ als 1/3-Breite.
+- **Profi-Geräte für alle Gewerke** (`src/library/devicesPro.ts`, rund 120 Vorlagen):
+  - *Netzwerk:* Luminex GigaCore 10, 12, 14R, 16Xt, 16RFO, 18t, 26i, 30i; Cisco CBS350-8P/16P/24P/48P, SG350-10P/28P,
+    Catalyst 1000-24P, Catalyst 9200L-24P; Netgear M4250-10G2F/26G4F; Ubiquiti USW-Pro-24-PoE.
+  - *Licht/DMX:* MA Lighting grandMA3 8Port Node, 4Port Node, 2Port Node, I/O Node, processing unit L, onPC rack-unit;
+    Luminex LumiNode 12/4, LumiSplit 2.10/1.10; Obsidian NETRON EN12; Swisson XND-8; generischer DMX-Splitter und Art-Net-Node.
+  - *Stageboxen:* Yamaha Rio3224-D3/-D2, Rio1608-D3/-D2, Tio1608-D2; Allen & Heath DX168, DT168, AR2412, GX4816;
+    Midas DL16, DL32, DL151, DL152, DL251; Behringer S16, S32; DiGiCo D2-Rack, SD-MiNi Rack; Radial ProD8.
+  - *Endstufen:* d&b D80, D40, D20, 30D, 10D; L-Acoustics LA12X, LA4X, LA2Xi; Powersoft X8, X4, X4L, Quattrocanali
+    1204/2404/4804/8804, Duecanali 1604; Lab.gruppen PLM 20K44/12K44, D 20:4L, D 80:4L, FP 10000Q, IPD 2400; Crown XLS
+    1502/2002/2502, I-Tech 4x3500HD, DCi 4|600N; QSC GXD 4/8, PLD4.5, CXD4.3; Yamaha PX5/8/10; Camco Vortex 6.
+  - *Weitere:* Lake LM 44, XTA DP448, dbx DriveRack PA2, BSS BLU-100, Q-SYS Core 110f, Biamp TesiraFORTÉ AI; Behringer X32
+    Rack, Midas M32C, Yamaha TF-Rack; Focusrite RedNet MP8R/A16R MkII, Klark Teknik DN9650, Rosendahl nanosyncs HD;
+    Clear-Com HelixNet HMS-4X, Arcadia, MS-702; Blackmagic Smart Videohub 12G 20×20/40×40, HyperDeck Studio HD Plus,
+    ATEM 1 M/E Constellation HD; Tascam SS-CDR250N, DA-6400; APC Smart-UPS 1500/3000; Strom- und Drehstromverteiler
+    (CEE, Schuko, powerCON, TRUE1), Patchfelder (RJ45, etherCON, XLR, speakON, opticalCON), Rack-PC, Mac mini.
+  Diese Vorlagen beruhen auf Datenblättern: Anschlussart und -anzahl laut Hersteller, Positionen geschätzt. Wo auch
+  Bauhöhe oder Anschlüsse nur aus Produktfotos abgeleitet sind, steht in `source` „Schätzung“. Beides bitte vor dem
+  Einsatz am echten Gerät prüfen und im Geräte-Editor korrigieren. Neue Stecker: speakON NL8, CA-COM, Phoenix/Euroblock,
+  D-Sub 25 (AES59), MIDI, SDI/MADI-BNC, powerCON 32 A, IEC C19/C20, CEE 16/32 A.
 - **Automatische Bibliotheks-Aktualisierung:** Gespeicherte Projekte übernehmen neue Versionen der mitgelieferten Vorlagen.
   Kabel werden über den Anschlussnamen neu zugeordnet; Kabel an Anschlüssen, die es nicht mehr gibt, werden gemeldet.
 - **Blenden-Designer:** 1–8 HE, 19"/10", Neutrik-D-Size-Ausschnitte (XLR, etherCON, BNC, powerCON, speakON, USB, HDMI …),
@@ -100,7 +119,7 @@ Beispiele liegen in `beispiele/`.
 npm install
 npm run dev      # Entwicklungsserver
 npm run build    # erzeugt dist/index.html (eine selbstständige Datei)
-npm run test:3d  # prüft, dass sich die 3D-Kabel weder berühren noch durch Geräte laufen
+npm test         # Bibliothek prüfen (Stecker im Gehäuse, keine Überlappung, eindeutige Namen) + 3D-Kollisionstest
 ```
 
 Während `npm run dev` läuft, zeigt `http://localhost:5173/gallery.html` alle Marken-Geräte (Front + Rückseite) zum visuellen Abgleich
@@ -110,10 +129,10 @@ Stack: React + TypeScript + Vite, zustand (State, Undo/Redo), SVG-Rendering, thr
 
 ```
 src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry
-src/library/    Geräte- (devicesBranded.ts = Marken-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
+src/library/    Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
 src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auch für Export & 3D-Texturen
 src/ui/         Oberfläche, Editoren, Dialoge
 src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung
-tests/          collision3d.ts: Kollisionsprüfung der 3D-Kabel (npm run test:3d)
+tests/          library.ts: Prüfung der Gerätebibliothek · collision3d.ts: Kollisionsprüfung der 3D-Kabel
 src/export/     PDF, PNG/SVG, interaktives HTML, DXF
 ```
