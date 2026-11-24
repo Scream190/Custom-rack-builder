@@ -2,7 +2,10 @@ import { setLayout, useLayout } from '../model/layout';
 import { useActiveRack, useStore } from '../model/store';
 import { cableLength, formatLength, resolveEnd } from '../model/geometry';
 import { cableColor, cableNumberText } from '../render/cablePaths';
+import { useState } from 'react';
 import type { Project, Rack } from '../model/types';
+import { cableAssemblies, plugDemand } from '../model/assembly';
+import { AssemblySheet } from '../render/CableAssemblies';
 
 export interface CableRow {
   id: string;
@@ -20,7 +23,7 @@ export interface CableRow {
 
 export function cableRows(project: Project, rack: Rack): CableRow[] {
   return [...rack.cables]
-    .sort((a, b) => a.number - b.number)
+    .sort((a, b) => a.number - b.number || (a.yLeg ?? 0) - (b.yLeg ?? 0))
     .map((c) => {
       const a = resolveEnd(project, rack, c.a);
       const b = resolveEnd(project, rack, c.b);
@@ -31,9 +34,9 @@ export function cableRows(project: Project, rack: Rack): CableRow[] {
         type: ct?.name ?? '?',
         color: cableColor(project, c),
         from: a ? `${a.device.label || a.tpl.name}` : '?',
-        fromPort: a ? `${a.port.name} (HE ${a.device.u})` : '',
+        fromPort: a ? `${a.port.name} (${a.box ? 'Dose' : `HE ${a.device.u}`})` : '',
         to: b ? `${b.device.label || b.tpl.name}` : '?',
-        toPort: b ? `${b.port.name} (HE ${b.device.u})` : '',
+        toPort: b ? `${b.port.name} (${b.box ? 'Dose' : `HE ${b.device.u}`})` : '',
         length: cableLength(project, rack, c)?.length ?? 0,
         mode: c.lengthMode,
         label: c.label ?? '',
@@ -50,13 +53,30 @@ export function CableList() {
   const setOpen = (o: boolean) => setLayout({ cableListCollapsed: !o });
   const rows = cableRows(project, rack);
   const st = useStore.getState;
+  const [mode, setMode] = useState<'list' | 'build'>('list');
   return (
     <div className={'cable-list' + (open ? '' : ' closed')}>
-      <button className="cable-list-head" onClick={() => setOpen(!open)}>
-        <span>{open ? '▾' : '▸'} Kabelliste – {rack.name} ({rows.length})</span>
-        <span className="muted small">Gesamt: {formatLength(rows.reduce((s, r) => s + r.length, 0))}</span>
-      </button>
-      {open ? (
+      <div className="cable-list-head">
+        <button className="cable-list-title" onClick={() => setOpen(!open)}>{open ? '▾' : '▸'} Kabelliste – {rack.name} ({rows.length})</button>
+        <span className="row gap8">
+          {open ? (
+            <span className="seg small-seg">
+              <button className={mode === 'list' ? 'on' : ''} onClick={() => setMode('list')}>Liste</button>
+              <button className={mode === 'build' ? 'on' : ''} onClick={() => setMode('build')}>Konfektion</button>
+            </span>
+          ) : null}
+          <span className="muted small">Gesamt: {formatLength(rows.reduce((s, r) => s + r.length, 0))}</span>
+        </span>
+      </div>
+      {open && mode === 'build' ? (
+        <div className="cable-table-wrap assembly-wrap">
+          {rows.length === 0 ? <div className="hint pad">Noch keine Kabel.</div> : (() => {
+            const asm = cableAssemblies(project, [rack]);
+            return <AssemblySheet assemblies={asm} demand={plugDemand(asm)} />;
+          })()}
+        </div>
+      ) : null}
+      {open && mode === 'list' ? (
         <div className="cable-table-wrap">
           {rows.length === 0 ? (
             <div className="hint pad">Noch keine Kabel. Klicke auf einen Anschluss im Rack und dann auf den Zielanschluss.</div>

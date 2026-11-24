@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { DeviceTemplate, Face, Rack } from '../model/types';
 import { useStore } from '../model/store';
-import { checkPlacement, faceWidth, panelHeight, portPosition, portViewPos, U } from '../model/geometry';
+import { checkPlacement, faceWidth, panelHeight, portViewPos, resolveEnd, U } from '../model/geometry';
 import { RackSvg, type Ghost } from '../render/RackSvg';
 import { toSvg } from '../render/cablePaths';
 
@@ -84,6 +84,7 @@ export function RackCanvas({ rack, view }: Props) {
     if (!tpl || readOnly) return;
     e.preventDefault();
     e.dataTransfer.dropEffect = 'copy';
+    if (tpl.box) return; // boxes go below the rack, no placement ghost
     const p = toSvgPt(e.clientX, e.clientY);
     const w = fw / tpl.slots;
     const t = computeTarget(tpl, view, p.x - w / 2, p.y - (tpl.heightU * U) / 2);
@@ -94,6 +95,7 @@ export function RackCanvas({ rack, view }: Props) {
     setGhost(null);
     if (!tpl || readOnly) return;
     e.preventDefault();
+    if (tpl.box) { st().setActiveRack(rack.id); st().addBox(rack.id, tpl); libraryDrag.tpl = null; return; }
     const p = toSvgPt(e.clientX, e.clientY);
     const w = fw / tpl.slots;
     const t = computeTarget(tpl, view, p.x - w / 2, p.y - (tpl.heightU * U) / 2);
@@ -113,6 +115,7 @@ export function RackCanvas({ rack, view }: Props) {
       ?? (readOnly ? null : document.elementsFromPoint(e.clientX, e.clientY).map((el) => el.closest('[data-port]')).find(Boolean) ?? null);
     const cableEl = target.closest('[data-cable]');
     const devEl = target.closest('[data-device]');
+    const boxEl = target.closest('[data-box]');
 
     if (portEl && !readOnly) {
       const [deviceId, portId] = portEl.getAttribute('data-port')!.split(':');
@@ -131,6 +134,11 @@ export function RackCanvas({ rack, view }: Props) {
     }
     if (cableEl) {
       s.select({ kind: 'cable', id: cableEl.getAttribute('data-cable')! });
+      s.setPendingPort(null);
+      return;
+    }
+    if (boxEl) {
+      s.select({ kind: 'box', id: boxEl.getAttribute('data-box')! });
       s.setPendingPort(null);
       return;
     }
@@ -182,16 +190,11 @@ export function RackCanvas({ rack, view }: Props) {
   // rubber band from pending port to mouse
   let rubberBand = null;
   if (pendingPort && pendingPort.rackId === rack.id && mouse) {
-    const d = rack.devices.find((x) => x.id === pendingPort.deviceId);
-    const tpl = d && project.templates[d.templateId];
-    const port = tpl?.ports.find((x) => x.id === pendingPort.portId);
-    if (d && tpl && port) {
-      const pos = portPosition(rack, d, tpl, port);
-      if (pos.facing === view) {
-        const vp = portViewPos(rack, pos, view);
-        const sp = toSvg(rack, vp.x, vp.y);
-        rubberBand = { x1: sp.x, y1: sp.y, x2: mouse.x, y2: mouse.y };
-      }
+    const end = resolveEnd(project, rack, pendingPort);
+    if (end && (end.box || end.pos.facing === view)) {
+      const vp = end.box ? end.pos : portViewPos(rack, end.pos, view);
+      const sp = toSvg(rack, vp.x, vp.y);
+      rubberBand = { x1: sp.x, y1: sp.y, x2: mouse.x, y2: mouse.y };
     }
   }
 

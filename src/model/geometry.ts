@@ -1,4 +1,4 @@
-import type { Cable, CableType, DeviceTemplate, Face, PlacedDevice, Port, Project, ProjectSettings, Rack, RackType } from './types';
+import type { Cable, CableType, DeviceTemplate, Face, PlacedBox, PlacedDevice, Port, Project, ProjectSettings, Rack, RackType } from './types';
 
 /** One rack unit (Höheneinheit) in mm. */
 export const U = 44.45;
@@ -80,11 +80,51 @@ export interface ResolvedEnd {
   tpl: DeviceTemplate;
   port: Port;
   pos: PortPos;
+  /** set when the end is a split/combi box below the rack (pos.x is then a view x, the same in both views) */
+  box?: PlacedBox;
+}
+
+// ---------------------------------------------------------------- boxes below the rack
+
+/** height of the drawn case frame below U1 */
+export const frameBottom = (kind: RackType['kind']) => (kind === 'cabinet' ? 70 : kind === 'open' ? 22 : 34);
+const BOX_TOP = 44, BOX_ROW_GAP = 30, BOX_GAP_X = 24;
+
+export interface BoxSlot { box: PlacedBox; tpl: DeviceTemplate; x: number; yTop: number; w: number; h: number }
+
+/** Boxes are drawn in rows below the rack: x in view space (identical in front and rear view), yTop in rack space (mm above U1, negative). */
+export function boxLayout(project: Project, rack: Rack): BoxSlot[] {
+  const fw = faceWidth(rack.type.rackStandard);
+  const out: BoxSlot[] = [];
+  let x = 0, yTop = -(frameBottom(rack.type.kind) + BOX_TOP), rowH = 0;
+  for (const box of rack.boxes ?? []) {
+    const tpl = project.templates[box.templateId];
+    if (!tpl?.box) continue;
+    const { w, h } = tpl.box;
+    if (x > 0 && x + w > fw) { x = 0; yTop -= rowH + BOX_ROW_GAP; rowH = 0; }
+    out.push({ box, tpl, x, yTop, w, h });
+    x += w + BOX_GAP_X;
+    rowH = Math.max(rowH, h);
+  }
+  return out;
+}
+
+/** extra drawing height below the rack frame needed for the boxes (0 without boxes) */
+export function boxAreaHeight(project: Project, rack: Rack): number {
+  const slots = boxLayout(project, rack);
+  if (!slots.length) return 0;
+  return Math.max(...slots.map((s) => -s.yTop + s.h)) - frameBottom(rack.type.kind) + 16;
 }
 
 export function resolveEnd(project: Project, rack: Rack, end: { deviceId: string; portId: string }): ResolvedEnd | null {
   const device = rack.devices.find((d) => d.id === end.deviceId);
-  if (!device) return null;
+  if (!device) {
+    const slot = rack.boxes?.some((b) => b.id === end.deviceId) ? boxLayout(project, rack).find((s) => s.box.id === end.deviceId) : undefined;
+    const port = slot?.tpl.ports.find((p) => p.id === end.portId);
+    if (!slot || !port) return null;
+    const pseudo: PlacedDevice = { id: slot.box.id, templateId: slot.tpl.id, u: 0, mount: 'front', slot: 0, label: slot.box.label };
+    return { device: pseudo, tpl: slot.tpl, port, pos: { x: slot.x + port.x, y: slot.yTop - port.y, z: 0, facing: 'front' }, box: slot.box };
+  }
   const tpl = project.templates[device.templateId];
   if (!tpl) return null;
   const port = tpl.ports.find((p) => p.id === end.portId);
@@ -129,7 +169,14 @@ export function cableLength(project: Project, rack: Rack, cable: Cable): CableLe
   if (!a || !b) return null;
   const s = project.settings;
   const ct = project.cableTypes.find((t) => t.id === cable.typeId);
-  const route = routeLength(rack, a.pos, b.pos, s);
+  let route: number;
+  if (a.box && b.box) route = Math.abs(a.box.distance - b.box.distance) * 1000 + 1000;
+  else if (a.box || b.box) {
+    // in the rack: down to the floor and out at the nearer side, then the distance to the box
+    const r = a.box ? b : a, box = (a.box ?? b.box)!;
+    const fw = faceWidth(rack.type.rackStandard);
+    route = r.pos.y + Math.min(r.pos.x, fw - r.pos.x) + s.exitLength + box.distance * 1000;
+  } else route = routeLength(rack, a.pos, b.pos, s);
   const exact = (route * (1 + s.slackPercent / 100) + s.serviceLoop) / 1000;
   const auto = roundLength(exact, ct, s);
   const length = cable.lengthMode === 'manual' && cable.manualLength ? cable.manualLength : auto;

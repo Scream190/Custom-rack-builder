@@ -28,7 +28,7 @@ export function LibraryPanel() {
     return [...map.entries()].sort(([a], [b]) => (a.startsWith(CUSTOM) ? -1 : b.startsWith(CUSTOM) ? 1 : a.localeCompare(b)));
   }, [templates, q]);
 
-  const add = (t: DeviceTemplate) => useStore.getState().addDeviceAuto(rack.id, t, view === 'rear' ? 'rear' : 'front');
+  const add = (t: DeviceTemplate) => (t.box ? useStore.getState().addBox(rack.id, t) : useStore.getState().addDeviceAuto(rack.id, t, view === 'rear' ? 'rear' : 'front'));
 
   return (
     <aside className="panel library">
@@ -37,6 +37,7 @@ export function LibraryPanel() {
         <div className="row gap4">
           <button className="btn sm" title="Neues Gerät anlegen" onClick={() => useStore.getState().openModal({ kind: 'device' })}>+ Gerät</button>
           <button className="btn sm" title="Neue Rackblende entwerfen" onClick={() => useStore.getState().openModal({ kind: 'panel' })}>+ Blende</button>
+          <button className="btn sm" title="Neue Split- oder Kombidose anlegen" onClick={() => useStore.getState().openModal({ kind: 'box' })}>+ Dose</button>
         </div>
       </div>
       <input className="search" placeholder="Suchen (z. B. Shure, BNC, Splitter) …" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -79,13 +80,13 @@ export function LibraryPanel() {
                   <div className="lib-text">
                     <div className="lib-name">{t.name}</div>
                     <div className="muted small">
-                      {[t.manufacturer, `${t.heightU} HE`, t.slots > 1 ? `1/${t.slots} Breite` : '', t.rackStandard === 10 ? '10"' : '', `${t.depth} mm`].filter(Boolean).join(', ')}
+                      {t.box ? `${t.box.kind === 'split' ? 'Splitdose' : 'Kombidose'}, ${t.ports.length} Anschlüsse` : [t.manufacturer, `${t.heightU} HE`, t.slots > 1 ? `1/${t.slots} Breite` : '', t.rackStandard === 10 ? '10"' : '', `${t.depth} mm`].filter(Boolean).join(', ')}
                     </div>
                   </div>
                   <button
                     className="icon-btn"
-                    title={t.panel ? 'Blende bearbeiten' : t.custom ? 'Bearbeiten' : 'Als eigene Vorlage kopieren & bearbeiten'}
-                    onClick={() => useStore.getState().openModal(t.panel ? { kind: 'panel', templateId: t.id } : { kind: 'device', templateId: t.id })}
+                    title={t.panel ? 'Blende bearbeiten' : t.custom ? 'Bearbeiten' : 'Als eigene Vorlage kopieren und bearbeiten'}
+                    onClick={() => useStore.getState().openModal(t.box ? { kind: 'box', templateId: t.id } : t.panel ? { kind: 'panel', templateId: t.id } : { kind: 'device', templateId: t.id })}
                   >✎</button>
                 </div>
               ))}

@@ -24,7 +24,7 @@ export function cableColor(project: Project, cable: Cable): string {
 }
 
 export function cableNumberText(c: Cable) {
-  return 'W' + String(c.number).padStart(3, '0');
+  return 'W' + String(c.number).padStart(3, '0') + (c.yGroup && c.yLeg ? String.fromCharCode(96 + c.yLeg) : '');
 }
 
 export function cableLabelText(project: Project, c: Cable, length: number): string {
@@ -73,8 +73,9 @@ function collect(project: Project, rack: Rack, view: Face): Item[] {
     const a = resolveEnd(project, rack, cable.a);
     const b = resolveEnd(project, rack, cable.b);
     if (!a || !b) continue;
-    const onA = a.pos.facing === view;
-    const onB = b.pos.facing === view;
+    // boxes below the rack are visible in both views
+    const onA = !!a.box || a.pos.facing === view;
+    const onB = !!b.box || b.pos.facing === view;
     if (!onA && !onB) continue;
     const length = cableLength(project, rack, cable)?.length ?? 0;
     items.push({
@@ -100,7 +101,7 @@ function orthogonalDrawings(project: Project, rack: Rack, view: Face, sideGap: n
   const H = rack.type.heightU * U;
   const vx = (x: number) => (view === 'front' ? x : fw - x);
   const items = collect(project, rack, view);
-  const pt = (e: ResolvedEnd) => toSvg(rack, vx(e.pos.x), e.pos.y);
+  const pt = (e: ResolvedEnd) => toSvg(rack, e.box ? e.pos.x : vx(e.pos.x), e.pos.y);
   const rad = (e: ResolvedEnd) => { const d = connectorDef(e.port.connector); return Math.max(d.w, d.h) / 2; };
 
   // 1) stubs: each end leaves its connector towards the other end (up when the target is higher, else down),
@@ -124,7 +125,9 @@ function orthogonalDrawings(project: Project, rack: Rack, view: Face, sideGap: n
     const base = up
       ? Math.min(...list.map((e) => pt(e.end).y - rad(e.end))) - 2.4
       : Math.max(...list.map((e) => pt(e.end).y + rad(e.end))) + 2.4;
-    list.forEach((e, i) => stubY.set(`${e.item.cable.id}:${e.key}`, up ? Math.max(-30, base - i * LANE) : Math.min(H + 30, base + i * LANE)));
+    // rack ports stay within the frame, boxes below the rack have no such limit
+    const box = !!list[0].end.box;
+    list.forEach((e, i) => stubY.set(`${e.item.cable.id}:${e.key}`, up ? (box ? base - i * LANE : Math.max(-30, base - i * LANE)) : box ? base + i * LANE : Math.min(H + 30, base + i * LANE)));
   }
 
   // 2) vertical lanes, longest runs first; keep clear of runs already placed that overlap in height
@@ -193,8 +196,8 @@ function organicDrawings(project: Project, rack: Rack, view: Face, sideGap: numb
     const { cable, a, b, type, color, labelText, length, onA, onB } = it;
     const vx = (x: number) => (view === 'front' ? x : fw - x);
     if (onA && onB) {
-      const p0 = toSvg(rack, vx(a.pos.x), a.pos.y);
-      const p3 = toSvg(rack, vx(b.pos.x), b.pos.y);
+      const p0 = toSvg(rack, a.box ? a.pos.x : vx(a.pos.x), a.pos.y);
+      const p3 = toSvg(rack, b.box ? b.pos.x : vx(b.pos.x), b.pos.y);
       const dist = Math.hypot(p3.x - p0.x, p3.y - p0.y);
       let d: string;
       let label: Pt;

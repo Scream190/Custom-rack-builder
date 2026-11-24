@@ -12,6 +12,7 @@ import { Splitter } from './Splitter';
 import { DEFAULT_LAYOUT, setLayout, useLayout } from '../model/layout';
 import { DeviceEditor } from './DeviceEditor';
 import { PanelDesigner } from './PanelDesigner';
+import { BoxEditor } from './BoxEditor';
 import { CableTypeEditor, ExportDialog, RackTypeEditor, SettingsDialog } from './Dialogs';
 import { Rack3D } from '../three/Rack3D';
 import { sampleProject } from '../library/sample';
@@ -108,6 +109,7 @@ export function App() {
               <summary className="btn">Bibliotheken ▾</summary>
               <div className="menu-pop" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}>
                 <button onClick={() => st().openModal({ kind: 'device' })}>Neues Gerät …</button>
+                <button onClick={() => st().openModal({ kind: 'box' })}>Split- oder Kombidose …</button>
                 <button onClick={() => st().openModal({ kind: 'panel' })}>Blenden-Designer …</button>
                 <button onClick={() => st().openModal({ kind: 'rackTypes' })}>Rack-Typen …</button>
                 <button onClick={() => st().openModal({ kind: 'cableTypes' })}>Kabeltypen & Farben …</button>
@@ -198,6 +200,7 @@ export function App() {
 
       {modal?.kind === 'device' ? <DeviceEditor key={modal.templateId ?? 'new'} templateId={modal.templateId} /> : null}
       {modal?.kind === 'panel' ? <PanelDesigner key={modal.templateId ?? 'new'} templateId={modal.templateId} /> : null}
+      {modal?.kind === 'box' ? <BoxEditor key={modal.templateId ?? 'new'} templateId={modal.templateId} /> : null}
       {modal?.kind === 'rackTypes' ? <RackTypeEditor /> : null}
       {modal?.kind === 'cableTypes' ? <CableTypeEditor /> : null}
       {modal?.kind === 'settings' ? <SettingsDialog /> : null}

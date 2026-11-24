@@ -14,6 +14,7 @@ import type { Face } from '../model/types';
  */
 export function Viewport2D({ views }: { views: Face[] }) {
   const rack = useActiveRack();
+  const project = useStore((s) => s.project);
   useStore((s) => s.zoom); // re-render on zoom (RackCanvas scales itself)
   const pan = useStore((s) => s.pan);
   const navMode = useStore((s) => s.navMode);
@@ -26,7 +27,7 @@ export function Viewport2D({ views }: { views: Face[] }) {
 
   const gap = 24;
   const contentSize = (z: number) => {
-    const L = rackLayout(rack);
+    const L = rackLayout(rack, project);
     const s = BASE_PX_PER_MM * z;
     return { w: views.length * L.vb.w * s + (views.length - 1) * gap, h: L.vb.h * s };
   };

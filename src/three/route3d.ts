@@ -102,7 +102,7 @@ export function route3D(project: Project, rack: Rack, radiusOf: (typeId: string)
     Math.max(0, Math.min(nz - 1, Math.floor((z - Z0) / c))),
   ];
   const solid = new Uint8Array(N);   // devices, rails
-  const taken = new Uint8Array(N);   // reserved by routed cables
+  const taken = new Int32Array(N);   // reserved by routed cables: 0 free, group id + 1, or -1 for several groups
 
   const blockBox = (lo: number[], hi: number[], grow: number) => {
     const a = cell(lo[0] - grow, lo[1] - grow, lo[2] - grow), b = cell(hi[0] + grow, hi[1] + grow, hi[2] + grow);
@@ -150,7 +150,15 @@ export function route3D(project: Project, rack: Rack, radiusOf: (typeId: string)
   const jobs = rack.cables.map((cab) => {
     const a = resolveEnd(project, rack, cab.a), b = resolveEnd(project, rack, cab.b);
     return { cab, a, b, len: a && b ? Math.abs(a.pos.x - b.pos.x) + Math.abs(a.pos.y - b.pos.y) + Math.abs(a.pos.z - b.pos.z) : 0 };
-  }).filter((j) => j.a && j.b).sort((p, q) => p.len - q.len);
+  }).filter((j) => j.a && j.b && !j.a.box && !j.b.box).sort((p, q) => p.len - q.len);  // cables to boxes leave the rack: not routed here
+  // legs of a Y cable share one group: they start at the same connector and may touch each other
+  const firstOfGroup = new Map<string, number>();
+  const gid = jobs.map((j, ji) => {
+    const y = j.cab.yGroup;
+    if (!y) return ji;
+    if (!firstOfGroup.has(y)) firstOfGroup.set(y, ji);
+    return firstOfGroup.get(y)!;
+  });
 
   // exit zones in front of every used connector belong to that cable: nobody else may pass right in front of a port
   const owner = new Int32Array(N).fill(-1);       // -1 free, ≥0 job index, -2 shared by several cables
@@ -170,7 +178,7 @@ export function route3D(project: Project, rack: Rack, radiusOf: (typeId: string)
       for (let iz = lo[2]; iz <= hi[2]; iz++) for (let iy = lo[1]; iy <= hi[1]; iy++) for (let ix = lo[0]; ix <= hi[0]; ix++) {
         if (Math.hypot(cx(ix) - ax, cy(iy) - ay) > exitR + c * 0.5) continue;
         const v = idx(ix, iy, iz);
-        owner[v] = owner[v] === -1 || owner[v] === ji ? ji : -2;
+        owner[v] = owner[v] === -1 || owner[v] === gid[ji] ? gid[ji] : -2;
       }
     }
   });
@@ -202,8 +210,9 @@ export function route3D(project: Project, rack: Rack, radiusOf: (typeId: string)
         const v = idx(jx, jy, jz);
         if (solid[v] && v !== t) continue;
         const own = owner[v];
-        if (own >= 0 && own !== ji && v !== t) continue;          // another cable's connector exit
-        const cost = gu + 1 + (dirOf[u] >= 0 && dirOf[u] !== k ? TURN : 0) + (taken[v] ? CROSS : 0) + (own === -2 ? CROSS / 4 : 0);
+        if (own >= 0 && own !== gid[ji] && v !== t) continue;          // another cable's connector exit
+        const tk = taken[v];
+        const cost = gu + 1 + (dirOf[u] >= 0 && dirOf[u] !== k ? TURN : 0) + (tk && tk !== gid[ji] + 1 ? CROSS : 0) + (own === -2 ? CROSS / 4 : 0);
         if (stamp[v] === gen && cost >= g[v]) continue;
         stamp[v] = gen; g[v] = cost; from[v] = u; dirOf[v] = k;
         heap.push(cost + Math.abs(jx - tx) + Math.abs(jy - ty) + Math.abs(jz - tz), v);
@@ -217,7 +226,7 @@ export function route3D(project: Project, rack: Rack, radiusOf: (typeId: string)
     const pts: [number, number, number][] = [ends[0].port, ends[0].anchor];
     for (const u of cells) {
       const iz = Math.floor(u / (nx * ny)), rem = u - iz * nx * ny, iy = Math.floor(rem / nx), ix = rem - iy * nx;
-      if (taken[u]) blocked = true;
+      if (taken[u] && taken[u] !== gid[ji] + 1) blocked = true;
       pts.push([cx(ix), cy(iy), cz(iz)]);
     }
     pts.push(ends[1].anchor, ends[1].port);
@@ -231,7 +240,10 @@ export function route3D(project: Project, rack: Rack, radiusOf: (typeId: string)
       const iz = Math.floor(u / (nx * ny)), rem = u - iz * nx * ny, iy = Math.floor(rem / nx), ix = rem - iy * nx;
       for (const [dx, dy, dz] of off) {
         const jx = ix + dx, jy = iy + dy, jz = iz + dz;
-        if (jx >= 0 && jy >= 0 && jz >= 0 && jx < nx && jy < ny && jz < nz) taken[idx(jx, jy, jz)] = 1;
+        if (jx >= 0 && jy >= 0 && jz >= 0 && jx < nx && jy < ny && jz < nz) {
+          const v = idx(jx, jy, jz);
+          taken[v] = taken[v] === 0 || taken[v] === gid[ji] + 1 ? gid[ji] + 1 : -1;
+        }
       }
     }
     routes.push({ cableId: cab.id, color: cableColor(project, cab), radius: r, points: simplify(pts), blocked });

@@ -15,6 +15,7 @@ export function Inspector() {
     <aside className="panel inspector">
       {selection?.kind === 'device' ? <DeviceInspector key={selection.id} rack={rack} id={selection.id} project={project} />
         : selection?.kind === 'cable' ? <CableInspector key={selection.id} rack={rack} id={selection.id} project={project} />
+        : selection?.kind === 'box' ? <BoxInspector key={selection.id} rack={rack} id={selection.id} project={project} />
         : <RackInspector rack={rack} project={project} />}
     </aside>
   );
@@ -249,12 +250,82 @@ function CableInspector({ rack, id, project }: { rack: Rack; id: string; project
       <Field label="Beschriftung / Notiz">
         <input disabled={ro} value={c.label ?? ''} placeholder="z. B. Vox 1" onChange={(e) => st().updateCable(rack.id, id, { label: e.target.value || undefined })} />
       </Field>
+      <h4>Y-Kabel</h4>
+      {c.yGroup ? (
+        <div className="muted small">
+          Ast {String.fromCharCode(96 + (c.yLeg ?? 1))} von {rack.cables.filter((x) => x.yGroup === c.yGroup).length}. Alle Äste teilen den Stecker an Ende A
+          ({a ? `${a.device.label || a.tpl.name}, ${a.port.name}` : '?'}); die Länge gilt vom gemeinsamen Stecker bis zum Ende des Asts.
+        </div>
+      ) : <div className="muted small">Ein weiterer Ast macht aus diesem Kabel ein Y-Kabel mit gemeinsamem Stecker.</div>}
       {!ro ? (
-        <div className="row gap4">
-          <button className="btn sm" onClick={() => st().updateCable(rack.id, id, { a: c.b, b: c.a })}>A ↔ B tauschen</button>
-          <button className="btn sm danger" onClick={() => st().removeCable(rack.id, id)}>Kabel löschen</button>
+        <div className="row gap4 wrap">
+          {c.yGroup
+            ? <button className="btn sm" onClick={() => st().startYLeg(rack.id, id, 'a')}>Ast hinzufügen</button>
+            : <>
+                <button className="btn sm" onClick={() => st().startYLeg(rack.id, id, 'a')}>Ast an Ende A hinzufügen</button>
+                <button className="btn sm" onClick={() => st().startYLeg(rack.id, id, 'b')}>Ast an Ende B hinzufügen</button>
+              </>}
         </div>
       ) : null}
+      {!ro ? (
+        <div className="row gap4" style={{ marginTop: 8 }}>
+          {!c.yGroup ? <button className="btn sm" onClick={() => st().updateCable(rack.id, id, { a: c.b, b: c.a })}>A ↔ B tauschen</button> : null}
+          <button className="btn sm danger" onClick={() => st().removeCable(rack.id, id)}>{c.yGroup ? 'Ast löschen' : 'Kabel löschen'}</button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function BoxInspector({ rack, id, project }: { rack: Rack; id: string; project: Project }) {
+  const ro = useStore((s) => s.readOnly);
+  const st = useStore.getState;
+  const b = rack.boxes?.find((x) => x.id === id);
+  const tpl = b && project.templates[b.templateId];
+  if (!b || !tpl?.box) return null;
+  const portName = (pid: string) => tpl.ports.find((p) => p.id === pid)?.name ?? '?';
+  const cables = rack.cables.filter((c) => c.a.deviceId === id || c.b.deviceId === id);
+  return (
+    <div className="insp">
+      <h3>{tpl.box.kind === 'split' ? 'Splitdose' : 'Kombidose'}</h3>
+      <div className="muted">{tpl.name}</div>
+      <Field label="Bezeichnung">
+        <input disabled={ro} placeholder={tpl.name} value={b.label ?? ''} onChange={(e) => st().updateBox(rack.id, id, { label: e.target.value || undefined })} />
+      </Field>
+      <Field label="Entfernung zum Rack (m)">
+        <input disabled={ro} type="number" min={0} step={0.5} value={b.distance} onChange={(e) => st().updateBox(rack.id, id, { distance: Math.max(0, Number(e.target.value) || 0) })} />
+      </Field>
+      <div className="muted small">Die Entfernung fließt in die automatische Länge aller Kabel zu dieser Dose ein.</div>
+      <Field label="Notizen">
+        <textarea disabled={ro} rows={2} value={b.notes ?? ''} onChange={(e) => st().updateBox(rack.id, id, { notes: e.target.value || undefined })} />
+      </Field>
+      {!ro ? (
+        <div className="row gap4 wrap">
+          <button className="btn sm" onClick={() => st().openModal({ kind: 'box', templateId: tpl.id })}>Vorlage bearbeiten</button>
+          <button className="btn sm danger" onClick={() => st().removeBox(rack.id, id)}>Entfernen</button>
+        </div>
+      ) : null}
+      <h4>Innere Verdrahtung</h4>
+      <div className="stats">
+        {tpl.box.links.map((l) => (
+          <div key={l.multi}><span>{portName(l.multi)}</span><b>{l.singles.map(portName).join(', ') || '–'}</b></div>
+        ))}
+      </div>
+      <h4>Anschlüsse ({tpl.ports.length})</h4>
+      <div className="port-list">
+        {tpl.ports.map((p) => {
+          const c = cables.find((x) => (x.a.deviceId === id && x.a.portId === p.id) || (x.b.deviceId === id && x.b.portId === p.id));
+          const other = c ? resolveEnd(project, rack, c.a.deviceId === id && c.a.portId === p.id ? c.b : c.a) : null;
+          return (
+            <div key={p.id} className={'port-row' + (c ? ' linked' : '')} onClick={() => c && st().select({ kind: 'cable', id: c.id })}>
+              <span className="muted small"></span>
+              <span>{p.name}</span>
+              <span className="muted small">{connectorDef(p.connector).label}</span>
+              <span className="small">{other ? `an ${other.device.label || other.tpl.name}, ${other.port.name}` : ''}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

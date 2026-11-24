@@ -250,7 +250,7 @@ export function ExportDialog() {
           <div className="row gap8">
             <button className="btn" disabled={!!busy} onClick={() => run('png', async () => {
               for (const r of racks) {
-                const size = rackSvgSize(r, viewList.length);
+                const size = rackSvgSize(r, viewList.length, false, project);
                 const px = 4; // px per mm  ≈ 100 dpi
                 downloadBlob(await svgToPngBlob(rackSvgString(project, r, viewList, px), size.w * px, size.h * px), `${base}_${safeFileName(r.name)}.png`);
               }

@@ -38,6 +38,19 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   Der Kabeltyp wird automatisch nach Stecker gewählt oder über „Kabel:“ in der Toolbar festgelegt.
 - **Kabellängen automatisch** (orthogonaler Weg im Rack, Front↔Rück über die Seite, + Biegewege, + Zuschlag %,
   + Serviceschlaufe, aufgerundet auf Lagerlängen) **oder manuell**. Kabelnummern W001 … für Beschriftung.
+- **Kabelkonfektion:** Die Kabelliste hat neben „Liste“ die Ansicht „Konfektion“. Dort ist jede Kabelart gezeichnet:
+  benötigter Kabelstecker an beiden Enden (das Gegenstück zur Gerätebuchse, z. B. XLR-Kupplung an einem XLR-Ausgang),
+  Kabelfarbe, Länge, Stückzahl und Kabelnummern. Darunter steht der Steckerbedarf mit Stückzahlen. Beides kommt auch
+  als Seite „Kabelkonfektion“ ins PDF.
+- **Y-Kabel:** Im Kabel-Inspector „Ast an Ende A/B hinzufügen“ und dann den Zielanschluss anklicken. Alle Äste teilen den
+  gemeinsamen Stecker (Ende A), heißen W012a, W012b … und haben je eine eigene Länge ab dem gemeinsamen Stecker. Kabeltyp
+  und Farbe gelten für das ganze Y-Kabel; die 3D-Führung lässt die Äste am gemeinsamen Stecker zusammenlaufen.
+- **Split- und Kombidosen:** „+ Dose“ in der Bibliothek oder *Bibliotheken → Split- oder Kombidose …*. Eine Dose hat
+  Sammelanschlüsse (z. B. CEE 32 A, Harting, Socapex, D-Sub, Multipin) und Einzelanschlüsse; die innere Verdrahtung
+  ergibt sich aus der Zuordnung. Dosen stehen unter dem Rack (in Vorder- und Rückansicht), werden wie Geräte verkabelt
+  und haben eine Entfernung zum Rack, die in die automatische Kabellänge eingeht. Mitgeliefert sind Beispiel-Dosen
+  (Stromspinne CEE 32 A, Socapex-Peitsche, Motor-Splitbox, XLR-Peitsche D-Sub 25, passive Stagebox, Kombidose Licht).
+  Kabel zu Dosen werden in der 3D-Ansicht nicht gezeichnet.
 - **Geräte-Editor:** eigene Geräte mit Anschlüssen per Klick auf Front/Rückseite; Eigenschaftsfelder (Frequenz, Kanal, IP …).
 - **Marken-Geräte nach Herstellerzeichnungen:** Shure ULXD4, ULXD4D, ULXD4Q, AD4D, AD4Q, UA844+SWB, P10T (PSM1000), PA821B;
   Sennheiser EM 6000, EM 300-500 G4, ASA 214, SR 2050 IEM. Steckerpositionen wurden auf den Front-/Rückseiten-Zeichnungen

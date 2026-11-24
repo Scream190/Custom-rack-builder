@@ -76,6 +76,9 @@ function check(project: Project, rack: Rack, label: string) {
     }
     for (let j = i + 1; j < routes.length; j++) {
       const B = routes[j];
+      // legs of one Y cable start at the same connector
+      const ya = rack.cables.find((c) => c.id === A.cableId)?.yGroup;
+      if (ya && ya === rack.cables.find((c) => c.id === B.cableId)?.yGroup) continue;
       const need = A.radius + B.radius;
       let min = Infinity, where = '';
       for (let k = 0; k < A.points.length - 1; k++) for (let l = 0; l < B.points.length - 1; l++) {
@@ -119,6 +122,10 @@ check(p, p.racks[0], 'sample rack');
     cab(['pd', 'Out 1'], ['q1', 'Power In'], 'ct-iec'), cab(['pd', 'Out 2'], ['q2', 'Power In'], 'ct-iec'), cab(['pd', 'Out 3'], ['sw', 'Power'], 'ct-iec'),
     cab(['q1', 'C Cascade'], ['q2', 'Ant A'], 'ct-rg58'), cab(['q1', 'D Cascade'], ['q2', 'Ant B'], 'ct-rg58'),
   ];
+  // a Y cable: switch port 5 to both receivers' second control port
+  const y1 = cab(['sw', 'Port 5'], ['q1', 'Ctrl 2'], 'ct-cat'), y2 = cab(['sw', 'Port 5'], ['q2', 'Ctrl 2'], 'ct-cat');
+  Object.assign(y1, { yGroup: 'y1', yLeg: 1 }); Object.assign(y2, { yGroup: 'y1', yLeg: 2, number: y1.number });
+  rk.cables.push(y1, y2);
   check(q, rk, 'dense rack');
 }
 // performance: sample devices in a 42 U cabinet

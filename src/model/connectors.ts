@@ -119,3 +119,43 @@ export const SIGNAL_COLORS: Record<SignalType, string> = {
   data: '#94a3b8',
   other: '#9ca3af',
 };
+
+// ---------------------------------------------------------------- cable plugs
+
+/** connector key whose symbol shows the matching cable connector, and its name */
+const MATE: Record<string, [string, string]> = {
+  XLR3F: ['XLR3M', 'XLR 3-pol Stecker (male)'], XLR3M: ['XLR3F', 'XLR 3-pol Kupplung (female)'],
+  XLR5F: ['XLR5M', 'XLR 5-pol Stecker (male)'], XLR5M: ['XLR5F', 'XLR 5-pol Kupplung (female)'],
+  XLR4F: ['XLR4M', 'XLR 4-pol Stecker (male)'], XLR4M: ['XLR4F', 'XLR 4-pol Kupplung (female)'],
+  'AES-XLR': ['XLR3F', 'XLR 3-pol Kupplung (AES)'], COMBO: ['XLR3M', 'XLR-Stecker (male) oder Klinke'],
+  IEC_C14: ['IEC_C13', 'Kaltgerätebuchse C13'], IEC_C13: ['IEC_C14', 'Kaltgerätestecker C14'],
+  IEC_C20: ['IEC_C19', 'Kaltgerätebuchse C19 (16 A)'], IEC_C19: ['IEC_C20', 'Kaltgerätestecker C20 (16 A)'],
+  POWERCON_IN: ['POWERCON_IN', 'powerCON Kabelbuchse blau'], POWERCON_OUT: ['POWERCON_OUT', 'powerCON Kabelstecker grau'],
+  POWERCON32_IN: ['POWERCON32_IN', 'powerCON 32 A Kabelbuchse'],
+  TRUE1_IN: ['TRUE1_IN', 'powerCON TRUE1 Kabelbuchse'], TRUE1_OUT: ['TRUE1_OUT', 'powerCON TRUE1 Kabelstecker'],
+  ETHERCON: ['ETHERCON', 'etherCON Kabelstecker'], RJ45: ['RJ45', 'RJ45-Stecker'], SFP: ['SFP', 'SFP-Modul / LC-Duplex'],
+  OPTICALCON: ['OPTICALCON', 'opticalCON Kabelstecker'],
+  SPEAKON: ['SPEAKON', 'speakON NL4 Kabelstecker'], SPEAKON8: ['SPEAKON8', 'speakON NL8 Kabelstecker'], CACOM: ['CACOM', 'CA-COM Kabelstecker'],
+  JACK: ['JACK', 'Klinkenstecker 6,3 mm'], 'JACK-D': ['JACK', 'Klinkenstecker 6,3 mm'], MINIJACK: ['MINIJACK', 'Klinkenstecker 3,5 mm'],
+  TT: ['TT', 'Bantam/TT-Stecker'], RCA: ['RCA', 'Cinch-Stecker'], TOSLINK: ['TOSLINK', 'TOSLINK-Stecker'],
+  BNC: ['BNC', 'BNC-Stecker 50 Ω'], 'BNC-D': ['BNC', 'BNC-Stecker 50 Ω'], BNC75: ['BNC75', 'BNC-Stecker 75 Ω'], 'BNC-SDI': ['BNC-SDI', 'BNC-Stecker 75 Ω (SDI)'],
+  'MADI-BNC': ['MADI-BNC', 'BNC-Stecker 75 Ω (MADI)'], TNC: ['TNC', 'TNC-Stecker'], N: ['N', 'N-Stecker'], 'N-D': ['N', 'N-Stecker'], SMA: ['SMA', 'SMA-Stecker'],
+  USB: ['USB', 'USB-Stecker'], 'USB-D': ['USB', 'USB-Stecker'], 'USB-C': ['USB-C', 'USB-C-Stecker'], HDMI: ['HDMI', 'HDMI-Stecker'], 'HDMI-D': ['HDMI', 'HDMI-Stecker'],
+  DSUB9: ['DSUB9', 'D-Sub 9 Stecker'], DSUB25: ['DSUB25', 'D-Sub 25 Stecker (analog)'], 'DSUB25-AES': ['DSUB25-AES', 'D-Sub 25 Stecker (AES)'],
+  DIN5: ['DIN5', 'MIDI-Stecker (DIN 5-pol)'], DC: ['DC', 'DC-Hohlstecker'],
+  PHOENIX3: ['PHOENIX3', 'Phoenix-Stecker (Audio)'], 'PHOENIX-SPK': ['PHOENIX-SPK', 'Phoenix-Stecker (Lautsprecher)'],
+  HARTING16: ['HARTING16', 'Harting 16-pol Kabelstecker'], SOCAPEX19: ['SOCAPEX19', 'Socapex 19-pol Kabelstecker'],
+};
+const POWER_PLUG: Record<string, string> = {
+  SCHUKO: 'Schuko', CEE16: 'CEE 16 A blau', CEE16_3P: 'CEE 16 A rot 5-pol', CEE32_3P: 'CEE 32 A rot 5-pol', CEE63_3P: 'CEE 63 A rot 5-pol', CEE16_4P: 'CEE 16 A rot 4-pol',
+};
+
+/** The connector a cable needs to plug into this port (male plug into a female socket and vice versa). */
+export function cablePlug(port: { connector: string; dir?: string }): { key: string; label: string } {
+  const m = MATE[port.connector];
+  if (m) return { key: m[0], label: m[1] };
+  const p = POWER_PLUG[port.connector];
+  // sockets on distributors (out) take a plug, inlets on devices (in) a coupler
+  if (p) return { key: port.connector, label: `${p} ${port.dir === 'in' ? 'Kupplung' : 'Stecker'}` };
+  return { key: port.connector, label: `${connectorDef(port.connector).label} (Kabelseite)` };
+}

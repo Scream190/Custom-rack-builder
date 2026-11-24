@@ -1,8 +1,9 @@
 import type { Face, Project, Rack } from '../model/types';
-import { deviceTopY, deviceViewX, faceWidth, holeSpacing, PANEL_GAP, railOpening, U } from '../model/geometry';
+import { boxAreaHeight, boxLayout, deviceTopY, deviceViewX, faceWidth, frameBottom, holeSpacing, PANEL_GAP, railOpening, U } from '../model/geometry';
+import { BoxFace } from './BoxFace';
 import { connectorDef } from '../model/connectors';
 import { DeviceFace, shade, type PortState } from './DeviceFace';
-import { computeCableDrawings } from './cablePaths';
+import { cableNumberText, computeCableDrawings } from './cablePaths';
 
 export interface Ghost {
   x: number;
@@ -34,20 +35,21 @@ export interface RackSvgProps {
   y?: number;
 }
 
-export function rackLayout(rack: Rack) {
+export function rackLayout(rack: Rack, project?: Project) {
   const fw = faceWidth(rack.type.rackStandard);
   const H = rack.type.heightU * U;
   const kind = rack.type.kind;
   const wall = Math.max(18, Math.min(70, (rack.type.outer.w - fw) / 2));
   const topFrame = kind === 'cabinet' ? 60 : kind === 'open' ? 22 : 34;
-  const bottomFrame = kind === 'cabinet' ? 70 : kind === 'open' ? 22 : 34;
+  const bottomFrame = frameBottom(kind);
+  const boxH = project ? boxAreaHeight(project, rack) : 0;
   const margin = 135;
   const titleH = 24;
   const vb = {
     x: -(wall + margin),
     y: -(topFrame + titleH),
     w: fw + 2 * (wall + margin),
-    h: H + topFrame + bottomFrame + titleH + 12,
+    h: H + topFrame + bottomFrame + titleH + 12 + boxH,
   };
   return { fw, H, wall, topFrame, bottomFrame, margin, vb, sideGap: wall + 10 };
 }
@@ -62,8 +64,9 @@ function textColorFor(bg: string) {
 
 export function RackSvg(props: RackSvgProps) {
   const { project, rack, view, scale, selectedDeviceId, selectedCableId, hoverCableId, pendingPort, ghost, rubberBand, title = true, forExport, x: posX, y: posY } = props;
-  const L = rackLayout(rack);
+  const L = rackLayout(rack, project);
   const { fw, H, wall, topFrame, bottomFrame, vb } = L;
+  const boxes = boxLayout(project, rack);
   const rt = rack.type;
   const s = project.settings;
 
@@ -184,6 +187,22 @@ export function RackSvg(props: RackSvgProps) {
         );
       })}
 
+      {/* split/combi boxes below the rack (same position in both views) */}
+      {boxes.length ? (
+        <g>
+          <text x={-wall} y={H + bottomFrame + 22} fontSize={4.4} fontWeight={700} fill={forExport ? '#333' : 'currentColor'} opacity={0.8}>Dosen</text>
+          {boxes.map((b) => {
+            const states: Record<string, PortState> = {};
+            for (const p of b.tpl.ports) states[p.id] = portState(b.box.id, p.id, p.connector);
+            return (
+              <g key={b.box.id} transform={`translate(${b.x},${H - b.yTop})`} data-box={b.box.id} style={{ cursor: forExport ? undefined : 'pointer', color: forExport ? '#222' : undefined }}>
+                <BoxFace tpl={b.tpl} box={b.box} portStates={states} selected={b.box.id === selectedDeviceId} showPortLabels={s.showPortLabels} plain={forExport} />
+              </g>
+            );
+          })}
+        </g>
+      ) : null}
+
       {ghost ? (
         <g pointerEvents="none">
           <rect x={ghost.x} y={ghost.yTop} width={ghost.w} height={ghost.h} fill={ghost.ok ? '#22d3ee' : '#ef4444'} fillOpacity={0.25} stroke={ghost.ok ? '#22d3ee' : '#ef4444'} strokeWidth={1.2} strokeDasharray="4 2" />
@@ -199,7 +218,7 @@ export function RackSvg(props: RackSvgProps) {
           const width = (c.type?.width ?? 2) * (focused ? 1.5 : 1);
           return (
             <g key={c.cable.id} opacity={dimmed ? 0.22 : 1} data-cable={c.cable.id} style={{ cursor: forExport ? undefined : 'pointer' }}>
-              <title>{`${'W' + String(c.cable.number).padStart(3, '0')}, ${c.type?.name ?? ''}, ${c.labelText}\n${c.a.device.label || c.a.tpl.name} ${c.a.port.name} ↔ ${c.b.device.label || c.b.tpl.name} ${c.b.port.name}`}</title>
+              <title>{`${cableNumberText(c.cable)}, ${c.type?.name ?? ''}, ${c.labelText}\n${c.a.device.label || c.a.tpl.name} ${c.a.port.name} ↔ ${c.b.device.label || c.b.tpl.name} ${c.b.port.name}`}</title>
               <path d={c.d} fill="none" stroke="#000" strokeOpacity={0.55} strokeWidth={width + 1.2} strokeLinecap="round" strokeLinejoin="miter" />
               <path d={c.d} fill="none" stroke={c.color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="miter" strokeDasharray={c.type?.dash} />
               {focused ? <path d={c.d} fill="none" stroke="#fff" strokeOpacity={0.5} strokeWidth={0.6} strokeLinecap="round" /> : null}
@@ -244,7 +263,7 @@ export function RackSvg(props: RackSvgProps) {
       ) : null}
 
       {/* footer: rack info */}
-      <text x={-wall} y={H + bottomFrame + 9} fontSize={4.2} fill={forExport ? '#555' : 'currentColor'} opacity={0.7}>
+      <text x={-wall} y={H + bottomFrame + 9 + (boxes.length ? 0 : 0)} fontSize={4.2} fill={forExport ? '#555' : 'currentColor'} opacity={0.7}>
         {`${rt.name}, ${rt.heightU} HE, Einbautiefe ${rt.depth} mm`}
       </text>
     </svg>

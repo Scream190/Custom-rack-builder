@@ -12,9 +12,10 @@ for (const t of BUILTIN_DEVICES) {
   if (ids.has(t.id)) errors.push(`${t.id}: duplicate id`);
   ids.add(t.id);
   const names = new Set<string>();
-  const W = (t.rackStandard === 10 ? 254 : 482.6) / t.slots;
-  const H = t.heightU * U - 0.8;
-  const kit = !!t.bodyWidth && t.bodyWidth < W - 1;
+  // boxes: ports must lie inside the drawn box
+  const W = t.box ? t.box.w : (t.rackStandard === 10 ? 254 : 482.6) / t.slots;
+  const H = t.box ? t.box.h : t.heightU * U - 0.8;
+  const kit = !t.box && !!t.bodyWidth && t.bodyWidth < W - 1;
   const bx0 = kit ? (W - t.bodyWidth!) / 2 : 0, bx1 = kit ? bx0 + t.bodyWidth! : W;
   const rects: Record<string, [number, number, number, number, string][]> = { front: [], rear: [] };
   for (const p of t.ports) {
@@ -23,7 +24,7 @@ for (const t of BUILTIN_DEVICES) {
     const d = connectorDef(p.connector);
     if (d.key === 'GENERIC' && p.connector !== 'GENERIC') errors.push(`${t.id}: unknown connector ${p.connector}`);
     const hw = d.w / 2, hh = (FLANGED.has(d.shape) ? d.h + 4 : d.h) / 2;
-    const lo = kit ? bx0 : t.slots === 1 ? (p.side === 'front' ? 0 : 16) : 0, hi = kit ? bx1 : t.slots === 1 ? (p.side === 'front' ? W : W - 16) : W;
+    const lo = t.box ? 0 : kit ? bx0 : t.slots === 1 ? (p.side === 'front' ? 0 : 16) : 0, hi = t.box ? W : kit ? bx1 : t.slots === 1 ? (p.side === 'front' ? W : W - 16) : W;
     if (p.x - hw < lo - 0.5 || p.x + hw > hi + 0.5 || p.y - hh < -0.5 || p.y + hh > H + 0.5) errors.push(`${t.id}: ${p.side} "${p.name}" outside the panel (${p.x}, ${p.y})`);
     // flanges may touch, the connectors themselves must not overlap
     const ow = Math.min(hw, d.w / 2), oh = Math.min(hh, d.h / 2);

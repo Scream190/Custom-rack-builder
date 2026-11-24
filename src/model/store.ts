@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Cable, CableEnd, CableType, DeviceTemplate, Face, PlacedDevice, Project, ProjectSettings, Rack, RackType } from './types';
+import type { Cable, CableEnd, CableType, DeviceTemplate, Face, PlacedBox, PlacedDevice, Project, ProjectSettings, Rack, RackType } from './types';
 import { deepClone, uid } from './util';
 import { connectorDef } from './connectors';
 import { DEFAULT_CABLE_TYPES } from '../library/cableTypes';
@@ -16,6 +16,7 @@ export const ZOOM_MAX = 8;
 export type Selection =
   | { kind: 'device'; id: string }
   | { kind: 'cable'; id: string }
+  | { kind: 'box'; id: string }
   | null;
 
 export type Modal =
@@ -24,6 +25,7 @@ export type Modal =
   | { kind: 'rackTypes' }
   | { kind: 'cableTypes' }
   | { kind: 'panel'; templateId?: string }
+  | { kind: 'box'; templateId?: string }
   | { kind: 'settings' }
   | { kind: 'export' }
   | { kind: 'rfImport'; data: RfImport };
@@ -129,6 +131,16 @@ export function suggestCableType(project: Project, connA: string, connB: string)
   return types.find((t) => t.signal === sig) ?? types[types.length - 1];
 }
 
+/** a Y cable with a single remaining leg becomes a normal cable again; legs are renumbered a, b, c … */
+function tidyYGroups(r: Rack) {
+  const groups = new Map<string, Cable[]>();
+  for (const c of r.cables) if (c.yGroup) { if (!groups.has(c.yGroup)) groups.set(c.yGroup, []); groups.get(c.yGroup)!.push(c); }
+  for (const legs of groups.values()) {
+    if (legs.length === 1) { delete legs[0].yGroup; delete legs[0].yLeg; continue; }
+    legs.sort((x, y) => (x.yLeg ?? 0) - (y.yLeg ?? 0)).forEach((c, i) => { c.yLeg = i + 1; });
+  }
+}
+
 function nextCableNumber(project: Project): number {
   let max = 0;
   for (const r of project.racks) for (const c of r.cables) max = Math.max(max, c.number || 0);
@@ -148,6 +160,8 @@ interface State {
   selection: Selection;
   hoverCableId: string | null;
   pendingPort: (CableEnd & { rackId: string }) | null;
+  /** set while adding a leg to a Y cable: the next connect() from the common end adds a leg */
+  pendingY: { cableId: string; end: 'a' | 'b' } | null;
   /** 'auto' picks a cable type matching the connectors */
   activeCableTypeId: string;
   zoom: number;
@@ -199,11 +213,18 @@ interface State {
   removeDevice(rackId: string, deviceId: string): void;
   duplicateDevice(rackId: string, deviceId: string): void;
 
+  // split / combi boxes below the rack
+  addBox(rackId: string, tpl: DeviceTemplate): void;
+  updateBox(rackId: string, boxId: string, patch: Partial<PlacedBox>): void;
+  removeBox(rackId: string, boxId: string): void;
+
   // cables
   connect(rackId: string, a: CableEnd, b: CableEnd): void;
   updateCable(rackId: string, cableId: string, patch: Partial<Cable>): void;
   removeCable(rackId: string, cableId: string): void;
   renumberCables(): void;
+  /** start adding a leg to a Y cable from end `end` of the given cable (the user then clicks the target port) */
+  startYLeg(rackId: string, cableId: string, end: 'a' | 'b'): void;
 
   // libraries
   upsertTemplate(t: DeviceTemplate): void;
@@ -242,6 +263,7 @@ export const useStore = create<State>((set, get) => {
     selection: null,
     hoverCableId: null,
     pendingPort: null,
+    pendingY: null,
     activeCableTypeId: 'auto',
     zoom: 1,
     pan: { x: 0, y: 0 },
@@ -298,7 +320,7 @@ export const useStore = create<State>((set, get) => {
     setActiveRack: (activeRackId) => set({ activeRackId, selection: null, pendingPort: null }),
     select: (selection) => set({ selection }),
     setHoverCable: (hoverCableId) => set({ hoverCableId }),
-    setPendingPort: (pendingPort) => set({ pendingPort }),
+    setPendingPort: (pendingPort) => set(pendingPort ? { pendingPort } : { pendingPort, pendingY: null }),
     setActiveCableType: (activeCableTypeId) => set({ activeCableTypeId }),
     setZoom: (zoom) => set({ zoom: Math.max(ZOOM_MIN, Math.min(ZOOM_MAX, zoom)) }),
     setPan: (pan) => set({ pan }),
@@ -329,10 +351,15 @@ export const useStore = create<State>((set, get) => {
         copy.name = r.name + ' (Kopie)';
         const idMap = new Map<string, string>();
         for (const d of copy.devices) { const nid = uid('dev-'); idMap.set(d.id, nid); d.id = nid; }
+        for (const b of copy.boxes ?? []) { const nid = uid('box-'); idMap.set(b.id, nid); b.id = nid; }
         let num = nextCableNumber(p);
+        const numMap = new Map<number, number>(), groupMap = new Map<string, string>();
         for (const c of copy.cables) {
           c.id = uid('cab-');
-          c.number = num++;
+          // legs of a Y cable keep one shared number and group
+          if (!numMap.has(c.number)) numMap.set(c.number, num++);
+          c.number = numMap.get(c.number)!;
+          if (c.yGroup) { if (!groupMap.has(c.yGroup)) groupMap.set(c.yGroup, uid('y-')); c.yGroup = groupMap.get(c.yGroup); }
           c.a.deviceId = idMap.get(c.a.deviceId) ?? c.a.deviceId;
           c.b.deviceId = idMap.get(c.b.deviceId) ?? c.b.deviceId;
         }
@@ -407,6 +434,7 @@ export const useStore = create<State>((set, get) => {
         if (!r) return;
         r.devices = r.devices.filter((d) => d.id !== deviceId);
         r.cables = r.cables.filter((c) => c.a.deviceId !== deviceId && c.b.deviceId !== deviceId);
+        tidyYGroups(r);
       });
       set({ selection: null });
     },
@@ -430,11 +458,35 @@ export const useStore = create<State>((set, get) => {
       const rack = findRack(project, rackId);
       if (!rack) return;
       if (a.deviceId === b.deviceId && a.portId === b.portId) return;
-      const busy = (e: CableEnd) => rack.cables.some((c) => (c.a.deviceId === e.deviceId && c.a.portId === e.portId) || (c.b.deviceId === e.deviceId && c.b.portId === e.portId));
+      const same = (x: CableEnd, y: CableEnd) => x.deviceId === y.deviceId && x.portId === y.portId;
+      const busy = (e: CableEnd) => rack.cables.some((c) => same(c.a, e) || same(c.b, e));
+      // adding a leg to a Y cable: the pending (common) end may already be used by that cable
+      const py = get().pendingY;
+      const yBase = py ? rack.cables.find((c) => c.id === py.cableId) : undefined;
+      if (py && yBase && same(py.end === 'a' ? yBase.a : yBase.b, a)) {
+        if (busy(b)) { get().showToast('Port ist bereits belegt', 'error'); return; }
+        const id = uid('cab-');
+        get().mutate((p) => {
+          const r = findRack(p, rackId)!;
+          const base = r.cables.find((c) => c.id === py.cableId)!;
+          if (!base.yGroup) {
+            if (py.end === 'b') [base.a, base.b] = [base.b, base.a]; // the common connector is always end a
+            base.yGroup = uid('y-');
+            base.yLeg = 1;
+          }
+          const legs = r.cables.filter((c) => c.yGroup === base.yGroup);
+          const leg = Math.max(...legs.map((c) => c.yLeg ?? 1)) + 1;
+          r.cables.push({ id, number: base.number, a: { ...base.a }, b, typeId: base.typeId, lengthMode: 'auto', yGroup: base.yGroup, yLeg: leg, color: base.color });
+        });
+        set({ selection: { kind: 'cable', id }, pendingY: null });
+        return;
+      }
       if (busy(a) || busy(b)) { get().showToast('Port ist bereits belegt', 'error'); return; }
       const portOf = (e: CableEnd) => {
         const d = rack.devices.find((x) => x.id === e.deviceId);
-        return d ? project.templates[d.templateId]?.ports.find((p) => p.id === e.portId) : undefined;
+        if (d) return project.templates[d.templateId]?.ports.find((p) => p.id === e.portId);
+        const bx = rack.boxes?.find((x) => x.id === e.deviceId);
+        return bx ? project.templates[bx.templateId]?.ports.find((p) => p.id === e.portId) : undefined;
       };
       const pa = portOf(a); const pb = portOf(b);
       if (!pa || !pb) return;
@@ -453,29 +505,76 @@ export const useStore = create<State>((set, get) => {
     },
     updateCable(rackId, cableId, patch) {
       get().mutate((p) => {
-        const c = findRack(p, rackId)?.cables.find((x) => x.id === cableId);
-        if (c) Object.assign(c, deepClone(patch));
+        const r = findRack(p, rackId);
+        const c = r?.cables.find((x) => x.id === cableId);
+        if (!c) return;
+        Object.assign(c, deepClone(patch));
+        // cable type and colour belong to the whole Y cable
+        if (c.yGroup && ('typeId' in patch || 'color' in patch)) {
+          for (const leg of r!.cables) if (leg.yGroup === c.yGroup) { leg.typeId = c.typeId; leg.color = c.color; }
+        }
       }, `cab:${cableId}:${Object.keys(patch).join()}`);
     },
     removeCable(rackId, cableId) {
       get().mutate((p) => {
         const r = findRack(p, rackId);
-        if (r) r.cables = r.cables.filter((c) => c.id !== cableId);
+        if (r) { r.cables = r.cables.filter((c) => c.id !== cableId); tidyYGroups(r); }
       });
       set({ selection: null });
     },
     renumberCables() {
       get().mutate((p) => {
         let n = 1;
-        for (const r of p.racks) for (const c of r.cables) c.number = n++;
+        for (const r of p.racks) {
+          const groupNum = new Map<string, number>();
+          for (const c of r.cables) {
+            if (c.yGroup && groupNum.has(c.yGroup)) { c.number = groupNum.get(c.yGroup)!; continue; }
+            c.number = n++;
+            if (c.yGroup) groupNum.set(c.yGroup, c.number);
+          }
+        }
       });
+    },
+    startYLeg(rackId, cableId, end) {
+      const c = findRack(get().project, rackId)?.cables.find((x) => x.id === cableId);
+      if (!c) return;
+      const e = end === 'a' ? c.a : c.b;
+      set({ pendingPort: { rackId, ...e }, pendingY: { cableId, end } });
+      get().showToast('Y-Kabel: Zielanschluss für den neuen Ast anklicken');
+    },
+
+    addBox(rackId, tpl) {
+      const id = uid('box-');
+      get().mutate((p) => {
+        if (!p.templates[tpl.id]) p.templates[tpl.id] = deepClone(tpl);
+        const r = findRack(p, rackId);
+        if (!r) return;
+        r.boxes = [...(r.boxes ?? []), { id, templateId: tpl.id, distance: 10 }];
+      });
+      set({ selection: { kind: 'box', id } });
+    },
+    updateBox(rackId, boxId, patch) {
+      get().mutate((p) => {
+        const b = findRack(p, rackId)?.boxes?.find((x) => x.id === boxId);
+        if (b) Object.assign(b, deepClone(patch));
+      }, `box:${boxId}:${Object.keys(patch).join()}`);
+    },
+    removeBox(rackId, boxId) {
+      get().mutate((p) => {
+        const r = findRack(p, rackId);
+        if (!r) return;
+        r.boxes = (r.boxes ?? []).filter((b) => b.id !== boxId);
+        r.cables = r.cables.filter((c) => c.a.deviceId !== boxId && c.b.deviceId !== boxId);
+        tidyYGroups(r);
+      });
+      set({ selection: null });
     },
 
     upsertTemplate(t) {
       get().mutate((p) => { p.templates[t.id] = deepClone(t); });
     },
     deleteTemplate(id) {
-      const used = get().project.racks.some((r) => r.devices.some((d) => d.templateId === id));
+      const used = get().project.racks.some((r) => r.devices.some((d) => d.templateId === id) || (r.boxes ?? []).some((b) => b.templateId === id));
       if (used) { get().showToast('Vorlage wird noch in einem Rack verwendet', 'error'); return; }
       get().mutate((p) => { delete p.templates[id]; });
     },

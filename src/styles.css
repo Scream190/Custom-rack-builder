@@ -115,7 +115,10 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
 .cable-list-wrap { flex: none; min-height: 0; display: flex; }
 .cable-list { background: var(--panel); flex: 1; min-height: 0; display: flex; flex-direction: column; }
 .cable-list.closed { flex: none; }
-.cable-list-head { display: flex; justify-content: space-between; background: none; border: 0; padding: 7px 12px; cursor: pointer; font-weight: 600; }
+.cable-list-head { display: flex; justify-content: space-between; align-items: center; padding: 5px 12px; }
+.cable-list-title { background: none; border: 0; padding: 2px 0; cursor: pointer; font-weight: 600; }
+.small-seg button { padding: 2px 9px; font-size: 12px; }
+.assembly-wrap { padding: 6px 12px 12px; }
 .cable-table-wrap { overflow: auto; }
 table { border-collapse: collapse; width: 100%; }
 .cable-table th, .cable-table td, .port-table th, .port-table td, .ct-table th, .ct-table td { text-align: left; padding: 4px 10px; border-bottom: 1px solid #22262d; white-space: nowrap; }

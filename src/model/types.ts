@@ -131,6 +131,37 @@ export interface DeviceTemplate {
   weight?: number;
   /** power consumption in W (optional, used for totals) */
   power?: number;
+  /** split or combi box: not rack-mounted, placed below the rack (rack.boxes) */
+  box?: BoxSpec;
+}
+
+/** Split box (one multi connector fans out to single connectors) or combi box (singles combined into a multi). */
+export interface BoxSpec {
+  kind: 'split' | 'combi';
+  /** size of the drawn box face in mm (ports are positioned within it) */
+  w: number;
+  h: number;
+  /** internal wiring: which single ports run through which multi port */
+  links: { multi: string; singles: string[] }[];
+  /** editor input the box was generated from (for re-editing) */
+  design?: BoxDesign;
+}
+
+export interface BoxRow { connector: string; name: string; count: number }
+export interface BoxDesign {
+  multi: BoxRow[];
+  /** `via` = index of the multi row these singles run through */
+  singles: (BoxRow & { via: number })[];
+}
+
+/** A split/combi box used with a rack, drawn below it; cables to it get `distance` added to their length. */
+export interface PlacedBox {
+  id: string;
+  templateId: string;
+  label?: string;
+  /** distance from the rack in m (used for automatic cable lengths) */
+  distance: number;
+  notes?: string;
 }
 
 export type RackKind = 'case' | 'shockmount' | 'cabinet' | 'open' | 'wall' | 'desk';
@@ -214,6 +245,10 @@ export interface Cable {
   label?: string;
   /** optional per-cable colour override */
   color?: string;
+  /** legs of one Y cable share this id and their `a` end (the common connector) */
+  yGroup?: string;
+  /** leg index within the Y cable (1, 2, …), shown as W012a, W012b … */
+  yLeg?: number;
 }
 
 export interface CableType {
@@ -237,6 +272,8 @@ export interface Rack {
   type: RackType;
   devices: PlacedDevice[];
   cables: Cable[];
+  /** split/combi boxes used with this rack */
+  boxes?: PlacedBox[];
   notes?: string;
 }
 

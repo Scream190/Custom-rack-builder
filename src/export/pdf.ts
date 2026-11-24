@@ -2,7 +2,9 @@ import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { Face, Project, Rack } from '../model/types';
 import { cableLength, formatLength } from '../model/geometry';
-import { pdfSafe, rackSvgSize, rackSvgString } from './render';
+import { assemblySheetString, pdfSafe, rackSvgSize, rackSvgString } from './render';
+import { cableAssemblies, plugDemand, type Assembly } from '../model/assembly';
+import { assemblyHeight, SHEET_W } from '../render/CableAssemblies';
 import { cableRows } from '../ui/CableList';
 import { rackStats } from '../ui/Inspector';
 import { RACK_KIND_LABELS } from '../library/rackTypes';
@@ -108,8 +110,8 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
     const avail = { w: page.w - 2 * MARGIN, h: page.h - 2 * MARGIN - 12 - legendH };
     // pick the arrangement (side by side or stacked) that gives the larger drawing
     const fitScale = (sz: { w: number; h: number }) => Math.min(avail.w / sz.w, avail.h / sz.h);
-    const column = opt.views.length > 1 && fitScale(rackSvgSize(rack, opt.views.length, true)) > fitScale(rackSvgSize(rack, opt.views.length));
-    const size = rackSvgSize(rack, opt.views.length, column);
+    const column = opt.views.length > 1 && fitScale(rackSvgSize(rack, opt.views.length, true, project)) > fitScale(rackSvgSize(rack, opt.views.length, false, project));
+    const size = rackSvgSize(rack, opt.views.length, column, project);
     const k = fitScale(size);
     const svgEl = prepareSvgForPdf(rackSvgString(project, rack, opt.views, 1, column));
     try {
@@ -180,6 +182,40 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
         if (y > page.h - 14) { footer(doc, page); doc.addPage(); header(doc, project, `${rack.name} – Packliste Kabel`, page); y = MARGIN + 14; }
       }
       footer(doc, page);
+    }
+
+    // ---- cable assemblies: drawings with the cable connectors, then the connector demand
+    if (opt.includeCableList && rack.cables.length) {
+      const asm = cableAssemblies(project, [rack]);
+      const demand = plugDemand(asm);
+      const W = page.w - 2 * MARGIN, availH = page.h - 2 * MARGIN - 16;
+      const unitsPerPage = availH / (W / SHEET_W);
+      const pages: Assembly[][] = [];
+      let cur: Assembly[] = [], used = 30;
+      for (const a of asm) {
+        const h = assemblyHeight(a) + 8;
+        if (used + h > unitsPerPage && cur.length) { pages.push(cur); cur = []; used = 30; }
+        cur.push(a); used += h;
+      }
+      if (cur.length) pages.push(cur);
+      const demandRows = 40 + Math.ceil(demand.length / 2) * 30;
+      const demandOwnPage = used + demandRows > unitsPerPage;
+      const sheets = pages.map((list, i) => ({ list, demand: !demandOwnPage && i === pages.length - 1 ? demand : undefined }));
+      if (demandOwnPage) sheets.push({ list: [], demand });
+      for (const [i, sh] of sheets.entries()) {
+        newPage();
+        header(doc, project, `${rack.name} – Kabelkonfektion${i ? ' (Forts.)' : ''}`, page);
+        const markup = assemblySheetString(sh.list, sh.demand);
+        const svgEl = prepareSvgForPdf(markup);
+        const vb = svgEl.viewBox.baseVal;
+        const k = Math.min(W / vb.width, availH / vb.height);
+        try {
+          await doc.svg(svgEl, { x: MARGIN, y: MARGIN + 11, width: vb.width * k, height: vb.height * k });
+        } finally {
+          svgEl.parentElement?.remove();
+        }
+        footer(doc, page);
+      }
     }
 
     // ---- bill of materials
