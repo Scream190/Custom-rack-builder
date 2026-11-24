@@ -101,7 +101,7 @@ function RackInspector({ rack, project }: { rack: Rack; project: Project }) {
               return (
                 <div key={id}>
                   <span><i className="dot" style={{ background: ct?.color }} />{ct?.name ?? id}</span>
-                  <b>{v.count}× · {formatLength(v.total)}</b>
+                  <b>{v.count}×, {formatLength(v.total)}</b>
                 </div>
               );
             })}
@@ -135,7 +135,7 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
   return (
     <div className="insp">
       <h3>Gerät</h3>
-      <div className="muted">{tpl.manufacturer} {tpl.name} · {tpl.heightU} HE{tpl.slots > 1 ? ` · 1/${tpl.slots}` : ''} · {tpl.depth} mm tief</div>
+      <div className="muted">{tpl.manufacturer} {tpl.name}<br />{[`${tpl.heightU} HE`, tpl.slots > 1 ? `1/${tpl.slots} Breite` : '', `${tpl.depth} mm tief`].filter(Boolean).join(', ')}</div>
       <Field label="Bezeichnung">
         <input disabled={ro} placeholder={tpl.name} value={d.label ?? ''} onChange={(e) => st().updateDevice(rack.id, id, { label: e.target.value || undefined })} />
       </Field>
@@ -190,7 +190,7 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
               <span className="muted small">{p.side === 'front' ? 'V' : 'H'}</span>
               <span>{p.name}</span>
               <span className="muted small">{connectorDef(p.connector).label}</span>
-              <span className="small">{other ? `→ ${other.device.label || other.tpl.name} · ${other.port.name}` : ''}</span>
+              <span className="small">{other ? `an ${other.device.label || other.tpl.name}, ${other.port.name}` : ''}</span>
             </div>
           );
         })}
@@ -208,7 +208,7 @@ function CableInspector({ rack, id, project }: { rack: Rack; id: string; project
   const b = resolveEnd(project, rack, c.b);
   const len = cableLength(project, rack, c);
   const ct = project.cableTypes.find((t) => t.id === c.typeId);
-  const endText = (e: typeof a) => (e ? `${e.device.label || e.tpl.name} · ${e.port.name} (${connectorDef(e.port.connector).label}, ${e.port.side === 'front' ? 'Front' : 'Rückseite'})` : '?');
+  const endText = (e: typeof a) => (e ? `${e.device.label || e.tpl.name}, ${e.port.name} (${connectorDef(e.port.connector).label}, ${e.port.side === 'front' ? 'Front' : 'Rückseite'})` : '?');
   return (
     <div className="insp">
       <h3>Kabel {cableNumberText(c)}</h3>
@@ -323,14 +323,14 @@ function RfSection({ project, rack, d, ro }: { project: Project; rack: Rack; d: 
   const inBand = (f?: number) => !f || !band || band.ranges.some(([a, z]) => f >= a - 1e-6 && f <= z + 1e-6);
   return (
     <div className="drawer-box">
-      <h4>Funk · RF Frequency Manager</h4>
+      <h4>Funk (RF Frequency Manager)</h4>
       {products.length > 1 ? (
         <Field label="Betriebsart / Produkt">
           <select disabled={ro} value={prod?.id} onChange={(e) => save({ product: e.target.value, band: undefined })}>
             {products.map((p) => <option key={p.id} value={p.id}>{p.model}</option>)}
           </select>
         </Field>
-      ) : <div className="muted small">{prod ? `${prod.man} ${prod.model} · ${prod.seriesName}` : ''}</div>}
+      ) : <div className="muted small">{prod ? `${prod.man} ${prod.model}, Serie ${prod.seriesName}` : ''}</div>}
       <div className="row gap8">
         <Field label="Band">
           <select disabled={ro} value={d.rf?.band ?? ''} onChange={(e) => save({ band: e.target.value || undefined })}>

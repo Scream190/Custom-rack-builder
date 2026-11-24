@@ -48,7 +48,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
   const chassisW = kit ? bodyW : width - 2 * chassisX;
   const faceCol = isFront ? tpl.frontColor ?? tpl.color : shade(tpl.color, -0.2);
   const ink = luminance(faceCol) > 0.55 ? '#1f2328' : luminance(tpl.textColor || '#000') > 0.5 ? tpl.textColor : '#e5e7eb';
-  const fieldText = device?.fields ? Object.values(device.fields).filter(Boolean).join(' · ') : '';
+  const fieldText = device?.fields ? Object.values(device.fields).filter(Boolean).join(', ') : '';
   const blank = tpl.ports.length === 0 && !isPanel;
   const vent = tpl.id === 'gen-vent1';
   const hasLabelArea = !!art?.some((a) => a.t === 'labelArea');
@@ -116,7 +116,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
             fontFamily="Inter, Arial, Helvetica, sans-serif"
             opacity={blank ? 0.5 : behind ? 0.7 : 1}
           >
-            {(isFront ? name : `${name} (Rückseite)`) + (ports.length && isFront && fieldText ? `  ·  ${fieldText}` : '')}
+            {(isFront ? name : `${name} (Rückseite)`) + (ports.length && isFront && fieldText ? ` – ${fieldText}` : '')}
           </text>
           {!blank && !ports.length ? (
             <text
@@ -127,7 +127,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
               opacity={0.65}
               fontFamily="Inter, Arial, Helvetica, sans-serif"
             >
-              {isFront ? [tpl.manufacturer, device?.label ? tpl.name : '', fieldText].filter(Boolean).join(' · ') : tpl.manufacturer}
+              {isFront ? [tpl.manufacturer, device?.label ? tpl.name : '', fieldText].filter(Boolean).join(', ') : tpl.manufacturer}
             </text>
           ) : null}
         </g>
@@ -145,7 +145,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
         const def = connectorDef(p.connector);
         return (
           <g key={p.id} data-port={device ? `${device.id}:${p.id}` : p.id} className="port" style={{ cursor: device ? 'crosshair' : undefined }}>
-            <title>{`${name} · ${p.name} (${def.label})`}</title>
+            <title>{`${name}, ${p.name} (${def.label})`}</title>
             {/* generous invisible hit area */}
             <circle cx={p.x} cy={p.y} r={Math.max(def.w, def.h) / 2 + 3} fill="transparent" />
             <ConnectorSymbol connector={p.connector} x={p.x} y={p.y} state={st} />

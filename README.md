@@ -41,7 +41,7 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
 - **Geräte-Editor:** eigene Geräte mit Anschlüssen per Klick auf Front/Rückseite; Eigenschaftsfelder (Frequenz, Kanal, IP …).
 - **Marken-Geräte nach Herstellerzeichnungen:** Shure ULXD4, ULXD4D, ULXD4Q, AD4D, AD4Q, UA844+SWB, P10T (PSM1000), PA821B;
   Sennheiser EM 6000, EM 300-500 G4, ASA 214, SR 2050 IEM. Steckerpositionen wurden auf den Front-/Rückseiten-Zeichnungen
-  der offiziellen Bedienungsanleitungen vermessen und auf die echten Gehäusemaße skaliert. Die Fronten sind vereinfacht
+  der offiziellen Bedienungsanleitungen vermessen und auf die Gehäusemaße laut Datenblatt skaliert. Die Fronten sind vereinfacht
   (Display, Regler, Taster, LED-Ketten, Logo), aber wiedererkennbar. Bei perspektivischen Vorlagen (EM 6000, SR 2050) liegen die
   Positionen auf etwa ±5 mm genau. Die Quelle steht in jeder Vorlage (`source`). Generische Geräte (Splitter, Patchfelder, Strom,
   Netzwerk) sind Platzhalter.
@@ -70,23 +70,27 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
     (CEE, Schuko, powerCON, TRUE1), Patchfelder (RJ45, etherCON, XLR, speakON, opticalCON), Rack-PC, Mac mini.
   Diese Vorlagen beruhen auf Datenblättern: Anschlussart und -anzahl laut Hersteller, Positionen geschätzt. Wo auch
   Bauhöhe oder Anschlüsse nur aus Produktfotos abgeleitet sind, steht in `source` „Schätzung“. Beides bitte vor dem
-  Einsatz am echten Gerät prüfen und im Geräte-Editor korrigieren. Neue Stecker: speakON NL8, CA-COM, Phoenix/Euroblock,
+  Einsatz am Gerät selbst prüfen und im Geräte-Editor korrigieren. Neue Stecker: speakON NL8, CA-COM, Phoenix/Euroblock,
   D-Sub 25 (AES59), MIDI, SDI/MADI-BNC, powerCON 32 A, IEC C19/C20, CEE 16/32 A.
 - **Automatische Bibliotheks-Aktualisierung:** Gespeicherte Projekte übernehmen neue Versionen der mitgelieferten Vorlagen.
   Kabel werden über den Anschlussnamen neu zugeordnet; Kabel an Anschlüssen, die es nicht mehr gibt, werden gemeldet.
 - **Blenden-Designer:** 1–8 HE, 19"/10", Neutrik-D-Size-Ausschnitte (XLR, etherCON, BNC, powerCON, speakON, USB, HDMI …),
   Bohrungen, Rechteck-Ausschnitte, Gravur (Text, Rahmen, Linien), „Reihe verteilen“, Kollisionsprüfung.
   Blenden mit Einsätzen werden zu verkabelbaren Geräten (Durchführung vorne/hinten).
-- **3D-Ansicht** mit den echten Frontplatten als Textur und Kabeln als Schläuche. Die Kabel werden kollisionsfrei
+- **3D-Ansicht** mit den gezeichneten Frontplatten als Textur und Kabeln als Schläuche. Die Kabel werden kollisionsfrei
   verlegt: ein Wegesucher (A* im 6-mm-Raster) weicht Geräten, Schienen und bereits verlegten Kabeln aus, bündelt
   rechtwinklig und nutzt den Seitenkanal. Vor jedem Stecker bleibt ein freier Austrittsbereich. Das Gehäuse ist
   halbtransparent, damit Rück- und Draufsicht den Kabelverlauf zeigen.
+
+- **Oberfläche:** bewusst nüchtern wie ein CAD-Werkzeug: flache Flächen ohne Leuchtverläufe, kleine Radien,
+  Abschnitte durch Linien statt Kästchen getrennt, Überschriften in normaler Schreibweise, Angaben mit Kommas statt
+  Mittelpunkten.
 
 ### Austausch mit dem RF Frequency Manager (RF-Scan-Editor)
 Beide Programme nutzen dieselben IDs (Produkt `Shure|AD4D`, Band `Shure|ULX-D|G50`). RF Frequency Manager muss dafür
 nicht geändert werden.
 
-- **Funkdaten pro Gerät** (Eigenschaften → „Funk · RF Frequency Manager“): Band (mit Frequenzbereich), Zone, Kanalnamen,
+- **Funkdaten pro Gerät** (Eigenschaften → „Funk (RF Frequency Manager)“): Band (mit Frequenzbereich), Zone, Kanalnamen,
   Frequenzen (außerhalb des Bands rot markiert), Backups. Sie erscheinen auch im Gerätedisplay auf der Front und in der
   PDF-Geräteliste. Eigene Gerätevorlagen bekommen ihr RF-Produkt im Geräte-Editor.
 - **RackPlanner → RF:** *Export → RF Frequency Manager → .rfreq herunterladen* (Zone aus den Funkdaten, Rackname als
@@ -133,6 +137,6 @@ src/library/    Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + pr
 src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auch für Export & 3D-Texturen
 src/ui/         Oberfläche, Editoren, Dialoge
 src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung
-tests/          library.ts: Prüfung der Gerätebibliothek · collision3d.ts: Kollisionsprüfung der 3D-Kabel
+tests/          library.ts: Prüfung der Gerätebibliothek, collision3d.ts: Kollisionsprüfung der 3D-Kabel
 src/export/     PDF, PNG/SVG, interaktives HTML, DXF
 ```

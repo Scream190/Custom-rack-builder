@@ -199,7 +199,7 @@ export function RackSvg(props: RackSvgProps) {
           const width = (c.type?.width ?? 2) * (focused ? 1.5 : 1);
           return (
             <g key={c.cable.id} opacity={dimmed ? 0.22 : 1} data-cable={c.cable.id} style={{ cursor: forExport ? undefined : 'pointer' }}>
-              <title>{`${'W' + String(c.cable.number).padStart(3, '0')} · ${c.type?.name ?? ''} · ${c.labelText}\n${c.a.device.label || c.a.tpl.name} ${c.a.port.name} ↔ ${c.b.device.label || c.b.tpl.name} ${c.b.port.name}`}</title>
+              <title>{`${'W' + String(c.cable.number).padStart(3, '0')}, ${c.type?.name ?? ''}, ${c.labelText}\n${c.a.device.label || c.a.tpl.name} ${c.a.port.name} ↔ ${c.b.device.label || c.b.tpl.name} ${c.b.port.name}`}</title>
               <path d={c.d} fill="none" stroke="#000" strokeOpacity={0.55} strokeWidth={width + 1.2} strokeLinecap="round" strokeLinejoin="miter" />
               <path d={c.d} fill="none" stroke={c.color} strokeWidth={width} strokeLinecap="round" strokeLinejoin="miter" strokeDasharray={c.type?.dash} />
               {focused ? <path d={c.d} fill="none" stroke="#fff" strokeOpacity={0.5} strokeWidth={0.6} strokeLinecap="round" /> : null}
@@ -245,7 +245,7 @@ export function RackSvg(props: RackSvgProps) {
 
       {/* footer: rack info */}
       <text x={-wall} y={H + bottomFrame + 9} fontSize={4.2} fill={forExport ? '#555' : 'currentColor'} opacity={0.7}>
-        {`${rt.name} · ${rt.heightU} HE · Einbautiefe ${rt.depth} mm`}
+        {`${rt.name}, ${rt.heightU} HE, Einbautiefe ${rt.depth} mm`}
       </text>
     </svg>
   );

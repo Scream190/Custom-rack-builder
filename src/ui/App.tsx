@@ -170,7 +170,7 @@ export function App() {
           </>
         ) : null}
         <section className="center">
-          {pending ? <div className="cabling-banner">Kabel ziehen: Zielanschluss anklicken · <kbd>Esc</kbd> bricht ab</div> : null}
+          {pending ? <div className="cabling-banner">Kabel ziehen: Zielanschluss anklicken. <kbd>Esc</kbd> bricht ab.</div> : null}
           <div className="stage">
             <ErrorBoundary resetKey={view + rack.id}>
               {view === '3d' ? (

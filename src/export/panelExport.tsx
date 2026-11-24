@@ -141,7 +141,7 @@ export function panelToSvg(pd: PanelDesign): string {
 
 export function elementDescription(el: PanelElement): string {
   switch (el.kind) {
-    case 'dseries': return `D-Size Ø${DSIZE.holeD} + 2× Ø${DSIZE.screwD}${el.connector ? ' · ' + connectorDef(el.connector).label : ''}${el.rotate ? ' (90°)' : ''}`;
+    case 'dseries': return `D-Size Ø${DSIZE.holeD} + 2× Ø${DSIZE.screwD}${el.connector ? ', ' + connectorDef(el.connector).label : ''}${el.rotate ? ' (90°)' : ''}`;
     case 'hole': return `Bohrung Ø${el.d ?? 6}`;
     case 'rect': return `Ausschnitt ${el.w ?? 20} × ${el.h ?? 10}${el.r ? ` R${el.r}` : ''}`;
     case 'engraveRect': return `Gravur Rahmen ${el.w ?? 40} × ${el.h ?? 20}`;
@@ -159,7 +159,7 @@ export async function panelToPdf(pd: PanelDesign, name: string): Promise<Blob> {
   doc.setFont('helvetica', 'bold'); doc.setFontSize(14);
   doc.text(pdfSafe(`Frontplatte: ${name}`), M, M + 4);
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(80);
-  doc.text(pdfSafe(`${pd.heightU} HE · ${w} × ${h} mm · ${pd.thickness} mm · ${pd.material} · Befestigung: ${pd.mountHoles === 'slot' ? 'Langloch 10 × 6,5' : 'Bohrung Ø6,5'}`), M, M + 10);
+  doc.text(pdfSafe(`${pd.heightU} HE, ${w} × ${h} mm, ${pd.thickness} mm ${pd.material}, Befestigung: ${pd.mountHoles === 'slot' ? 'Langloch 10 × 6,5' : 'Bohrung Ø6,5'}`), M, M + 10);
   const k = (pw - 2 * M) / w;
   const svgStr = renderToStaticMarkup(
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${w} ${h}`} width={w} height={h}><PanelDrawing pd={pd} /></svg>,

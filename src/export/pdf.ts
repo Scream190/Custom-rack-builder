@@ -43,7 +43,7 @@ function header(doc: jsPDF, project: Project, title: string, page: { w: number; 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(90);
-  const right = [project.name, project.author, new Date().toLocaleDateString('de-DE')].filter(Boolean).join('  ·  ');
+  const right = [project.name, project.author, new Date().toLocaleDateString('de-DE')].filter(Boolean).join('   |   ');
   doc.text(pdfSafe(right), page.w - MARGIN, MARGIN + 4, { align: 'right' });
   doc.setDrawColor(200);
   doc.line(MARGIN, MARGIN + 7, page.w - MARGIN, MARGIN + 7);
@@ -135,7 +135,7 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
       if (lx > page.w - 60) break;
     }
     doc.setTextColor(100);
-    doc.text(pdfSafe(`${rack.type.name} · ${RACK_KIND_LABELS[rack.type.kind]} · Außenmaß ${rack.type.outer.w}×${rack.type.outer.h}×${rack.type.outer.d} mm`), MARGIN, ly + 5);
+    doc.text(pdfSafe(`${rack.type.name}, ${RACK_KIND_LABELS[rack.type.kind]}, Außenmaß ${rack.type.outer.w}×${rack.type.outer.h}×${rack.type.outer.d} mm`), MARGIN, ly + 5);
     footer(doc, page);
 
     // ---- cable list
@@ -201,7 +201,7 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
       const stats = rackStats(project, rack);
       y += 7;
       doc.setFontSize(9); doc.setTextColor(40);
-      const sum = [`Belegt: ${stats.used} / ${rack.type.heightU} HE`, stats.weight ? `Gewicht ca. ${stats.weight.toFixed(1)} kg` : '', stats.power ? `Leistung ca. ${stats.power} W` : ''].filter(Boolean).join('   ·   ');
+      const sum = [`Belegt: ${stats.used} / ${rack.type.heightU} HE`, stats.weight ? `Gewicht ca. ${stats.weight.toFixed(1)} kg` : '', stats.power ? `Leistung ca. ${stats.power} W` : ''].filter(Boolean).join('   |   ');
       doc.text(pdfSafe(sum), MARGIN, y);
       if (rack.notes) { doc.text(doc.splitTextToSize(pdfSafe('Notizen: ' + rack.notes), page.w - 2 * MARGIN), MARGIN, y + 6); y += 6; }
       // full drawer contents
@@ -220,7 +220,7 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
           const items = (d.contents ?? []).filter((c) => c.text.trim());
           newPageIfNeeded(10);
           doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
-          doc.text(pdfSafe(`HE ${d.u}${t.heightU > 1 ? '-' + (d.u + t.heightU - 1) : ''} · ${d.label || t.name}`), MARGIN, y);
+          doc.text(pdfSafe(`HE ${d.u}${t.heightU > 1 ? '-' + (d.u + t.heightU - 1) : ''}: ${d.label || t.name}`), MARGIN, y);
           y += 4.6;
           doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
           // three columns of items

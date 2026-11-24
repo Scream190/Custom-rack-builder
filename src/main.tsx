@@ -21,7 +21,7 @@ createRoot(document.getElementById('root')!).render(<App />);
 
 if (libraryUpdate.updated && !embedded) {
   setTimeout(() => useStore.getState().showToast(
-    `Gerätebibliothek aktualisiert (${libraryUpdate.updated} Vorlagen mit echten Steckerpositionen)` +
+    `Gerätebibliothek aktualisiert (${libraryUpdate.updated} Vorlagen)` +
     (libraryUpdate.droppedCables ? ` – ${libraryUpdate.droppedCables} Kabel an geänderten Anschlüssen bitte neu stecken` : ''),
   ), 600);
 }

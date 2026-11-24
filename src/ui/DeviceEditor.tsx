@@ -169,7 +169,7 @@ export function DeviceEditor({ templateId }: { templateId?: string }) {
               </select>
             </Field>
           </div>
-          <div className="hint">Klick auf freie Fläche = Anschluss setzen · Anschluss ziehen = verschieben. Rückseite wird von hinten gesehen dargestellt.</div>
+          <div className="hint">Ein Klick auf eine freie Fläche setzt einen Anschluss, Ziehen verschiebt ihn. Die Rückseite ist von hinten gesehen dargestellt.</div>
           <div className="face-preview">
             <svg ref={svgRef} viewBox={`-6 -6 ${w + 12} ${h + 12}`} width={(w + 12) * scale} height={(h + 12) * scale} onPointerDown={onDown} onPointerMove={onMove} onPointerUp={() => { dragRef.current = null; }}>
               <DeviceFace tpl={draft} panel={side} width={w} portStates={selPort ? { [selPort]: 'highlight' } : undefined} />
@@ -199,7 +199,7 @@ export function DeviceEditor({ templateId }: { templateId?: string }) {
                 const copy = { ...sel, id: uid('p'), x: Math.min(w - 5, sel.x + connectorDef(sel.connector).w + 4), name: sel.name.replace(/(\d+)$/, (m) => String(Number(m) + 1)) };
                 setDraft((d) => ({ ...d, ports: [...d.ports, copy] }));
                 setSelPort(copy.id);
-              }}>Duplizieren →</button>
+              }}>Duplizieren</button>
               <button className="btn sm danger" onClick={() => { setDraft((d) => ({ ...d, ports: d.ports.filter((p) => p.id !== sel.id) })); setSelPort(null); }}>Löschen</button>
             </div>
           ) : null}

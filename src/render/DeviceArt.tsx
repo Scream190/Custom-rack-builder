@@ -45,7 +45,7 @@ function Art({ a, ink, device, starts }: { a: ArtElement; ink: string; device?: 
         if (ch === undefined || ch === 0) {
           if (device.label) lines.push(device.label);
           for (const [, v] of vals) lines.push(v);
-        } else if (device.label) lines.push(`${device.label} · ${ch}`);
+        } else if (device.label) lines.push(`${device.label} (${ch})`);
       }
       const shown = lines.slice(0, maxLines);
       const fs = Math.min(4.2, ((a.h - 2) / Math.max(2, shown.length || 2)) * 0.85, (a.w - 4) / (Math.max(10, ...shown.map((l) => l.length)) * 0.62));

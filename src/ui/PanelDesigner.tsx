@@ -294,7 +294,7 @@ export function PanelDesigner({ templateId }: { templateId?: string }) {
           <div className="warn-box">
             <strong className="small">Prüfung</strong>
             {warnings.length ? warnings.map((w) => <div key={w} className="warn">⚠ {w}</div>) : <div className="ok small">✓ Keine Kollisionen erkannt</div>}
-            <div className="muted small">{pd.elements.length} Elemente · {pd.elements.filter((e) => e.kind === 'dseries' && e.connector).length} Anschlüsse · {connectorDef(dConn).label}</div>
+            <div className="muted small">{pd.elements.length} Elemente, davon {pd.elements.filter((e) => e.kind === 'dseries' && e.connector).length} Anschlüsse. Stecker: {connectorDef(dConn).label}</div>
           </div>
         </div>
       </div>

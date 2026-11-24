@@ -45,7 +45,7 @@ export function RackTypeEditor() {
               {types.filter((t) => t.kind === kind).map((t) => (
                 <button key={t.id} className={'list-btn' + (t.id === draft.id ? ' on' : '')}
                   onClick={() => setDraft(t.custom ? deepClone(t) : { ...deepClone(t), id: uid('rt-'), name: t.name + ' (eigen)', custom: true })}>
-                  {t.custom ? '★ ' : ''}{t.name}
+                  {t.name}{t.custom ? ' (eigen)' : ''}
                 </button>
               ))}
             </div>
@@ -231,8 +231,8 @@ export function ExportDialog() {
 
       <div className="export-grid">
         <div className="export-card">
-          <h4>📄 PDF</h4>
-          <p className="muted small">Zeichnung, Kabelliste mit Packliste, Geräteliste – zum Drucken & Versenden.</p>
+          <h4>PDF</h4>
+          <p className="muted small">Zeichnung, Kabelliste mit Packliste und Geräteliste zum Drucken oder Versenden.</p>
           <div className="row gap8 wrap">
             <select value={format} onChange={(e) => setFormat(e.target.value as 'a4' | 'a3')}><option value="a3">A3 quer</option><option value="a4">A4 quer</option></select>
             <label className="check"><input type="checkbox" checked={cableList} onChange={(e) => setCableList(e.target.checked)} /> Kabelliste</label>
@@ -245,7 +245,7 @@ export function ExportDialog() {
         </div>
 
         <div className="export-card">
-          <h4>🖼 Bild</h4>
+          <h4>Bild</h4>
           <p className="muted small">PNG in hoher Auflösung oder SVG (verlustfrei skalierbar, für Grafik-Programme).</p>
           <div className="row gap8">
             <button className="btn" disabled={!!busy} onClick={() => run('png', async () => {
@@ -262,10 +262,10 @@ export function ExportDialog() {
         </div>
 
         <div className="export-card">
-          <h4>🌐 Interaktiv (HTML)</h4>
+          <h4>Interaktiv (HTML)</h4>
           <p className="muted small">
             Eine einzelne HTML-Datei, die in jedem Browser öffnet – ohne Installation, auch offline. Mit Vorder-/Rückansicht, 3D, Kabel-Hervorhebung,
-            Kabelliste und Zoom. Ideal zum Verschicken per Mail/Cloud.
+            Kabelliste und Zoom. Lässt sich per Mail oder Cloud verschicken.
           </p>
           <button className="btn primary" disabled={!!busy} onClick={() => run('html', async () => {
             const html = buildInteractiveHtml(project);
@@ -277,7 +277,7 @@ export function ExportDialog() {
 
         {!readOnly ? (
           <div className="export-card">
-            <h4>💾 Projektdatei</h4>
+            <h4>Projektdatei</h4>
             <p className="muted small">Komplettes Projekt inkl. eigener Geräte, Blenden und Kabeltypen (.rackplan.json) zum Weiterbearbeiten.</p>
             <button className="btn" onClick={() => downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), `${base}.rackplan.json`)}>Projekt speichern</button>
           </div>

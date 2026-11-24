@@ -3,6 +3,9 @@ import { allTemplates, useActiveRack, useStore } from '../model/store';
 import type { DeviceTemplate } from '../model/types';
 import { libraryDrag } from './RackCanvas';
 
+/** prefix of the categories holding the user's own templates (listed first) */
+const CUSTOM = 'Eigene: ';
+
 export function LibraryPanel() {
   const project = useStore((s) => s.project);
   const view = useStore((s) => s.view);
@@ -18,11 +21,11 @@ export function LibraryPanel() {
     );
     const map = new Map<string, DeviceTemplate[]>();
     for (const t of filtered) {
-      const cat = t.custom ? `★ ${t.category}` : t.category;
+      const cat = t.custom ? `${CUSTOM}${t.category}` : t.category;
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(t);
     }
-    return [...map.entries()].sort(([a], [b]) => (a.startsWith('★') ? -1 : b.startsWith('★') ? 1 : a.localeCompare(b)));
+    return [...map.entries()].sort(([a], [b]) => (a.startsWith(CUSTOM) ? -1 : b.startsWith(CUSTOM) ? 1 : a.localeCompare(b)));
   }, [templates, q]);
 
   const add = (t: DeviceTemplate) => useStore.getState().addDeviceAuto(rack.id, t, view === 'rear' ? 'rear' : 'front');
@@ -76,7 +79,7 @@ export function LibraryPanel() {
                   <div className="lib-text">
                     <div className="lib-name">{t.name}</div>
                     <div className="muted small">
-                      {t.manufacturer} · {t.heightU} HE{t.slots > 1 ? ` · 1/${t.slots} Breite` : ''}{t.rackStandard === 10 ? ' · 10"' : ''} · {t.depth} mm
+                      {[t.manufacturer, `${t.heightU} HE`, t.slots > 1 ? `1/${t.slots} Breite` : '', t.rackStandard === 10 ? '10"' : '', `${t.depth} mm`].filter(Boolean).join(', ')}
                     </div>
                   </div>
                   <button

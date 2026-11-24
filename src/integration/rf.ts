@@ -22,7 +22,7 @@ export const RF_BANDS: RfBand[] = RF_BANDS_RAW.map(([man, series, band, ranges])
 export const rfProductById = (id?: string) => (id ? RF_PRODUCTS.find((p) => p.id === id) : undefined);
 export const rfBandsFor = (prod?: RfProduct) => (prod ? RF_BANDS.filter((b) => b.series === prod.series) : []);
 export const rfSeriesType = (prod?: RfProduct) => (prod ? RF_SERIES_TYPE[prod.series] : undefined);
-export const bandLabel = (b: RfBand) => `${b.band} · ${b.ranges.map(([a, z]) => `${a}–${z}`).join(', ')} MHz`;
+export const bandLabel = (b: RfBand) => `${b.band} (${b.ranges.map(([a, z]) => `${a}–${z}`).join(', ')} MHz)`;
 
 /** built-in RackPlanner templates → RF products (first = default) */
 const TEMPLATE_PRODUCTS: Record<string, string[]> = {
@@ -277,5 +277,5 @@ export function rfSummary(project: Project, d: PlacedDevice): string {
   if (!prod || !d.rf) return '';
   const n = channelCount(prod, d);
   const ch = Array.from({ length: n }, (_, i) => d.rf?.channels?.[i]).map((c, i) => (c?.f ? `${channelLabel(d, tpl, i, n)} ${fmtMHz(c.f)}` : '')).filter(Boolean);
-  return [d.rf.band ? `Band ${d.rf.band}` : '', d.rf.zone ? `Zone ${d.rf.zone}` : '', ch.join(', '), d.rf.backups?.length ? `Backup ${d.rf.backups.map(fmtMHz).join(', ')}` : ''].filter(Boolean).join(' · ');
+  return [d.rf.band ? `Band ${d.rf.band}` : '', d.rf.zone ? `Zone ${d.rf.zone}` : '', ch.join(', '), d.rf.backups?.length ? `Backup ${d.rf.backups.map(fmtMHz).join(', ')}` : ''].filter(Boolean).join('; ');
 }

@@ -22,17 +22,17 @@ function RfFreqsDialog({ data }: { data: Extract<RfImport, { kind: 'freqs' }> })
         <button className="btn primary" disabled={!preview.matched} onClick={() => {
           let res = { matched: 0, unmatched: [] as string[] };
           st().mutate((p) => { res = applyFrequencyList(p, data.items); });
-          st().showToast(`${res.matched} Frequenzen übernommen${res.unmatched.length ? ` · ${res.unmatched.length} ohne passenden Kanal` : ''}`);
+          st().showToast(`${res.matched} Frequenzen übernommen${res.unmatched.length ? `, ${res.unmatched.length} ohne passenden Kanal` : ''}`);
           st().openModal(null);
         }}>{preview.matched} Frequenzen übernehmen</button>
       </>}>
-        <div className="muted">{data.source} · {data.items.length} Einträge</div>
+        <div className="muted">{data.source}, {data.items.length} Einträge</div>
         <div className="hint">Zuordnung über den Kanalnamen (wie beim Export an das RF-Programm vergeben). Backups gehen an das Gerät mit dem passenden Namen.</div>
         <div className="stats">
           <div><span>Passende Kanäle</span><b>{preview.matched}</b></div>
           <div><span>Ohne Treffer</span><b>{preview.unmatched.length}</b></div>
         </div>
-        {preview.unmatched.length ? <div className="small muted">Ohne Treffer: {preview.unmatched.slice(0, 20).join(' · ')}{preview.unmatched.length > 20 ? ' …' : ''}</div> : null}
+        {preview.unmatched.length ? <div className="small muted">Ohne Treffer: {preview.unmatched.slice(0, 20).join(', ')}{preview.unmatched.length > 20 ? ' …' : ''}</div> : null}
     </Modal>
   );
 }
@@ -54,11 +54,11 @@ function RfDevicesDialog({ data }: { data: Extract<RfImport, { kind: 'devices' }
         st().mutate((p) => { rep = applyRfImport(p, data.devices, target, rack.id, project.name || 'Funkrack'); });
         const added = useStore.getState().project.racks.find((r) => !before.has(r.id));
         if (added) st().setActiveRack(added.id);
-        st().showToast(`${rep.placed} Geräte eingebaut in ${rep.racks.join(', ')}${rep.notPlaced.length ? ` · ${rep.notPlaced.length} ohne Platz` : ''}${rep.genericTemplates.length ? ` · Platzhalter: ${rep.genericTemplates.join(', ')}` : ''}`, rep.notPlaced.length ? 'error' : 'info');
+        st().showToast(`${rep.placed} Geräte eingebaut in ${rep.racks.join(', ')}${rep.notPlaced.length ? `, ${rep.notPlaced.length} ohne Platz` : ''}${rep.genericTemplates.length ? `; Platzhalter: ${rep.genericTemplates.join(', ')}` : ''}`, rep.notPlaced.length ? 'error' : 'info');
         st().openModal(null);
       }}>{data.devices.length} Geräte importieren</button>
     </>}>
-      <div className="muted">{data.source} · {data.devices.length} Geräte · {withFreq} Frequenzen · Zonen: {zones.join(', ')}</div>
+      <div className="muted">{data.source}: {data.devices.length} Geräte, {withFreq} Frequenzen, Zonen {zones.join(', ')}</div>
       <Field label="Einbauen in">
         <select value={target} onChange={(e) => setTarget(e.target.value as RfImportTarget)}>
           <option value="perZone">je Zone ein neues Rack (Größe automatisch)</option>
@@ -79,7 +79,7 @@ function RfDevicesDialog({ data }: { data: Extract<RfImport, { kind: 'devices' }
                   <td>{d.band || '–'}</td>
                   <td>{d.zone || '–'}</td>
                   <td>{d.channels.map((c) => c.name).filter(Boolean).join(', ') || d.channels.length}</td>
-                  <td>{d.channels.filter((c) => c.f).map((c) => c.f!.toFixed(3)).join(', ') || '–'}{d.backups.length ? ` · B ${d.backups.map((f) => f.toFixed(3)).join(', ')}` : ''}</td>
+                  <td>{d.channels.filter((c) => c.f).map((c) => c.f!.toFixed(3)).join(', ') || '–'}{d.backups.length ? `; Backup ${d.backups.map((f) => f.toFixed(3)).join(', ')}` : ''}</td>
                 </tr>
               );
             })}
@@ -91,7 +91,7 @@ function RfDevicesDialog({ data }: { data: Extract<RfImport, { kind: 'devices' }
   );
 }
 
-/** Card in the export dialog: wireless devices → frequency request file for the RF Frequency Manager. */
+/** Section in the export dialog: wireless devices → frequency request file for the RF Frequency Manager. */
 export function RfExportCard({ scope }: { scope: 'current' | 'all' }) {
   const project = useStore((s) => s.project);
   const rack = useActiveRack();
@@ -102,11 +102,11 @@ export function RfExportCard({ scope }: { scope: 'current' | 'all' }) {
     const rep = buildRfRequests(project, { racks: scope === 'all' ? project.racks : [rack], zoneMode, from: project.author || 'RackPlanner' });
     if (!rep.files.length) { st().showToast('Keine Funkgeräte mit RF-Produkt in der Auswahl', 'error'); return; }
     rep.files.forEach((f, i) => setTimeout(() => downloadBlob(new Blob([f.text], { type: 'application/json' }), f.name), i * 300));
-    setResult(`${rep.files.reduce((n, f) => n + f.devices, 0)} Geräte in ${rep.files.length} Datei(en)${rep.skipped.length ? ` · übersprungen: ${rep.skipped.join('; ')}` : ''}`);
+    setResult(`${rep.files.reduce((n, f) => n + f.devices, 0)} Geräte in ${rep.files.length} Datei(en)${rep.skipped.length ? `; übersprungen: ${rep.skipped.join('; ')}` : ''}`);
   };
   return (
     <div className="export-card">
-      <h4>📡 RF Frequency Manager</h4>
+      <h4>RF Frequency Manager</h4>
       <p className="muted small">
         Funkgeräte als Frequenzanfrage (.rfreq). Im RF-Programm: <b>Inventar → Anfragen … → Datei …</b> – jedes Gerät wird ein Inventar-Eintrag
         mit Produkt, Band, Gerätename und Kanalnamen. Die koordinierte Frequenzliste kommt über „Importieren aus RF …“ zurück.

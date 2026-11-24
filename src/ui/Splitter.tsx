@@ -11,7 +11,7 @@ export function Splitter({ dir, value, onChange, min, max, sign = 1, onReset, ti
   return (
     <div
       className={'splitter splitter-' + dir}
-      title={title ?? 'Ziehen zum Anpassen · Doppelklick: Standardgröße'}
+      title={title ?? 'Ziehen zum Anpassen, Doppelklick setzt die Standardgröße'}
       onPointerDown={(e) => {
         if (e.button !== 0) return;
         start.current = { p: dir === 'x' ? e.clientX : e.clientY, v: value };

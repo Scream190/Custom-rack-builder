@@ -4,9 +4,9 @@ const FONT = 'Inter, Arial, Helvetica, sans-serif';
 
 export const drawerItemText = (i: DrawerItem) => (i.qty && i.qty !== 1 ? `${i.qty}× ${i.text}` : i.text);
 
-/** One-line summary of a drawer's contents, e.g. "2× SM58 · Batterien AA · Gaffa" */
+/** One-line summary of a drawer's contents, e.g. "2× SM58, Batterien AA, Gaffa" */
 export function drawerSummary(contents?: DrawerItem[]) {
-  return (contents ?? []).filter((i) => i.text.trim()).map(drawerItemText).join(' · ');
+  return (contents ?? []).filter((i) => i.text.trim()).map(drawerItemText).join(', ');
 }
 
 /**

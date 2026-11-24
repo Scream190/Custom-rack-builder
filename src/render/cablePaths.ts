@@ -34,7 +34,7 @@ export function cableLabelText(project: Project, c: Cable, length: number): stri
   const custom = c.label ? ` ${c.label}` : '';
   if (mode === 'length') return len + custom;
   if (mode === 'number') return num + custom;
-  if (mode === 'both') return `${num} · ${len}${custom}`;
+  if (mode === 'both') return `${num}  ${len}${custom}`;
   return '';
 }
 
@@ -177,7 +177,7 @@ function orthogonalDrawings(project: Project, rack: Rack, view: Face, sideGap: n
       d: `M${p0.x},${p0.y} V${y} H${ex}`,
       label: { x: side === 'left' ? -sideGap / 2 - 6 : fw + sideGap / 2 + 6, y },
       labelText: it.labelText,
-      stub: { side, end: { x: ex, y }, text: `» ${view === 'front' ? 'hinten' : 'vorne'}: ${otherName} · ${there.port.name}` },
+      stub: { side, end: { x: ex, y }, text: `${view === 'front' ? 'hinten' : 'vorne'}: ${otherName}, ${there.port.name}` },
       a: it.a, b: it.b, length: it.length,
     });
   }
@@ -224,7 +224,7 @@ function organicDrawings(project: Project, rack: Rack, view: Face, sideGap: numb
       d: `M${p0.x},${p0.y} C${p0.x},${ey} ${(p0.x + ex) / 2},${ey} ${ex},${ey}`,
       label: { x: (p0.x + ex) / 2, y: ey - 0.5 },
       labelText,
-      stub: { side: sideInView, end: { x: ex, y: ey }, text: `» ${view === 'front' ? 'hinten' : 'vorne'}: ${otherName} · ${there.port.name}` },
+      stub: { side: sideInView, end: { x: ex, y: ey }, text: `${view === 'front' ? 'hinten' : 'vorne'}: ${otherName}, ${there.port.name}` },
       a, b, length,
     });
   });
