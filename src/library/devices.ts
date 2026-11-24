@@ -2,6 +2,7 @@ import type { DeviceTemplate, Face, Port } from '../model/types';
 import { BRANDED_DEVICES } from './devicesBranded';
 import { RFSCAN_DEVICES } from './devicesRfScan';
 import { PRO_DEVICES } from './devicesPro';
+import { PRO2_DEVICES } from './devicesPro2';
 
 // NOTE: dimensions and connector positions are approximations meant as a useful starting point.
 // Always verify against the manufacturer's data sheet – every template can be edited in the device editor.
@@ -27,6 +28,7 @@ export const BUILTIN_DEVICES: DeviceTemplate[] = [
   ...BRANDED_DEVICES,
   ...RFSCAN_DEVICES,
   ...PRO_DEVICES,
+  ...PRO2_DEVICES,
   // ---------------------------------------------------------------- Generic
   dev({
     id: 'gen-uhf-rx2', name: 'UHF Empfänger 2-Kanal', manufacturer: 'Generisch', category: 'UHF Empfänger',

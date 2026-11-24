@@ -12,7 +12,7 @@ const NET = 'Netzwerk', DMX = 'Licht / DMX', SB = 'Stagebox', AMP = 'Endstufen',
 const IC = 'Intercom', VID = 'Video', REC = 'Zuspieler / Recording', PWR = 'Strom', CONV = 'Audio-Interface / Wandler', PATCH = 'Patchfeld';
 
 /** same housing, other model names */
-const variants = (base: Spec, list: [string, string, Partial<Spec>?][]): DeviceTemplate[] =>
+export const variants = (base: Spec, list: [string, string, Partial<Spec>?][]): DeviceTemplate[] =>
   list.map(([id, name, extra]) => mk({ ...base, id, name, model: name, ...extra }));
 
 const BLACK = '#18191c', DARK = '#222428';
@@ -258,7 +258,7 @@ const behringerMidas32 = (id: string, name: string, man: string, logo: string): 
   front: [
     G([B.xin(32, 'In ', { rows: 4, ys: [18, 50.5, 83, 115.5] })]),
     G([B.xout(16, 'Out ', { rows: 2, ys: [18, 50.5] })], 'right'),
-    G([B.list(['AES50 A', 'AES50 B'], 'ETHERCON', 'io', { ys: [83] }), B.one('Ultranet', 'RJ45', 'out', { ys: [83], gap: 5 }), B.list(['MIDI In', 'MIDI Out'], 'DIN5', 'io', { ys: [83], gap: 5 }), B.list(['ADAT Out 1', 'ADAT Out 2'], 'GENERIC', 'out', { ys: [83], gap: 5 })], 'right'),
+    G([B.list(['AES50 A', 'AES50 B'], 'ETHERCON', 'io', { ys: [83] }), B.one('Ultranet', 'RJ45', 'out', { ys: [83], gap: 5 }), B.list(['MIDI In', 'MIDI Out'], 'DIN5', 'io', { ys: [83], gap: 5 }), B.list(['ADAT Out 1', 'ADAT Out 2'], 'TOSLINK', 'out', { ys: [83], gap: 5 })], 'right'),
   ],
   rear: [G([PSU_IEC])], src: SRC.EST, notes: '32 Eingänge, 16 Ausgänge, AES50 A/B (Klark Teknik SuperMAC), Ultranet, ADAT.',
 });
@@ -266,7 +266,7 @@ const behringerMidas16 = (id: string, name: string, man: string, logo: string, u
   id, name, man, cat: SB, u, depth: 220, color: '#1c1c1e', logo, weight: 6,
   front: [
     G([B.xin(16, 'In ', { rows: 2, ys: u === 2 ? [22, 66] : [36, 72] }), B.xout(8, 'Out ', { rows: 2, ys: u === 2 ? [22, 66] : [36, 72], gap: 9 })]),
-    G([B.list(['AES50 A', 'AES50 B'], 'ETHERCON', 'io', { rows: 2, ys: u === 2 ? [22, 66] : [36, 72] }), B.list(['Ultranet', 'MIDI In'], 'RJ45', 'io', { rows: 2, ys: u === 2 ? [22, 66] : [36, 72], gap: 5 }), B.list(['ADAT Out 1', 'ADAT Out 2'], 'GENERIC', 'out', { rows: 2, ys: u === 2 ? [22, 66] : [36, 72], gap: 5 })], 'right'),
+    G([B.list(['AES50 A', 'AES50 B'], 'ETHERCON', 'io', { rows: 2, ys: u === 2 ? [22, 66] : [36, 72] }), B.one('Ultranet', 'RJ45', 'out', { ys: [u === 2 ? 22 : 36], gap: 5 }), B.one('MIDI In', 'DIN5', 'in', { ys: [u === 2 ? 66 : 72], stack: true }), B.list(['ADAT Out 1', 'ADAT Out 2'], 'TOSLINK', 'out', { rows: 2, ys: u === 2 ? [22, 66] : [36, 72], gap: 5 })], 'right'),
   ],
   rear: [G([PSU_IEC])], src: u === 2 ? SRC.DS : SRC.EST, notes: '16 Eingänge, 8 Ausgänge, AES50 A/B, Ultranet, ADAT.',
 });
@@ -356,7 +356,7 @@ const converters: DeviceTemplate[] = [
 
 // ================================================================== Endstufen
 /** rear of a touring amp: mains left, inputs + link (stacked) and network in the middle, outputs right */
-function ampRear(o: { mains: string; ins: number; link?: boolean; aes?: string[]; net?: string[]; outs: string[]; mix?: string[]; nl8?: string[]; outC?: string; inC?: string; ys?: [number, number] }) {
+export function ampRear(o: { mains: string; ins: number; link?: boolean; aes?: string[]; net?: string[]; outs: string[]; mix?: string[]; nl8?: string[]; outC?: string; inC?: string; ys?: [number, number] }) {
   const ys = o.ys ?? [24, 64];
   const inC = o.inC ?? 'XLR3F';
   return [
@@ -374,7 +374,7 @@ function ampRear(o: { mains: string; ins: number; link?: boolean; aes?: string[]
     ], 'right'),
   ];
 }
-function ampRear1U(o: { mains: string; ins: number; link?: boolean; net?: string[]; outs: string[]; nl8?: string[] }) {
+export function ampRear1U(o: { mains: string; ins: number; link?: boolean; net?: string[]; outs: string[]; nl8?: string[] }) {
   return [
     G([
       B.one('Mains', o.mains, 'in'), B.xin(o.ins, 'In ', { gap: 8 }), ...(o.link ? [B.xout(o.ins, 'Link ', { gap: 3 })] : []),
@@ -384,7 +384,7 @@ function ampRear1U(o: { mains: string; ins: number; link?: boolean; net?: string
   ];
 }
 /** installation amp: Phoenix inputs/outputs, network RJ45 */
-function installRear(ch: number, mains = 'IEC_C14', net = ['Network 1', 'Network 2'], H1U = true) {
+export function installRear(ch: number, mains = 'IEC_C14', net = ['Network 1', 'Network 2'], H1U = true) {
   return [
     G([B.one('Mains', mains, 'in')]),
     G([{ c: 'PHOENIX3', n: ch, pre: 'In ', dir: 'in' as const }, B.list(net, 'RJ45', 'io', { gap: 8, rows: H1U ? 1 : 2 }), B.one('GPIO', 'PHOENIX3', 'io', { gap: 8 })], 'center', { x0: 70, x1: 330 }),

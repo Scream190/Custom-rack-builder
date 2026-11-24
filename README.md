@@ -82,6 +82,29 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   rechtwinklig und nutzt den Seitenkanal. Vor jedem Stecker bleibt ein freier Austrittsbereich. Das Gehäuse ist
   halbtransparent, damit Rück- und Draufsicht den Kabelverlauf zeigen.
 
+- **Zweite Geräte-Ladung** (`src/library/devicesPro2.ts`, 120 Vorlagen):
+  - *Live-Ton:* Grafik-EQs (dbx 231s/1231, Klark Teknik DN370, Behringer FBQ3102HD), Dynamik (dbx 166xs/160A,
+    Drawmer DS201/DL241, BSS DPR-901 II, Behringer MDX4600), Effekte (Yamaha SPX2000, Lexicon PCM96/PCM92,
+    TC Electronic M3000/Reverb 4000, Bricasti M7, Eventide H9000), Mikrofonsplitter (Radial OX8-j, generisch 8×3 und 16×2),
+    Kopfhörerverstärker (Behringer HA8000/HA4700, ART HeadAMP 6 Pro), Zuspieler (Denon DN-700R/DN-300R, Tascam SS-R250N,
+    BD-MP4K), Wandler (RedNet D16R, Ferrofish A32 Dante, RME M-32 AD Pro II, RME MADI Router), DSP (Lake LM 26, Meyer
+    GALAXY 408, XTA DP548, BSS BLU-160), Endstufen (d&b D6/40D, Crown XTi 4002/CDi 4|600, Yamaha PC406-D, QSC PLD4.2/4.3,
+    Martin Audio iK42, Behringer NX3000D, Powersoft T604, Lab.gruppen C 48:4, t.amp TSA 4-700).
+  - *Studio:* Universal Audio Apollo x8/x8p/x16, Focusrite Clarett+ 8Pre und Scarlett 18i20, RME Fireface UFX III/UCX II,
+    Octamic XTC, MOTU 828/8pre-es/16A, Antelope Orion 32+, Apogee Symphony I/O Mk II; Neve 1073DPX, API 3124V und 500VPR,
+    UA 6176, Avalon VT-737sp, Focusrite ISA 828 MkII, SSL PURE DRIVE OCTO, Rupert Neve 5211; UA 1176LN, LA-2A,
+    Tube-Tech CL 1B, SSL Fusion, Neve 33609, Distressor; Patchbays (Neutrik NYS-SPP-L1, Samson S-Patch Plus, TT-96, XLR-24).
+  - *Video:* ATEM 2/4 M/E Constellation HD, MultiView 16, CleanSwitch 12×12, Teranex AV und Teranex Mini, HyperDeck Studio
+    HD Pro, AJA KUMO 1616/3232 und FS-HDR; generisch: SDI-Verteiler, HDMI-Matrix, SDI-Glasfaser, KVM-Konsole, Rackmonitor
+    3× 7", Medienserver.
+  - *Licht:* Dimmerpack 6-fach, Dimmerrack 12-fach (Socapex), Schaltpack, Socapex-Ausspitzung, ELC dmXLAN node16,
+    DMX-Merger, DMX-Player, Timecode-Generator.
+  - *Rigging:* Motorsteuerungen D8 4-/8-Kanal (direkt, Harting), D8+ Niederspannung, Not-Aus-Verteiler,
+    Lastmess-Basisstation, Motorstromverteiler CEE 63 A.
+  - *Strom und Intercom:* Eaton 5PX 1500 / 9PX 3000, Stromverteiler CEE 63 A, CEE 32 A → Socapex, 12× TRUE1, Netzmonitor,
+    Einschaltverzögerung, Netzfilter; Clear-Com FreeSpeak II Base II, Partyline-Netzteil.
+  Weitere neue Stecker: Harting 16-pol, Socapex 19-pol, CEE 16 A 4-pol (Motor), CEE 63 A, XLR 4-pol, Bantam/TT, Cinch,
+  TOSLINK, USB-C/Thunderbolt. Generische Vorlagen (Motorsteuerungen, Dimmer, Verteiler) sind als solche gekennzeichnet.
 - **Oberfläche:** bewusst nüchtern wie ein CAD-Werkzeug: flache Flächen ohne Leuchtverläufe, kleine Radien,
   Abschnitte durch Linien statt Kästchen getrennt, Überschriften in normaler Schreibweise, Angaben mit Kommas statt
   Mittelpunkten.

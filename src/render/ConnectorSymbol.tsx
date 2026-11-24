@@ -159,8 +159,9 @@ export function ConnectorSymbol({ connector, x, y, ring = true, state = 'normal'
       break;
     case 'cee': {
       // housing colour: blue = 230 V, red = 400 V
-      const col = connector.includes('3P') ? '#dc2626' : '#2563eb';
-      const pins = connector.includes('3P') ? 5 : 3;
+      const red = /_(3P|4P)$/.test(connector);
+      const col = red ? '#dc2626' : '#2563eb';
+      const pins = connector.endsWith('_4P') ? 4 : connector.endsWith('_3P') ? 5 : 3;
       body = (
         <>
           <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={3} fill={col} stroke="#111" strokeWidth={0.5} />
@@ -185,6 +186,33 @@ export function ConnectorSymbol({ connector, x, y, ring = true, state = 'normal'
       );
       break;
     }
+    case 'harting':
+      // rectangular multi-pin housing with locking lever
+      body = (
+        <>
+          <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={2} fill="#6b7280" stroke="#111" strokeWidth={0.5} />
+          <rect x={-w / 2 + 4} y={-h / 2 + 4} width={w - 8} height={h - 8} rx={1} fill="#111" />
+          {Array.from({ length: 8 }, (_, i) => [0, 1].map((r) => (
+            <circle key={`${i}-${r}`} cx={-w / 2 + 8 + i * ((w - 16) / 7)} cy={r ? 3 : -3} r={0.9} fill={METAL} />
+          )))}
+          <rect x={-w / 2 - 2} y={-3} width={3} height={6} rx={1} fill="#9ca3af" />
+          <rect x={w / 2 - 1} y={-3} width={3} height={6} rx={1} fill="#9ca3af" />
+        </>
+      );
+      break;
+    case 'socapex':
+      body = (
+        <>
+          <circle r={r} fill={METAL} stroke="#666" strokeWidth={0.5} />
+          <circle r={r * 0.78} fill="#111" />
+          {Array.from({ length: 18 }, (_, i) => {
+            const a = (i / 18) * Math.PI * 2, rr = i % 2 ? r * 0.55 : r * 0.35;
+            return <circle key={i} cx={Math.cos(a) * rr} cy={Math.sin(a) * rr} r={0.8} fill={METAL} />;
+          })}
+          <circle r={0.9} fill={METAL} />
+        </>
+      );
+      break;
     case 'din':
       body = (
         <>
@@ -211,7 +239,12 @@ export function ConnectorSymbol({ connector, x, y, ring = true, state = 'normal'
   return (
     <g transform={`translate(${x},${y})`} opacity={state === 'dim' ? 0.35 : 1}>
       {ring || state === 'highlight' || state === 'pending' ? (
-        <circle r={ringR} fill="none" stroke={ringColor} strokeWidth={state === 'highlight' || state === 'pending' ? 1.6 : 0.9} opacity={ringOpacity} />
+        // wide connectors (D-Sub, Harting, SFP …) get a rounded rectangle instead of a huge circle
+        w > h * 1.6 ? (
+          <rect x={-w / 2 - 1.6} y={-h / 2 - 1.6} width={w + 3.2} height={h + 3.2} rx={2.5} fill="none" stroke={ringColor} strokeWidth={state === 'highlight' || state === 'pending' ? 1.6 : 0.9} opacity={ringOpacity} />
+        ) : (
+          <circle r={ringR} fill="none" stroke={ringColor} strokeWidth={state === 'highlight' || state === 'pending' ? 1.6 : 0.9} opacity={ringOpacity} />
+        )
       ) : null}
       {body}
     </g>

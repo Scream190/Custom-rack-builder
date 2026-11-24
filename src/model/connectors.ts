@@ -3,7 +3,7 @@ import type { SignalType } from './types';
 export type ConnectorShape =
   | 'xlr' | 'combo' | 'bnc' | 'n' | 'sma' | 'jack' | 'rj45' | 'ethercon' | 'iec' | 'powercon'
   | 'true1' | 'schuko' | 'speakon' | 'usb' | 'hdmi' | 'dc' | 'sfp' | 'opticalcon' | 'dsub' | 'generic'
-  | 'cee' | 'phoenix' | 'din';
+  | 'cee' | 'phoenix' | 'din' | 'harting' | 'socapex';
 
 export interface ConnectorDef {
   key: string;
@@ -52,6 +52,12 @@ export const CONNECTORS: Record<string, ConnectorDef> = Object.fromEntries(
     c('DSUB25', 'D-Sub 25 (8 Kanäle analog, AES59)', 'audio', 'dsub', 53, 12),
     c('DSUB25-AES', 'D-Sub 25 (AES/EBU, AES59)', 'aes', 'dsub', 53, 12),
     c('DIN5', 'MIDI (DIN 5-pol)', 'data', 'din', 16),
+    c('XLR4F', 'XLR 4-pol female', 'other', 'xlr', 24, 24, { gender: 'f', dSize: true }),
+    c('XLR4M', 'XLR 4-pol male', 'other', 'xlr', 24, 24, { gender: 'm', dSize: true }),
+    c('TT', 'Bantam/TT (Patchbay)', 'audio', 'jack', 8),
+    c('RCA', 'Cinch (RCA)', 'audio', 'jack', 10),
+    c('TOSLINK', 'TOSLINK optisch (ADAT/S/PDIF)', 'aes', 'usb', 10, 8),
+    c('USB-C', 'USB-C / Thunderbolt', 'data', 'usb', 10, 5),
     // Network / data
     c('RJ45', 'RJ45', 'network', 'rj45', 14, 12),
     c('ETHERCON', 'etherCON', 'network', 'ethercon', 24, 24, { dSize: true }),
@@ -76,6 +82,10 @@ export const CONNECTORS: Record<string, ConnectorDef> = Object.fromEntries(
     c('CEE16', 'CEE 16 A 230 V (blau)', 'power', 'cee', 40, 40),
     c('CEE16_3P', 'CEE 16 A 400 V (rot, 5-pol)', 'power', 'cee', 42, 42),
     c('CEE32_3P', 'CEE 32 A 400 V (rot, 5-pol)', 'power', 'cee', 48, 48),
+    c('CEE16_4P', 'CEE 16 A 400 V (rot, 4-pol, Motor)', 'power', 'cee', 42, 42),
+    c('CEE63_3P', 'CEE 63 A 400 V (rot, 5-pol)', 'power', 'cee', 60, 60),
+    c('HARTING16', 'Harting 16-pol (Motor/Steuerung)', 'power', 'harting', 44, 30),
+    c('SOCAPEX19', 'Socapex 19-pol (6 Stromkreise)', 'power', 'socapex', 34),
     c('DC', 'DC Hohlstecker', 'power', 'dc', 10),
     c('GENERIC', 'Sonstiger', 'other', 'generic', 14),
   ].map((d) => [d.key, d]),
