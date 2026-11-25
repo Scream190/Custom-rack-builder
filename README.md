@@ -125,6 +125,15 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
     Einschaltverzögerung, Netzfilter; Clear-Com FreeSpeak II Base II, Partyline-Netzteil.
   Weitere neue Stecker: Harting 16-pol, Socapex 19-pol, CEE 16 A 4-pol (Motor), CEE 63 A, XLR 4-pol, Bantam/TT, Cinch,
   TOSLINK, USB-C/Thunderbolt. Generische Vorlagen (Motorsteuerungen, Dimmer, Verteiler) sind als solche gekennzeichnet.
+- **IT-Equipment** (`src/library/devicesIT.ts`, 57 Vorlagen): Switches (Cisco Catalyst 9300/Nexus 93180YC-FX/Meraki
+  MS225/MS120, Juniper EX2300/EX4300, HPE Aruba 2930F/CX 6300M/Instant On 1930, Netgear M4300, Ubiquiti USW-Pro-48/
+  Pro-Max-24/Aggregation, MikroTik CRS326/CRS317/CRS354, TP-Link SG3428XMP/SG1024D), Router und Firewalls (Cisco ISR 4331/
+  Catalyst 8200, Juniper SRX345, FortiGate 100F, Sophos XGS 4300, UniFi Dream Machine Pro/SE, MikroTik CCR2004/CCR2116,
+  Peplink Balance 310X, generischer 4G/5G-Router), Server (Dell R660/R760, HPE DL360/DL380 Gen11, Lenovo SR630/SR650 V3,
+  Mac Pro Rack, generisch 1/2 HE), NAS (Synology RS822+/RS1221+/RS2423+, QNAP TS-873AeU), Zeitserver Meinberg LANTIME
+  M300 (NTP/PTP), Konsolenserver Opengear CM8148, Medienkonverter-Chassis, WLAN-Controller Cisco 9800-L, KVM (ATEN CL5716,
+  CS1716A), Smart-PDUs (APC AP7920B, generisch C13/C19), LWL-Patchfeld 24× LC, Patchfeld 48× RJ45, Bürstenleiste.
+  Neue Stecker: QSFP, LC-Duplex, VGA.
 - **Oberfläche:** bewusst nüchtern wie ein CAD-Werkzeug: flache Flächen ohne Leuchtverläufe, kleine Radien,
   Abschnitte durch Linien statt Kästchen getrennt, Überschriften in normaler Schreibweise, Angaben mit Kommas statt
   Mittelpunkten.
