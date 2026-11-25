@@ -2,7 +2,8 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { Face, Project, Rack } from '../model/types';
 import { RackSvg, rackLayout } from '../render/RackSvg';
 import { AssemblySheet } from '../render/CableAssemblies';
-import type { Assembly } from '../model/assembly';
+import { PinoutSheet } from '../render/PinoutSheet';
+import type { Assembly, PinoutCard } from '../model/assembly';
 
 /** Front and/or rear view side by side as one standalone SVG string (mm user units). */
 export function rackSvgString(project: Project, rack: Rack, views: Face[], pxPerMm = 1, column = false): string {
@@ -32,7 +33,7 @@ export function rackSvgSize(rack: Rack, views: number, column = false, project?:
 export function pdfSafe(s: string): string {
   return s
     .replace(/↔/g, '<->').replace(/→/g, '->').replace(/←/g, '<-')
-    .replace(/Ω/g, 'Ohm').replace(/[✎★]/g, '*').replace(/≥/g, '>=').replace(/≤/g, '<=')
+    .replace(/Ω/g, 'Ohm').replace(/−/g, '-').replace(/⏚/g, 'PE').replace(/[✎★]/g, '*').replace(/≥/g, '>=').replace(/≤/g, '<=')
     .replace(/[^\u0000-ÿ–—‘’“”•…€]/g, '?');
 }
 
@@ -61,4 +62,9 @@ export async function svgToPngBlob(svg: string, widthPx: number, heightPx: numbe
 /** Cable assembly drawings as standalone SVG markup (for the PDF). */
 export function assemblySheetString(assemblies: Assembly[], demand?: { key: string; label: string; count: number }[], panels?: { key: string; label: string; count: number }[]): string {
   return renderToStaticMarkup(<AssemblySheet assemblies={assemblies} demand={demand} panels={panels} light />);
+}
+
+/** Pin diagrams as standalone SVG markup (for the PDF). */
+export function pinoutSheetString(cards: PinoutCard[], title?: string): string {
+  return renderToStaticMarkup(<PinoutSheet cards={cards} light title={title} />);
 }

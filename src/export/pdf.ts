@@ -2,8 +2,9 @@ import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { Face, Project, Rack } from '../model/types';
 import { cableLength, formatLength } from '../model/geometry';
-import { assemblySheetString, pdfSafe, rackSvgSize, rackSvgString } from './render';
-import { cableAssemblies, panelDemand, plugDemand, type Assembly } from '../model/assembly';
+import { assemblySheetString, pdfSafe, pinoutSheetString, rackSvgSize, rackSvgString } from './render';
+import { cableAssemblies, panelDemand, pinoutCards, plugDemand, type Assembly, type PinoutCard } from '../model/assembly';
+import { cardHeight } from '../render/PinoutSheet';
 import { assemblyHeight, SHEET_W } from '../render/CableAssemblies';
 import { cableRows } from '../ui/CableList';
 import { rackStats } from '../ui/Inspector';
@@ -209,6 +210,29 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
         header(doc, project, `${rack.name} – Kabelkonfektion${i ? ' (Forts.)' : ''}`, page);
         const markup = assemblySheetString(sh.list, sh.demand, sh.panels);
         const svgEl = prepareSvgForPdf(markup);
+        const vb = svgEl.viewBox.baseVal;
+        const k = Math.min(W / vb.width, availH / vb.height);
+        try {
+          await doc.svg(svgEl, { x: MARGIN, y: MARGIN + 11, width: vb.width * k, height: vb.height * k });
+        } finally {
+          svgEl.parentElement?.remove();
+        }
+        footer(doc, page);
+      }
+      // pin diagrams of the self-made cables, two per row, as many rows per page as fit
+      const cards = pinoutCards(asm);
+      const pinPages: PinoutCard[][] = [];
+      let pc: PinoutCard[] = [], pu = 26;
+      for (let i = 0; i < cards.length; i += 2) {
+        const pair = cards.slice(i, i + 2), h = Math.max(...pair.map(cardHeight)) + 14;
+        if (pu + h > unitsPerPage && pc.length) { pinPages.push(pc); pc = []; pu = 26; }
+        pc.push(...pair); pu += h;
+      }
+      if (pc.length) pinPages.push(pc);
+      for (const [i, list] of pinPages.entries()) {
+        newPage();
+        header(doc, project, `${rack.name} – Pinbelegung${i ? ' (Forts.)' : ''}`, page);
+        const svgEl = prepareSvgForPdf(pinoutSheetString(list, i ? ' ' : undefined));
         const vb = svgEl.viewBox.baseVal;
         const k = Math.min(W / vb.width, availH / vb.height);
         try {

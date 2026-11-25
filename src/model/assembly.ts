@@ -1,6 +1,7 @@
 import type { Cable, Project, Rack } from './types';
 import { cableLength, resolveEnd } from './geometry';
 import { cablePlug, connectorDef } from './connectors';
+import { wiringFor, type Wiring } from './pinout';
 import { cableColor, cableNumberText } from '../render/cablePaths';
 
 /** One kind of cable to prepare: a plain cable (one branch) or a Y cable (several branches from a common plug). */
@@ -9,7 +10,9 @@ export interface Assembly {
   typeName: string;
   color: string;
   common: { key: string; label: string };
-  branches: { plug: { key: string; label: string }; length: number }[];
+  /** panel connector the common end plugs into (for the pin assignment) */
+  commonConn: string;
+  branches: { plug: { key: string; label: string }; conn: string; length: number }[];
   count: number;
   numbers: string[];
 }
@@ -31,17 +34,22 @@ export function cableAssemblies(project: Project, racks: Rack[]): Assembly[] {
       if (!a) continue;
       const ct = project.cableTypes.find((t) => t.id === first.typeId);
       let common = cablePlug(a.port);
+      let commonConn = a.port.connector;
       let branches = legs.map((c) => {
         const b = resolveEnd(project, rack, c.b);
-        return { plug: b ? cablePlug(b.port) : { key: 'GENERIC', label: '?' }, length: cableLength(project, rack, c)?.length ?? 0 };
+        return { plug: b ? cablePlug(b.port) : { key: 'generic', label: '?' }, conn: b?.port.connector ?? 'GENERIC', length: cableLength(project, rack, c)?.length ?? 0 };
       });
       // plain cables: put the plugs in a fixed order so A↔B swapped cables group together
-      if (legs.length === 1 && branches[0].plug.label < common.label) [common, branches] = [branches[0].plug, [{ plug: common, length: branches[0].length }]];
+      if (legs.length === 1 && branches[0].plug.label < common.label) {
+        const b0 = branches[0];
+        branches = [{ plug: common, conn: commonConn, length: b0.length }];
+        common = b0.plug; commonConn = b0.conn;
+      }
       const key = [first.typeId, common.label, ...branches.map((b) => `${b.plug.label}@${b.length}`)].join('|');
       const hit = out.get(key);
       const num = legs.length > 1 ? cableNumberText(first).replace(/[a-z]$/, '') : cableNumberText(first);
       if (hit) { hit.count++; hit.numbers.push(num); continue; }
-      out.set(key, { key, typeName: ct?.name ?? '?', color: cableColor(project, first), common, branches, count: 1, numbers: [num] });
+      out.set(key, { key, typeName: ct?.name ?? '?', color: cableColor(project, first), common, commonConn, branches, count: 1, numbers: [num] });
     }
   }
   return [...out.values()].sort((x, y) => x.typeName.localeCompare(y.typeName) || x.branches.length - y.branches.length || x.branches[0].length - y.branches[0].length);
@@ -83,4 +91,32 @@ export function panelDemand(project: Project, racks: Rack[]): { key: string; lab
     for (const d of r.devices) if (project.templates[d.templateId]?.panel) add(d.templateId);
   }
   return [...m.values()].sort((x, y) => y.count - x.count || x.label.localeCompare(y.label));
+}
+
+/** One pin diagram per connector combination that can be self-made, with the cables it applies to. */
+export interface PinoutCard {
+  key: string;
+  a: { plug: { key: string; label: string }; conn: string };
+  b: { plug: { key: string; label: string }; conn: string };
+  wiring: Wiring;
+  uses: string[];
+  y: boolean;
+}
+export function pinoutCards(assemblies: Assembly[]): PinoutCard[] {
+  const out = new Map<string, PinoutCard>();
+  for (const asm of assemblies) {
+    const y = asm.branches.length > 1;
+    for (const br of asm.branches) {
+      // cables with the same plugs share one diagram, whatever panel connector they plug into; Y cables get their own
+      let a = { plug: asm.common, conn: asm.commonConn }, b = { plug: br.plug, conn: br.conn };
+      if (!y && b.plug.label < a.plug.label) [a, b] = [b, a];
+      const wiring = wiringFor(a.conn, b.conn);
+      if (!wiring) continue;
+      const key = `${a.plug.label}|${b.plug.label}|${wiring.a.family}|${y ? 'y' : ''}`;
+      const card = out.get(key) ?? { key, a, b, wiring, uses: [], y };
+      card.uses.push(...asm.numbers.filter((n) => !card.uses.includes(n)));
+      out.set(key, card);
+    }
+  }
+  return [...out.values()];
 }

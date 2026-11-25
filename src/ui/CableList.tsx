@@ -4,7 +4,8 @@ import { cableLength, formatLength, resolveEnd } from '../model/geometry';
 import { cableColor, cableNumberText } from '../render/cablePaths';
 import { useState } from 'react';
 import type { Project, Rack } from '../model/types';
-import { cableAssemblies, panelDemand, plugDemand } from '../model/assembly';
+import { cableAssemblies, panelDemand, pinoutCards, plugDemand } from '../model/assembly';
+import { PinoutSheet } from '../render/PinoutSheet';
 import { AssemblySheet } from '../render/CableAssemblies';
 
 export interface CableRow {
@@ -72,7 +73,13 @@ export function CableList() {
         <div className="cable-table-wrap assembly-wrap">
           {rows.length === 0 ? <div className="hint pad">Noch keine Kabel.</div> : (() => {
             const asm = cableAssemblies(project, [rack]);
-            return <AssemblySheet assemblies={asm} demand={plugDemand(asm)} panels={panelDemand(project, [rack])} />;
+            const cards = pinoutCards(asm);
+            return (
+              <>
+                <AssemblySheet assemblies={asm} demand={plugDemand(asm)} panels={panelDemand(project, [rack])} />
+                {cards.length ? <div style={{ marginTop: 18 }}><PinoutSheet cards={cards} /></div> : null}
+              </>
+            );
           })()}
         </div>
       ) : null}

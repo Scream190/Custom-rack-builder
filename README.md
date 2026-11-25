@@ -43,6 +43,12 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   Kabelfarbe, Länge, Stückzahl und Kabelnummern. Darunter steht der Steckerbedarf mit Stückzahlen. Kabelstecker sind als
   Kabelstecker gezeichnet (Seitenansicht mit Knickschutz), das Einbau-Piktogramm erscheint nur bei den Einbausteckern,
   die für Dosen und eigene Blenden gebraucht werden. Alles kommt auch als Seite „Kabelkonfektion“ ins PDF.
+- **Pinbelegung:** Für jedes selbst konfektionierbare Kabel zeigt die Konfektion ein Verdrahtungsschema: Pins beider
+  Stecker, farbige Adern mit Signal (sich kreuzend, wo die Reihenfolge abweicht, z. B. XLR 1-2-3 auf Klinke T-R-S),
+  Brücken (symmetrisch auf unsymmetrisch) und Hinweise. Abgedeckt: Audio (XLR, Klinke, TT, Cinch, Phoenix), DMX (XLR 5),
+  Lautsprecher (speakON NL4/NL8), Koax (BNC, N, SMA), Netzwerk (RJ45/etherCON nach T568B), MIDI, D-Sub 25 (AES59),
+  Netz (Kaltgeräte, Schuko, powerCON, TRUE1, CEE, mit Hinweis auf Elektrofachkraft und DGUV V3). Kabel ohne
+  Standardbelegung (USB, HDMI, Glasfaser, Harting, Socapex, CA-COM) bekommen kein Schema. Im PDF als Seite „Pinbelegung“.
 - **Y-Kabel:** Im Kabel-Inspector „Ast an Ende A/B hinzufügen“ und dann den Zielanschluss anklicken. Alle Äste teilen den
   gemeinsamen Stecker (Ende A), heißen W012a, W012b … und haben je eine eigene Länge ab dem gemeinsamen Stecker. Kabeltyp
   und Farbe gelten für das ganze Y-Kabel; die 3D-Führung lässt die Äste am gemeinsamen Stecker zusammenlaufen.
