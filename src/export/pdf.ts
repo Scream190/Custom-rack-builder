@@ -3,7 +3,7 @@ import 'svg2pdf.js';
 import type { Face, Project, Rack } from '../model/types';
 import { cableLength, formatLength } from '../model/geometry';
 import { assemblySheetString, pdfSafe, rackSvgSize, rackSvgString } from './render';
-import { cableAssemblies, plugDemand, type Assembly } from '../model/assembly';
+import { cableAssemblies, panelDemand, plugDemand, type Assembly } from '../model/assembly';
 import { assemblyHeight, SHEET_W } from '../render/CableAssemblies';
 import { cableRows } from '../ui/CableList';
 import { rackStats } from '../ui/Inspector';
@@ -188,6 +188,7 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
     if (opt.includeCableList && rack.cables.length) {
       const asm = cableAssemblies(project, [rack]);
       const demand = plugDemand(asm);
+      const panels = panelDemand(project, [rack]);
       const W = page.w - 2 * MARGIN, availH = page.h - 2 * MARGIN - 16;
       const unitsPerPage = availH / (W / SHEET_W);
       const pages: Assembly[][] = [];
@@ -198,14 +199,15 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
         cur.push(a); used += h;
       }
       if (cur.length) pages.push(cur);
-      const demandRows = 40 + Math.ceil(demand.length / 2) * 30;
+      const demandRows = 40 + Math.ceil(demand.length / 2) * 30 + (panels.length ? 40 + Math.ceil(panels.length / 2) * 30 : 0);
       const demandOwnPage = used + demandRows > unitsPerPage;
-      const sheets = pages.map((list, i) => ({ list, demand: !demandOwnPage && i === pages.length - 1 ? demand : undefined }));
-      if (demandOwnPage) sheets.push({ list: [], demand });
+      const last = (i: number) => !demandOwnPage && i === pages.length - 1;
+      const sheets = pages.map((list, i) => ({ list, demand: last(i) ? demand : undefined, panels: last(i) ? panels : undefined }));
+      if (demandOwnPage) sheets.push({ list: [], demand, panels });
       for (const [i, sh] of sheets.entries()) {
         newPage();
         header(doc, project, `${rack.name} – Kabelkonfektion${i ? ' (Forts.)' : ''}`, page);
-        const markup = assemblySheetString(sh.list, sh.demand);
+        const markup = assemblySheetString(sh.list, sh.demand, sh.panels);
         const svgEl = prepareSvgForPdf(markup);
         const vb = svgEl.viewBox.baseVal;
         const k = Math.min(W / vb.width, availH / vb.height);

@@ -59,6 +59,6 @@ export async function svgToPngBlob(svg: string, widthPx: number, heightPx: numbe
 }
 
 /** Cable assembly drawings as standalone SVG markup (for the PDF). */
-export function assemblySheetString(assemblies: Assembly[], demand?: { key: string; label: string; count: number }[], title?: string): string {
-  return renderToStaticMarkup(<AssemblySheet assemblies={assemblies} demand={demand} light title={title} />);
+export function assemblySheetString(assemblies: Assembly[], demand?: { key: string; label: string; count: number }[], panels?: { key: string; label: string; count: number }[]): string {
+  return renderToStaticMarkup(<AssemblySheet assemblies={assemblies} demand={demand} panels={panels} light />);
 }

@@ -40,8 +40,9 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   + Serviceschlaufe, aufgerundet auf Lagerlängen) **oder manuell**. Kabelnummern W001 … für Beschriftung.
 - **Kabelkonfektion:** Die Kabelliste hat neben „Liste“ die Ansicht „Konfektion“. Dort ist jede Kabelart gezeichnet:
   benötigter Kabelstecker an beiden Enden (das Gegenstück zur Gerätebuchse, z. B. XLR-Kupplung an einem XLR-Ausgang),
-  Kabelfarbe, Länge, Stückzahl und Kabelnummern. Darunter steht der Steckerbedarf mit Stückzahlen. Beides kommt auch
-  als Seite „Kabelkonfektion“ ins PDF.
+  Kabelfarbe, Länge, Stückzahl und Kabelnummern. Darunter steht der Steckerbedarf mit Stückzahlen. Kabelstecker sind als
+  Kabelstecker gezeichnet (Seitenansicht mit Knickschutz), das Einbau-Piktogramm erscheint nur bei den Einbausteckern,
+  die für Dosen und eigene Blenden gebraucht werden. Alles kommt auch als Seite „Kabelkonfektion“ ins PDF.
 - **Y-Kabel:** Im Kabel-Inspector „Ast an Ende A/B hinzufügen“ und dann den Zielanschluss anklicken. Alle Äste teilen den
   gemeinsamen Stecker (Ende A), heißen W012a, W012b … und haben je eine eigene Länge ab dem gemeinsamen Stecker. Kabeltyp
   und Farbe gelten für das ganze Y-Kabel; die 3D-Führung lässt die Äste am gemeinsamen Stecker zusammenlaufen.

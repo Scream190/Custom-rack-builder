@@ -1,6 +1,7 @@
 import type { Assembly } from '../model/assembly';
 import { formatLength } from '../model/geometry';
 import { ConnectorSymbol } from './ConnectorSymbol';
+import { CablePlugIcon } from './PlugIcon';
 
 /*
  * Cable assembly drawings ("Konfektion"): each kind of cable with the cable connectors it needs, length and count,
@@ -10,12 +11,12 @@ import { ConnectorSymbol } from './ConnectorSymbol';
 
 export const SHEET_W = 760;
 const ROW = 34, BRANCH = 26;
-const X_COUNT = 4, X_A = 64, X_SPLIT = 170, X_LINE_END = 318, X_B = 342, X_TEXT = 376;
+const X_COUNT = 4, X_LINE_START = 82, X_SPLIT = 176, X_LINE_END = 320, X_TEXT = 376;
 
 export const assemblyHeight = (a: Assembly) => (a.branches.length > 1 ? a.branches.length * BRANCH + 12 : ROW);
 
-/** fit a connector symbol (mm-sized) into a box of ~26 units */
-function Plug({ k, x, y, ring }: { k: string; x: number; y: number; ring?: boolean }) {
+/** panel-mount connector from the front (mm-sized symbol scaled into ~26 units) – only for parts built into boxes/panels */
+function PanelPlug({ k, x, y, ring }: { k: string; x: number; y: number; ring?: boolean }) {
   return (
     <g transform={`translate(${x},${y}) scale(0.9)`}>
       <ConnectorSymbol connector={k} x={0} y={0} ring={!!ring} />
@@ -51,24 +52,24 @@ function AssemblyRow({ a, y, light }: { a: Assembly; y: number; light?: boolean 
       <text x={X_COUNT} y={mid + 5} fontSize={14} fontWeight={700} fill={ink}>{a.count}×</text>
       {many ? (
         <>
-          {stroke(`M${X_A + 12},${mid} H${X_SPLIT}`)}
+          {stroke(`M${X_LINE_START},${mid} H${X_SPLIT}`)}
           {a.branches.map((_, i) => <g key={i}>{stroke(`M${X_SPLIT},${mid} V${by(i)} H${X_LINE_END}`)}</g>)}
           <circle cx={X_SPLIT} cy={mid} r={4} fill={a.color} stroke={light ? '#555' : '#000'} strokeWidth={0.8} />
           {a.branches.map((b, i) => (
             <g key={'b' + i}>
               <LengthTag x={(X_SPLIT + X_LINE_END) / 2 + 10} y={by(i)} text={formatLength(b.length)} light={light} />
-              <Plug k={b.plug.key} x={X_B} y={by(i)} ring={!light} />
+              <CablePlugIcon kind={b.plug.key} x={X_LINE_END} y={by(i)} flip />
             </g>
           ))}
         </>
       ) : (
         <>
-          {stroke(`M${X_A + 12},${mid} H${X_LINE_END}`)}
-          <LengthTag x={(X_A + X_LINE_END) / 2 + 6} y={mid} text={formatLength(a.branches[0].length)} light={light} />
-          <Plug k={a.branches[0].plug.key} x={X_B} y={mid} ring={!light} />
+          {stroke(`M${X_LINE_START},${mid} H${X_LINE_END}`)}
+          <LengthTag x={(X_LINE_START + X_LINE_END) / 2} y={mid} text={formatLength(a.branches[0].length)} light={light} />
+          <CablePlugIcon kind={a.branches[0].plug.key} x={X_LINE_END} y={mid} flip />
         </>
       )}
-      <Plug k={a.common.key} x={X_A} y={mid} ring={!light} />
+      <CablePlugIcon kind={a.common.key} x={X_LINE_START} y={mid} />
       <text x={X_TEXT} y={mid - (many ? 9 : 4)} fontSize={10.5} fontWeight={700} fill={ink}>
         {a.typeName}{many ? ` – Y-Kabel, ${a.branches.length} Äste` : ''}
       </text>
@@ -81,14 +82,38 @@ function AssemblyRow({ a, y, light }: { a: Assembly; y: number; light?: boolean 
 }
 
 /** The drawing of a list of assemblies (and optionally the connector demand). Returns the svg element. */
-export function AssemblySheet({ assemblies, demand, light, title }: { assemblies: Assembly[]; demand?: { key: string; label: string; count: number }[]; light?: boolean; title?: string }) {
+type Demand = { key: string; label: string; count: number }[];
+
+/** a titled grid of connectors with counts; `panel` = panel-mount parts (front view), otherwise cable connectors (side view) */
+function DemandGrid({ title, items, top, panel, light }: { title: string; items: Demand; top: number; panel?: boolean; light?: boolean }) {
+  const ink = light ? '#111' : '#e5e7eb';
+  const cols = 2, row = 30;
+  return (
+    <g>
+      <line x1={0} y1={top - 10} x2={SHEET_W} y2={top - 10} stroke={light ? '#9ca3af' : '#3a404a'} strokeWidth={1} />
+      <text x={4} y={top + 6} fontSize={12} fontWeight={700} fill={ink}>{title}</text>
+      {items.map((d, i) => {
+        const cx = (i % cols) * (SHEET_W / cols), cy = top + 22 + Math.floor(i / cols) * row + row / 2;
+        return (
+          <g key={d.label}>
+            {panel ? <PanelPlug k={d.key} x={cx + 26} y={cy} ring={!light} /> : <CablePlugIcon kind={d.key} x={cx + 46} y={cy} />}
+            <text x={cx + 54} y={cy + 4.5} fontSize={13} fontWeight={700} fill={ink}>{d.count}×</text>
+            <text x={cx + 90} y={cy + 4} fontSize={10.5} fill={ink}>{d.label}</text>
+          </g>
+        );
+      })}
+    </g>
+  );
+}
+const demandHeight = (items?: Demand) => (items?.length ? 40 + Math.ceil(items.length / 2) * 30 : 0);
+
+export function AssemblySheet({ assemblies, demand, panels, light, title }: { assemblies: Assembly[]; demand?: Demand; panels?: Demand; light?: boolean; title?: string }) {
   const ink = light ? '#111' : '#e5e7eb';
   let y = title ? 22 : 4;
   const rows = assemblies.map((a) => { const r = { a, y }; y += assemblyHeight(a) + 8; return r; });
-  const dCols = 2, dRow = 30;
   const demandTop = y + 18;
-  const demandH = demand?.length ? 22 + Math.ceil(demand.length / dCols) * dRow : 0;
-  const H = demandTop + demandH + 4;
+  const panelTop = demandTop + demandHeight(demand);
+  const H = panelTop + (panels?.length ? demandHeight(panels) : -18) + 4;
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${SHEET_W} ${H}`} width={SHEET_W} height={H} fontFamily="Inter, Arial, Helvetica, sans-serif" style={{ display: 'block' }}>
       {light ? <rect x={0} y={0} width={SHEET_W} height={H} fill="#ffffff" /> : null}
@@ -99,22 +124,8 @@ export function AssemblySheet({ assemblies, demand, light, title }: { assemblies
           <AssemblyRow a={a} y={ry} light={light} />
         </g>
       ))}
-      {demand?.length ? (
-        <g>
-          <line x1={0} y1={demandTop - 10} x2={SHEET_W} y2={demandTop - 10} stroke={light ? '#9ca3af' : '#3a404a'} strokeWidth={1} />
-          <text x={4} y={demandTop + 6} fontSize={12} fontWeight={700} fill={ink}>Steckerbedarf (Kabelseite)</text>
-          {demand.map((d, i) => {
-            const cx = (i % dCols) * (SHEET_W / dCols), cy = demandTop + 22 + Math.floor(i / dCols) * dRow + dRow / 2;
-            return (
-              <g key={d.label}>
-                <Plug k={d.key} x={cx + 22} y={cy} ring={!light} />
-                <text x={cx + 46} y={cy + 4.5} fontSize={13} fontWeight={700} fill={ink}>{d.count}×</text>
-                <text x={cx + 82} y={cy + 4} fontSize={10.5} fill={ink}>{d.label}</text>
-              </g>
-            );
-          })}
-        </g>
-      ) : null}
+      {demand?.length ? <DemandGrid title="Steckerbedarf Kabel" items={demand} top={demandTop} light={light} /> : null}
+      {panels?.length ? <DemandGrid title="Einbaustecker für Dosen und eigene Blenden" items={panels} top={panelTop} panel light={light} /> : null}
     </svg>
   );
 }
