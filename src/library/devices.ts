@@ -5,6 +5,7 @@ import { PRO_DEVICES } from './devicesPro';
 import { PRO2_DEVICES } from './devicesPro2';
 import { COMPLETE_DEVICES } from './devicesComplete';
 import { COMPLETE2_DEVICES } from './devicesComplete2';
+import { COMPLETE3_DEVICES } from './devicesComplete3';
 import { BOX_DEVICES } from './devicesBoxes';
 import { IT_DEVICES } from './devicesIT';
 import { VIDEO_DEVICES } from './devicesVideo';
@@ -36,6 +37,7 @@ export const BUILTIN_DEVICES: DeviceTemplate[] = [
   ...PRO2_DEVICES,
   ...COMPLETE_DEVICES,
   ...COMPLETE2_DEVICES,
+  ...COMPLETE3_DEVICES,
   ...BOX_DEVICES,
   ...IT_DEVICES,
   ...VIDEO_DEVICES,

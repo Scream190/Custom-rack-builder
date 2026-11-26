@@ -146,6 +146,8 @@ export interface ModuleBay {
   options: { id: string; label: string }[];
   /** module fitted when nothing was chosen yet (default: empty) */
   default?: string;
+  /** drawing: charging bay with two battery pockets (default) or a plain plug-in card */
+  style?: 'charger' | 'card';
 }
 
 /** Split box (one multi connector fans out to single connectors) or combi box (singles combined into a multi). */

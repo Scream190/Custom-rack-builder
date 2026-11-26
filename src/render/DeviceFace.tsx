@@ -191,6 +191,16 @@ function ModuleSlot({ bay, value }: { bay: ModuleBay; value: string }) {
       </g>
     );
   }
+  if (bay.style === 'card') {
+    return (
+      <g>
+        <rect x={x} y={y} width={w} height={h} rx={0.8} fill="#2a2d32" stroke="#4b5057" strokeWidth={0.4} />
+        <rect x={x + 2} y={y + 2} width={w - 4} height={Math.min(4, h / 4)} rx={0.5} fill="#121316" />
+        <circle cx={x + w - 4} cy={y + h - 4} r={0.8} fill="#22c55e" />
+        <text x={x + 3} y={y + h - 2.5} fontSize={Math.min(2.6, h / 6)} fill="#e5e7eb" fontWeight={700}>{value}</text>
+      </g>
+    );
+  }
   const pw = (w - 9) / 2, ph = h - 9;
   return (
     <g>

@@ -107,10 +107,17 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   RME M-32 DA Pro II, M-16 AD, M-16 DA, 12Mic, Fireface 802 FS, ADI-648; Focusrite RedNet A8R, HD32R, D64R; DirectOut
   EXBOX.MD, ANDIAMO; MA grandMA3 processing unit M/XL (gleiche Front wie L), grandMA2 NPU. Bei Stageracks und Mixracks
   steht eine typische Bestückung drin; Karten und Kanalzahl im Geräte-Editor anpassen.
+  Dritter Durchgang (`src/library/devicesComplete3.ts`): Yamaha RPio622 (10 HE, 6 RY-Steckplätze) und RPio222 (5 HE);
+  DirectOut PRODIGY.MC und PRODIGY.MP (2 HE, je 8 Modulsteckplätze); Midas DL153, DL154, DL155, NEUTRON (7 HE);
+  SSL SB 32.24 (5 HE) und SB 16.12 (3 HE); Avid VENUE Stage 32 (5 HE); DiGiCo Orange Box (2 HE); Allen & Heath AB168
+  (4 HE mit Rackkit); Riedel Artist 64 (6 HE); Clear-Com Eclipse HX-PiCo (1 HE); Lectrosonics UMCWBD-L; Wisycom MRK16
+  (4 Steckplätze für MCR54 oder MCR54-DUAL).
 - **Ladegeräte mit wählbaren Schächten:** Shure SBRC (4 Schächte, je Schacht SBC-AX, SBM910, SBM910M, SBM920, AXT901
   oder AXT902, frei gemischt), Shure AXT900 (AXT901/AXT902) und Sennheiser L 6000 (LM 6060, LM 6061, LM 6062, LM 6070).
   Im Inspector unter *Schächte* belegen, auch *Alle Schächte gleich belegen*; die Front zeigt je Schacht das Modul mit
   zwei Akkufächern oder „leer“. Gespeichert wird die Auswahl in den Gerätefeldern, ältere Projekte bleiben ladbar.
+  Dasselbe gibt es für Einschubkarten: RY-Karten im Yamaha RPio, Module im DirectOut PRODIGY, MCR54 im Wisycom MRK16.
+  Die Front zeigt dann je Steckplatz die Karte. Die Anschlüsse der Karten selbst sind noch keine eigenen Ports.
 - **Automatische Bibliotheks-Aktualisierung:** Gespeicherte Projekte übernehmen neue Versionen der mitgelieferten Vorlagen.
   Kabel werden über den Anschlussnamen neu zugeordnet; Kabel an Anschlüssen, die es nicht mehr gibt, werden gemeldet.
 - **Blenden-Designer:** 1–8 HE, 19"/10", Neutrik-D-Size-Ausschnitte (XLR, etherCON, BNC, powerCON, speakON, USB, HDMI …),
