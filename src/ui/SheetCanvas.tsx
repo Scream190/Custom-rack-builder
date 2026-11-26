@@ -9,7 +9,8 @@ const st = useStore.getState;
  * pans, double click on empty space fits the sheet.
  */
 export function SheetCanvas({ c, size, fitKey, snap = 5, editable, hint, children }: {
-  c: FlightCase;
+  /** case whose cut-outs can be dragged (none = plain drawing) */
+  c?: FlightCase;
   /** sheet extent: x/y origin and size in mm */
   size: { x: number; y: number; w: number; h: number };
   fitKey: string;
@@ -47,7 +48,7 @@ export function SheetCanvas({ c, size, fitKey, snap = 5, editable, hint, childre
     if (e.button !== 0) return;
     e.stopPropagation();
     st().select({ kind: 'caseItem', id });
-    if (ro || !editable) return;
+    if (ro || !editable || !c) return;
     const it = c.items.find((x) => x.id === id)!;
     drag.current = { kind: 'item', id, sx: e.clientX, sy: e.clientY, x: it.x, y: it.y, k: scale() };
     svg.current?.setPointerCapture(e.pointerId);
@@ -63,7 +64,7 @@ export function SheetCanvas({ c, size, fitKey, snap = 5, editable, hint, childre
     const g = e.altKey ? 1 : snap;
     const x = Math.round((dr.x + (e.clientX - dr.sx) / dr.k) / g) * g;
     const y = Math.round((dr.y - (e.clientY - dr.sy) / dr.k) / g) * g;
-    st().updateCaseItem(c.id, dr.id, { x, y });
+    if (c) st().updateCaseItem(c.id, dr.id, { x, y });
   };
   return (
     <div className="case-canvas" onWheel={onWheel} onContextMenu={(e) => e.preventDefault()}>

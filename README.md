@@ -152,11 +152,33 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   Mittelpunkten.
 
 ### Arbeitsbereiche
-Oben in der Kopfleiste wählst du den Arbeitsbereich: **Racks bestücken** (Geräte, Kabel, Kabelliste), **Flightcases**
-(Gehäuse konstruieren) und **Einlagen** (Schaumstoff mit Ausschnitten). Jeder Bereich ist gleich aufgebaut: darunter die
+Oben in der Kopfleiste wählst du den Arbeitsbereich: **Racks bestücken** (Geräte, Kabel, Kabelliste), **Rackgehäuse**
+(das Gehäuse des Racks konstruieren), **Flightcases** (Cases konstruieren) und **Einlagen** (Schaumstoff mit Ausschnitten). Jeder Bereich ist gleich aufgebaut: darunter die
 Leiste mit deinen Racks, Cases oder Einlagen als Tabs, rechts daneben *Neu*, *Duplizieren* und *Löschen* als eine Gruppe
 und die Schalter für die Seitenbereiche. Über der Zeichenfläche liegt die Werkzeugleiste: zuerst die Ansicht, danach die
 Werkzeuge in beschrifteten Gruppen. Jeder Knopf erklärt im Tooltip, was er tut.
+
+### Rack-Designer (Rackgehäuse)
+Das Gehäuse eines Racks wird aus Parametern konstruiert statt aus einer Liste gewählt. Die Rack-Typen dienen nur noch
+als Startpunkt (*Werte aus einem Rack-Typ übernehmen*), die eingebauten Geräte bleiben dabei erhalten.
+
+- **Bauart:** Rackcase, Shockmount (Innenrack auf Gummi-Schwingmetall oder Dämpfungsschaum, Federweg einstellbar),
+  Stahlschrank mit Glastür und Sockel, Open Frame.
+- **Einbaufelder:** beliebig viele Felder mit HE und 19"/10", nebeneinander oder übereinander (Doppel-, Triple-,
+  Kombirack), Abstand der Mittelwand.
+- **Tiefe und Freiräume:** Einbautiefe (Schiene zu Schiene), Platz vor und hinter den Schienen, seitlich (Kabelkanal)
+  sowie oben und unten, hintere Schienen ja/nein.
+- **Deckel und Bauweise:** Innentiefe von Front- und Rückdeckel (0 = ohne), 4, 6 oder 8 Butterflyverschlüsse je Deckel,
+  Plattenstärke, Kantenprofil, Laminatfarbe, Kugelecken, Klappgriffe je Seite, Stapelschalen, Lenkrollen.
+- **Ergebnis:** Außenmaß und Leergewicht werden laufend berechnet und als Rack-Typ des Racks gespeichert, also auch für
+  3D-Ansicht, Kabellängen und PDF der Bestückung verwendet. *Als Rack-Typ speichern* macht das Gehäuse für weitere Racks
+  verfügbar.
+- **Ansichten:** Zeichnung mit Vorderansicht ohne Frontdeckel (Schienen mit Lochung und die eingebauten Geräte),
+  Seitenansicht geschlossen (Deckel, Schließprofile, Verschlüsse, Griffe, Rollen) und Schnitt von oben, in dem jedes
+  Gerät mit seiner Tiefe eingezeichnet ist; zu tiefe Geräte werden rot markiert und in den Eigenschaften aufgelistet.
+  3D wie im Case-Designer, mit abnehmbarem Frontdeckel und den Gerätefronten.
+- **Stückliste und Export:** Plattenzuschnitte (Korpus, Deckel, Innenrack, Rollbrett), Profillängen, Verschlüsse,
+  Griffe, Dämpfer, Rackschienen je Feld, Rollen; PDF mit Zeichnung und Stückliste für den Casebauer.
 
 ### Case-Designer (Flightcases)
 Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
@@ -250,12 +272,13 @@ Stack: React + TypeScript + Vite, zustand (State, Undo/Redo), SVG-Rendering, thr
 
 ```
 src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry, cases.ts = Case-Designer,
+                rackBuild.ts = Rack-Designer (Maße, Stückliste, Gewicht),
                 inlay.ts = Einlagen (Umrisse, Griffmulden, Schaumarten, Plattenaufbau)
 src/library/    Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
 src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auch für Export & 3D-Texturen
 src/ui/         Oberfläche, Editoren, Dialoge
 src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung, caseParts.ts = Case-Bauteile, Scene3D.tsx = Studio-Betrachter
-tests/          library.ts: Prüfung der Gerätebibliothek, cases.ts: Packen, Außenmaß, Stückliste, Schubladen-Einlage,
+tests/          library.ts: Prüfung der Gerätebibliothek, cases.ts: Packen, Außenmaß, Stückliste, Einlagen, Rack-Designer,
                 collision3d.ts: Kollisionsprüfung der 3D-Kabel
 src/export/     PDF, PNG/SVG, interaktives HTML, DXF
 ```

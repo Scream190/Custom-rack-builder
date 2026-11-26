@@ -190,6 +190,36 @@ export interface RackType {
    * With bays, `heightU` and `rackStandard` describe the overall size / first bay (for lists only).
    */
   bays?: Bay[];
+  /** construction from the rack designer (outer size and weight are computed from it) */
+  build?: RackBuild;
+}
+
+/** How a rack housing is built (rack designer). All lengths in mm. */
+export interface RackBuild {
+  /** plywood thickness of a flight case rack */
+  panel: number;
+  profile: 'alu30' | 'alu35' | 'none';
+  cornerBalls: boolean;
+  /** inner depth of the front / rear lid, 0 = no lid */
+  frontLid: number;
+  rearLid: number;
+  /** free space in front of the front rails (knobs, handles, cables) */
+  railInset: number;
+  /** free space behind the rear rails / the mounting depth */
+  rearGap: number;
+  /** space between rack rail and side wall, per side */
+  sideGap: number;
+  /** space above and below the mounting bays */
+  topGap: number;
+  /** butterfly latches per lid */
+  latches: 4 | 6 | 8;
+  /** recessed handles per side */
+  handles: 0 | 1 | 2;
+  stackCups: boolean;
+  castors: 0 | 4;
+  castorSize: 75 | 100 | 125;
+  /** shockmount: the inner rack floats on dampers inside the outer case */
+  shock?: { travel: number; damper: 'rubber' | 'foam' };
 }
 
 /** One mounting bay: x = left edge of its 19"/10" face, y = its bottom edge, both in mm from the bottom-left of the arrangement. */

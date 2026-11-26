@@ -8,6 +8,10 @@ import { Dxf } from './panelExport';
 import { pdfSafe } from './render';
 import { cutDepth, cutList, cutoutOutline, FOAM_MATERIALS, foamMaterial, inlayContainer, outlineBox } from '../model/inlay';
 import { InlaySheetSvg } from '../render/InlayDrawing';
+import { RackSheetSvg } from '../render/RackBuildDrawing';
+import { buildOf, isFlightRack, rackBom, rackDims } from '../model/rackBuild';
+import type { Rack } from '../model/types';
+import { totalUnits } from '../model/geometry';
 
 /**
  * Foam inlay as DXF (R12, mm, origin bottom-left of the inner space): outer contour on KONTUR, cut-outs (with corner
@@ -138,6 +142,50 @@ export async function exportInlaysPdf(project: Project, inlays: FlightCase[]): P
     }
     if (c.notes) { y += 3; line('Notizen', true); for (const t of doc.splitTextToSize(pdfSafe(c.notes), page.w - 2 * M)) line(t); }
     doc.setFontSize(7); doc.setTextColor(150); doc.text('Erstellt mit RackPlanner – Maße vor dem Zuschnitt am Behälter prüfen.', M, page.h - 6);
+  }
+  return doc.output('blob');
+}
+
+/** PDF of rack housings: drawing (front, side, top section) and parts list per rack */
+export async function exportRackBuildPdf(project: Project, racks: Rack[], devices = true): Promise<Blob> {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const page = { w: doc.internal.pageSize.getWidth(), h: doc.internal.pageSize.getHeight() };
+  const M = 12;
+  const head = (title: string) => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(20);
+    doc.text(pdfSafe(title), M, M + 4);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
+    doc.text(pdfSafe([project.name, new Date().toLocaleDateString('de-DE')].join('   |   ')), page.w - M, M + 4, { align: 'right' });
+    doc.setDrawColor(200); doc.line(M, M + 7, page.w - M, M + 7);
+  };
+  for (const [ri, rack] of racks.entries()) {
+    if (ri) doc.addPage();
+    head(`${rack.name} – Gehäuse ${rack.type.name}`);
+    const svg = prepareSvg(renderToStaticMarkup(<RackSheetSvg project={project} rack={rack} devices={devices} light />));
+    const vb = svg.viewBox.baseVal;
+    const avail = { w: page.w - 2 * M, h: page.h - 2 * M - 14 };
+    const k = Math.min(avail.w / vb.width, avail.h / vb.height);
+    try { await doc.svg(svg, { x: M + (avail.w - vb.width * k) / 2, y: M + 10, width: vb.width * k, height: vb.height * k }); } finally { svg.parentElement?.remove(); }
+    doc.setFontSize(7); doc.setTextColor(150); doc.text(pdfSafe(`Maßstab ca. 1:${Math.round(1 / k)}`), M, page.h - 6);
+    doc.addPage();
+    head(`${rack.name} – Stückliste Gehäuse`);
+    const t = rack.type, b = buildOf(t), d = rackDims(t), bom = rackBom(t);
+    let y = M + 16;
+    const line = (s: string, bold = false) => {
+      if (y > page.h - 14) { doc.addPage(); head(`${rack.name} – Stückliste (Forts.)`); y = M + 16; }
+      doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(bold ? 10.5 : 9); doc.setTextColor(30);
+      doc.text(pdfSafe(s), M, y); y += bold ? 6 : 4.8;
+    };
+    line(`Außen ca. ${Math.round(d.W)} × ${Math.round(d.H)} × ${Math.round(d.D)} mm (B × H × T), ${totalUnits(t)} HE, Einbautiefe ${t.depth} mm`, true);
+    if (isFlightRack(t.kind)) line(`Platte ${b.panel} mm, Profil ${b.profile === 'none' ? 'ohne' : b.profile === 'alu30' ? 'Alu 30 × 30' : 'Alu 35 × 35'}; Frontdeckel ${b.frontLid ? `${b.frontLid} mm innen` : 'ohne'}, Rückdeckel ${b.rearLid ? `${b.rearLid} mm innen` : 'ohne'}${t.kind === 'shockmount' ? `; Federweg ${b.shock?.travel ?? 35} mm` : ''}`);
+    line(`Freiraum vor den Schienen ${b.railInset} mm, dahinter ${b.rearGap} mm, seitlich ${b.sideGap} mm, oben/unten ${b.topGap} mm`);
+    line(`Gewicht leer ca. ${bom.weight.case} kg, Volumen ${bom.volume} m³`);
+    y += 3;
+    if (bom.panels.length) { line(isFlightRack(t.kind) ? 'Plattenzuschnitt (ohne Fräszugaben)' : 'Teile', true); for (const p of bom.panels) line(`${p.count} ×  ${p.name}: ${Math.round(p.a)} × ${Math.round(p.b)} mm`); y += 3; }
+    if (bom.profiles.length) { line('Profile', true); for (const p of bom.profiles) line(`${p.name}: ${String(p.length).replace('.', ',')} m`); y += 3; }
+    line('Beschläge und Schienen', true); for (const h of bom.hardware) line(`${h.count} ×  ${h.label}`);
+    if (t.notes) { y += 3; line('Notizen', true); for (const s of doc.splitTextToSize(pdfSafe(t.notes), page.w - 2 * M)) line(s); }
+    doc.setFontSize(7); doc.setTextColor(150); doc.text('Erstellt mit RackPlanner – Gewichte und Zuschnitte sind Schätzwerte.', M, page.h - 6);
   }
   return doc.output('blob');
 }

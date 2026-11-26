@@ -314,3 +314,11 @@ tr.bad-row td { color: #fca5a5; }
 .hw-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 6px 0; border-bottom: 1px solid #22262d; }
 .hw-row .hw-kind { flex: 1 1 100%; }
 .hw-row .icon-btn { margin-left: auto; }
+.bay-list { display: flex; flex-direction: column; }
+.bay-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #22262d; }
+.bay-name { flex: 1; min-width: 0; }
+.toolbar .check { font-size: 12px; }
+.insp .seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.insp .seg button { padding: 5px 6px; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.insp .check { white-space: normal; align-items: flex-start; }
+.insp .check input { margin-top: 2px; }

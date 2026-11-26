@@ -2,6 +2,7 @@
 import { caseBom, caseDims, caseWarnings, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
 import { sampleProject } from '../src/library/sample';
 import { uid } from '../src/model/util';
+import { applyBuild, rackBom, rackDims } from '../src/model/rackBuild';
 import { cutoutOutline, foamStack, inlayList, caseList, newFreeInlay, outlineBox, GRIP_R } from '../src/model/inlay';
 
 let failed = false;
@@ -57,6 +58,22 @@ free.items = [{ ...it0, id: 'b', x: 0, y: 0 }];
 const fb = caseBom(packItems(free));
 ok(fb.foam.length === 2 && !fb.foam.some((f) => /Randschaum/.test(f.name)) && fb.weight.foam > 0, `free inlay parts: ${fb.foam.map((f) => f.name).join(', ')}`);
 console.log(`inlays: outline with grips ok, PE stack 70 mm = ${st70.join(' + ')} mm`);
+
+// 5) rack designer
+const base = sampleProject().racks[0].type;
+const caseT = applyBuild({ ...base, kind: 'case', bays: undefined }, { frontLid: 100, rearLid: 80, castors: 0 });
+const dCase = rackDims(caseT);
+ok(Math.abs(dCase.D - (dCase.bodyD + dCase.lidF + dCase.lidR)) < 0.01 && dCase.lidF === 100 + dCase.wall, `rack case depth adds up: ${dCase.D}`);
+ok(caseT.outer.w === Math.round(dCase.W) && caseT.weight! > 10 && caseT.weight! < 80, `rack case outer ${JSON.stringify(caseT.outer)}, ${caseT.weight} kg`);
+const shockT = applyBuild({ ...caseT, kind: 'shockmount' });
+ok(rackDims(shockT).W > dCase.W && rackDims(shockT).H > dCase.H, 'shockmount is bigger than a plain rack case');
+const noLids = applyBuild(caseT, { frontLid: 0, rearLid: 0 });
+ok(rackDims(noLids).D === rackDims(noLids).bodyD && !rackBom(noLids).hardware.some((h) => /Butterfly/.test(h.label)), 'no lids: no lid depth, no latches');
+const withCastors = applyBuild(caseT, { castors: 4, castorSize: 100 });
+ok(rackDims(withCastors).H === dCase.H + 125, 'castors add their height');
+const rails = rackBom({ ...caseT, hasRearRails: true }).hardware.find((h) => /Rackschiene/.test(h.label));
+ok(rails?.count === 4, 'four rails with rear rails');
+console.log(`rack designer: case ${caseT.outer.w} × ${caseT.outer.h} × ${caseT.outer.d} mm, ${caseT.weight} kg; shockmount ${shockT.outer.w} × ${shockT.outer.h} × ${shockT.outer.d} mm`);
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }
 console.log('case designer: ok');

@@ -263,7 +263,7 @@ export function SettingsDialog() {
 
 export function ExportDialog() {
   const mode = useStore((s) => s.mode);
-  return mode === 'cases' ? <CaseExportDialog /> : mode === 'inlays' ? <InlayExportDialog /> : <RackExportDialog />;
+  return mode === 'cases' ? <CaseExportDialog /> : mode === 'inlays' ? <InlayExportDialog /> : mode === 'rackbuild' ? <RackBuildExportDialog /> : <RackExportDialog />;
 }
 
 function CaseExportDialog() {
@@ -315,6 +315,47 @@ function CaseExportDialog() {
           </div>
         </>
       )}
+    </Modal>
+  );
+}
+
+function RackBuildExportDialog() {
+  const project = useStore((s) => s.project);
+  const rack = useActiveRack();
+  const [scope, setScope] = useState<'current' | 'all'>('current');
+  const [busy, setBusy] = useState(false);
+  const list = scope === 'all' ? project.racks : [rack];
+  const st = useStore.getState;
+  return (
+    <Modal title="Export Rackgehäuse" footer={<><span className="spacer" /><button className="btn" onClick={() => st().openModal(null)}>Schließen</button></>}>
+      <Field label="Umfang">
+        <select value={scope} onChange={(e) => setScope(e.target.value as 'current' | 'all')}>
+          <option value="current">Aktuelles Rack ({rack.name})</option><option value="all">Alle Racks ({project.racks.length})</option>
+        </select>
+      </Field>
+      <div className="export-grid">
+        <div className="export-card">
+          <h4>Gehäusezeichnung und Stückliste (PDF)</h4>
+          <p className="muted small">Vorderansicht mit Schienen und Geräten, Seitenansicht geschlossen, Schnitt mit Einbautiefe, dazu Plattenzuschnitt, Profile, Beschläge, Schienen und Gewicht. Für das Gespräch mit dem Casebauer.</p>
+          <button className="btn primary" disabled={busy} onClick={async () => {
+            setBusy(true);
+            try {
+              const { exportRackBuildPdf } = await import('../export/caseExport');
+              downloadBlob(await exportRackBuildPdf(project, list), `${safeFileName(scope === 'all' ? project.name + '_Rackgehaeuse' : rack.name + '_Gehaeuse')}.pdf`);
+            } catch (e) { st().showToast((e as Error).message, 'error'); } finally { setBusy(false); }
+          }}>{busy ? 'Erzeuge …' : 'PDF herunterladen'}</button>
+        </div>
+        <div className="export-card">
+          <h4>Projektdatei</h4>
+          <p className="muted small">Komplettes Projekt mit Racks, Gehäusen, Cases und Einlagen (.rackplan.json).</p>
+          <button className="btn" onClick={() => downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), `${safeFileName(project.name)}.rackplan.json`)}>Projekt speichern</button>
+        </div>
+        <div className="export-card">
+          <h4>Bestückung und Verkabelung</h4>
+          <p className="muted small">Zeichnungen, Kabelliste und interaktive Ansicht gibt es im Export unter „Racks bestücken“.</p>
+          <button className="btn" onClick={() => { st().setMode('racks'); st().openModal({ kind: 'export' }); }}>Zum Export der Bestückung</button>
+        </div>
+      </div>
     </Modal>
   );
 }

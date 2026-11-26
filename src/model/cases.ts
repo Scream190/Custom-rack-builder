@@ -267,7 +267,7 @@ export function caseBom(c: FlightCase, project?: Project): CaseBom {
   const caseKg = plyKg + profKg + hwKg + foamKg;
   return {
     panels: panels.filter((x) => x.count > 0), profiles, hardware: [...hw.entries()].map(([label, count]) => ({ label, count })), foam: foamParts,
-    weight: { case: round1(caseKg), contents: round1(contents), total: round1(caseKg + contents), foam: round1(foamKg) }, volume: round2((d.L * d.W * d.H) / 1e9 * 1000) / 1000,
+    weight: { case: round1(caseKg), contents: round1(contents), total: round1(caseKg + contents), foam: round1(foamKg) }, volume: Math.round((d.L * d.W * d.H) / 1e9 * 1000) / 1000,
   };
 }
 const round1 = (n: number) => Math.round(n * 10) / 10;

@@ -15,6 +15,7 @@ import { PanelDesigner } from './PanelDesigner';
 import { BoxEditor } from './BoxEditor';
 import { CaseWorkspace, openDrawerInlay, projectDrawers } from './CaseWorkspace';
 import { InlayWorkspace } from './InlayWorkspace';
+import { RackBuildWorkspace } from './RackBuildWorkspace';
 import { ObjectBar, Seg, ToolGroup, Toolbar } from './Shell';
 import { caseList, inlayList, newFreeInlay } from '../model/inlay';
 import type { AppMode } from '../model/store';
@@ -34,6 +35,7 @@ const VIEWS: { id: ViewMode; label: string; title: string }[] = [
 
 const MODES: { id: AppMode; label: string; title: string }[] = [
   { id: 'racks', label: 'Racks bestücken', title: 'Geräte einbauen, verkabeln, Kabelliste' },
+  { id: 'rackbuild', label: 'Rackgehäuse', title: 'Rackgehäuse konstruieren: Einbaufelder, Tiefe, Deckel, Bauweise, Griffe, Rollen' },
   { id: 'cases', label: 'Flightcases', title: 'Flightcases konstruieren: Maße, Deckel, Beschläge, Rollen' },
   { id: 'inlays', label: 'Einlagen', title: 'Schaumstoff-Einlagen mit Ausschnitten für Schubladen, Cases und andere Behälter' },
 ];
@@ -219,6 +221,16 @@ export function App() {
               </>
             ) : null}
           </main>
+        </>
+      ) : mode === 'rackbuild' ? (
+        <>
+          <ObjectBar noun="Rack" activeId={rack.id} onSelect={(id) => st().setActiveRack(id)}
+            tabs={project.racks.map((r) => ({ id: r.id, label: r.name, sub: rackSizeLabel(r.type) }))}
+            newButton={<button className="btn sm accent" onClick={() => st().addRack(allRackTypes(project).find((t) => t.id === rack.type.id) ?? rack.type)} title="Neues leeres Rack mit dem gleichen Gehäuse anlegen">+ Neues Rack</button>}
+            onDuplicate={() => st().duplicateRack(rack.id)}
+            onDelete={project.racks.length > 1 ? () => { if (confirm(`„${rack.name}“ löschen?`)) st().removeRack(rack.id); } : undefined}
+            toggles={toggles('', 'Stückliste', '', 'Stückliste des Gehäuses unten ein- oder ausblenden').filter((t) => t.label)} />
+          <RackBuildWorkspace />
         </>
       ) : mode === 'cases' ? (
         <>

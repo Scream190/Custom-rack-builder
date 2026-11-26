@@ -22,9 +22,9 @@ export function Modal({ title, children, footer, wide, onClose }: { title: strin
   );
 }
 
-export function Field({ label, children, hint, grow }: { label: string; children: React.ReactNode; hint?: string; grow?: number }) {
+export function Field({ label, children, hint, grow, title }: { label: string; children: React.ReactNode; hint?: string; grow?: number; title?: string }) {
   return (
-    <label className="field" style={grow ? { flex: grow } : undefined}>
+    <label className="field" style={grow ? { flex: grow } : undefined} title={title}>
       <span>{label}</span>
       {children}
       {hint ? <small className="muted">{hint}</small> : null}

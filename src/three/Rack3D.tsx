@@ -11,7 +11,7 @@ import { useStore, type NavMode } from '../model/store';
 const S = 0.001; // mm -> m
 
 /** Rasterise a device panel (same SVG as the 2D view) into a canvas texture. */
-async function panelTexture(svgInner: string, w: number, h: number): Promise<THREE.Texture> {
+export async function panelTexture(svgInner: string, w: number, h: number): Promise<THREE.Texture> {
   const pxPerMm = 4;
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}" width="${w * pxPerMm}" height="${h * pxPerMm}">${svgInner}</svg>`;
   const img = new Image();
