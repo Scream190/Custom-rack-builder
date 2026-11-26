@@ -1,5 +1,6 @@
-import type { ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStore } from '../model/store';
+import { setLayout, useLayout } from '../model/layout';
 
 /*
  * Shared frame of every workspace, so all four look and behave the same:
@@ -9,9 +10,58 @@ import { useStore } from '../model/store';
  */
 
 export interface ObjectTab { id: string; label: string; sub?: string; title?: string }
-export interface PanelToggle { label: string; title: string; on: boolean; onClick: () => void }
 
-export function ObjectBar({ noun, tabs, activeId, onSelect, newButton, onDuplicate, onDelete, toggles, emptyText }: {
+/**
+ * Dropdown menu. Closes on outside click, Esc and (unless keepOpen) after choosing an item.
+ * Children: <button>, <MenuCheck>, <hr>, <div className="menu-note">.
+ */
+export function Menu({ label, title, className = '', align = 'left', keepOpen = false, children }: {
+  label: ReactNode; title?: string; className?: string; align?: 'left' | 'right'; keepOpen?: boolean; children: ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const down = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpen(false); };
+    document.addEventListener('pointerdown', down);
+    document.addEventListener('keydown', key);
+    return () => { document.removeEventListener('pointerdown', down); document.removeEventListener('keydown', key); };
+  }, [open]);
+  return (
+    <div className="menu" ref={ref}>
+      <button className={'btn ' + className + (open ? ' pressed' : '')} aria-haspopup="menu" aria-expanded={open} title={title} onClick={() => setOpen(!open)}>{label} ▾</button>
+      {open ? (
+        <div className={'menu-pop' + (align === 'right' ? ' right' : '')} role="menu"
+          onClick={(e) => { if (!keepOpen && (e.target as HTMLElement).closest('button')) setOpen(false); }}>
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+/** checkbox row inside a menu */
+export function MenuCheck({ checked, onChange, children, title }: { checked: boolean; onChange: (v: boolean) => void; children: ReactNode; title?: string }) {
+  return <label className="menu-check" title={title}><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> {children}</label>;
+}
+
+/** "Anzeigen" menu at the right end of every tool bar: side panels plus view options of the workspace */
+export function ShowMenu({ library, list, children }: { library?: string; list?: string; children?: ReactNode }) {
+  const layout = useLayout();
+  const ro = useStore((s) => s.readOnly);
+  return (
+    <Menu label="Anzeigen" title="Seitenbereiche und Anzeigeoptionen" align="right" keepOpen className="sm">
+      <div className="menu-head">Bereiche</div>
+      {library && !ro ? <MenuCheck checked={layout.showLibrary} onChange={(v) => setLayout({ showLibrary: v })}>{library} (links)</MenuCheck> : null}
+      {list ? <MenuCheck checked={layout.showCableList} onChange={(v) => setLayout({ showCableList: v })}>{list} (unten)</MenuCheck> : null}
+      <MenuCheck checked={layout.showInspector} onChange={(v) => setLayout({ showInspector: v })}>Eigenschaften (rechts)</MenuCheck>
+      {children ? <><hr /><div className="menu-head">Ansicht</div>{children}</> : null}
+    </Menu>
+  );
+}
+
+export function ObjectBar({ noun, tabs, activeId, onSelect, newButton, onDuplicate, onDelete, deleteHint, emptyText }: {
   /** singular noun for button labels and tooltips ("Rack", "Case", "Einlage") */
   noun: string;
   tabs: ObjectTab[];
@@ -21,7 +71,8 @@ export function ObjectBar({ noun, tabs, activeId, onSelect, newButton, onDuplica
   newButton?: ReactNode;
   onDuplicate?: () => void;
   onDelete?: () => void;
-  toggles: PanelToggle[];
+  /** why deleting is not possible here (shown in the menu instead of the item) */
+  deleteHint?: string;
   emptyText?: string;
 }) {
   const ro = useStore((s) => s.readOnly);
@@ -36,18 +87,16 @@ export function ObjectBar({ noun, tabs, activeId, onSelect, newButton, onDuplica
         )) : <span className="muted small obj-empty">{emptyText}</span>}
       </div>
       {!ro ? (
-        <div className="btn-group" aria-label={`${noun} verwalten`}>
+        <div className="obj-actions">
           {newButton}
-          {onDuplicate ? <button className="btn sm" disabled={!active} onClick={onDuplicate} title={active ? `Kopie von „${active.label}“ anlegen` : undefined}>Duplizieren</button> : null}
-          {onDelete ? <button className="btn sm danger" disabled={!active} onClick={onDelete} title={active ? `„${active.label}“ löschen (Rückgängig mit Strg+Z)` : undefined}>Löschen</button> : null}
+          {active && (onDuplicate || onDelete || deleteHint) ? (
+            <Menu label={noun} title={`Aktionen für ${noun} „${active.label}“`} align="right" className="sm">
+              {onDuplicate ? <button onClick={onDuplicate}>„{active.label}“ duplizieren</button> : null}
+              {onDelete ? <><hr /><button className="danger" onClick={onDelete}>„{active.label}“ löschen …</button></> : deleteHint ? <div className="menu-note">{deleteHint}</div> : null}
+            </Menu>
+          ) : null}
         </div>
       ) : null}
-      <div className="panel-toggles" role="group" aria-label="Bereiche ein- und ausblenden">
-        <span className="tool-label">Bereiche</span>
-        {toggles.map((t) => (
-          <button key={t.label} className={'tgl' + (t.on ? ' on' : '')} aria-pressed={t.on} onClick={t.onClick} title={t.title}>{t.label}</button>
-        ))}
-      </div>
     </div>
   );
 }

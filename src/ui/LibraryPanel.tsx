@@ -3,16 +3,21 @@ import { allTemplates, useActiveRack, useStore } from '../model/store';
 import type { DeviceTemplate } from '../model/types';
 import { rackBays } from '../model/geometry';
 import { libraryDrag } from './RackCanvas';
+import { Menu } from './Shell';
 
 /** prefix of the categories holding the user's own templates (listed first) */
 const CUSTOM = 'Eigene: ';
+const OPEN_KEY = 'rackplanner.library.open.v1';
 
 export function LibraryPanel() {
   const project = useStore((s) => s.project);
   const view = useStore((s) => s.view);
+  const readOnly = useStore((s) => s.readOnly);
   const rack = useActiveRack();
   const [q, setQ] = useState('');
-  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  // categories start closed so the list stays short; open ones are remembered
+  const [openCats, setOpenCatsState] = useState<Record<string, boolean>>(() => { try { return JSON.parse(localStorage.getItem(OPEN_KEY) || '{}'); } catch { return {}; } });
+  const setOpenCats = (next: Record<string, boolean>) => { setOpenCatsState(next); try { localStorage.setItem(OPEN_KEY, JSON.stringify(next)); } catch { /* storage unavailable */ } };
   const templates = useMemo(() => allTemplates(project), [project]);
 
   const groups = useMemo(() => {
@@ -35,35 +40,27 @@ export function LibraryPanel() {
     <aside className="panel library">
       <div className="panel-head">
         <strong>Bibliothek</strong>
-        <span className="muted small">{templates.length} Vorlagen</span>
+        {!readOnly ? (
+          <Menu label="+ Eigene" className="sm accent" align="right" title="Eigene Vorlage anlegen">
+            <button onClick={() => useStore.getState().openModal({ kind: 'device' })}>Gerät mit Anschlüssen …</button>
+            <button onClick={() => useStore.getState().openModal({ kind: 'panel' })}>Rackblende (Blenden-Designer) …</button>
+            <button onClick={() => useStore.getState().openModal({ kind: 'box' })}>Split- oder Kombidose …</button>
+          </Menu>
+        ) : null}
       </div>
-      <input className="search" placeholder="Suchen, z. B. Shure, BNC, Splitter" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Bibliothek durchsuchen" />
-      <div className="lib-tools">
-        <div className="btn-group" aria-label="Eigene Vorlage anlegen">
-          <button className="btn sm" title="Eigenes Gerät mit Anschlüssen anlegen" onClick={() => useStore.getState().openModal({ kind: 'device' })}>+ Gerät</button>
-          <button className="btn sm" title="Eigene Rackblende mit Bohrungen und D-Size-Buchsen entwerfen" onClick={() => useStore.getState().openModal({ kind: 'panel' })}>+ Rackblende</button>
-          <button className="btn sm" title="Eigene Split- oder Kombidose anlegen" onClick={() => useStore.getState().openModal({ kind: 'box' })}>+ Dose</button>
-        </div>
-        <button
-          className="btn sm"
-          title="Alle Kategorien auf- bzw. zuklappen"
-          onClick={() => {
-            const allClosed = groups.every(([c]) => collapsed[c]);
-            setCollapsed(Object.fromEntries(groups.map(([c]) => [c, !allClosed])));
-          }}
-        >
-          {groups.length && groups.every(([c]) => collapsed[c]) ? 'Alle aufklappen' : 'Alle einklappen'}
-        </button>
-      </div>
-      <div className="hint">Zum Einbauen in das Rack ziehen oder doppelklicken.</div>
+      <input className="search" placeholder={`${templates.length} Vorlagen durchsuchen`} value={q} onChange={(e) => setQ(e.target.value)} aria-label="Bibliothek durchsuchen"
+        title="Zum Einbauen eine Vorlage in das Rack ziehen oder doppelklicken" />
+      {Object.values(openCats).some(Boolean) && !q.trim() ? (
+        <div className="lib-tools"><button className="link-btn small" onClick={() => setOpenCats({})} title="Alle Kategorien zuklappen">Alle zuklappen</button></div>
+      ) : null}
       <div className="lib-list">
         {groups.map(([cat, items]) => (
           <div key={cat} className="lib-group">
-            <button className="lib-cat" aria-expanded={!collapsed[cat]} onClick={() => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }))} title={collapsed[cat] ? 'Kategorie aufklappen' : 'Kategorie einklappen'}>
-              <span>{collapsed[cat] ? '▸' : '▾'} {cat}</span>
+            <button className="lib-cat" aria-expanded={!!openCats[cat] || !!q.trim()} onClick={() => setOpenCats({ ...openCats, [cat]: !openCats[cat] })} title={openCats[cat] ? 'Kategorie zuklappen' : 'Kategorie aufklappen'}>
+              <span>{openCats[cat] || q.trim() ? '▾' : '▸'} {cat}</span>
               <span className="muted">{items.length}</span>
             </button>
-            {(!collapsed[cat] || !!q.trim()) &&
+            {(openCats[cat] || !!q.trim()) &&
               items.map((t) => (
                 <div
                   key={t.id}

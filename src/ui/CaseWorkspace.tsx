@@ -8,10 +8,11 @@ import { CaseSheet, sheetLayout } from '../render/CaseDrawing';
 import { Case3D } from '../three/Case3D';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Splitter } from './Splitter';
-import { DEFAULT_LAYOUT, setLayout, useLayout } from '../model/layout';
+import { DEFAULT_LAYOUT, getLayout, setLayout, useLayout } from '../model/layout';
 import { Field, NumberInput } from './Modal';
+import { Section } from './Section';
 import { SheetCanvas } from './SheetCanvas';
-import { EmptyState, Seg, ToolGroup, Toolbar } from './Shell';
+import { EmptyState, Seg, ShowMenu, ToolGroup, Toolbar } from './Shell';
 
 const st = useStore.getState;
 const kg = (n: number) => String(n).replace('.', ',');
@@ -29,7 +30,9 @@ export function openDrawerInlay(p: Project, rackId: string, deviceId: string) {
   const d = rack?.devices.find((x) => x.id === deviceId);
   const tpl = d && p.templates[d.templateId];
   if (!rack || !d || !tpl) return;
-  st().addCase(newDrawerInlay(`Einlage ${d.label || tpl.name} (${rack.name})`, tpl, { rackId, deviceId }, d.contents ?? []));
+  const inlay = newDrawerInlay(`Einlage ${d.label || tpl.name} (${rack.name})`, tpl, { rackId, deviceId }, d.contents ?? []);
+  const prefs = getLayout();
+  st().addCase({ ...inlay, foam: { ...inlay.foam, material: prefs.foamMaterial, color: prefs.foamColor } });
 }
 
 /** open the foam of a flight case in the inlay designer */
@@ -65,15 +68,17 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
           {b.weight.contents ? <div><dt>mit Inhalt</dt><dd>ca. {kg(b.weight.total)} kg</dd></div> : null}
         </dl>
         {d.castorH ? <div className="muted small">Höhe inklusive {d.castorH} mm Rollen.</div> : null}
+        {warnings.length ? <div className="warn-box">{warnings.map((w, i) => <div key={i} className="warn">{w.text}</div>)}</div> : null}
 
-        <h4>Innenmaße</h4>
+        <Section id="case.inner" title="Innenmaße" defaultOpen summary={`${c.inner.l} × ${c.inner.w} × ${c.inner.h} mm`}>
         <div className="row gap8">
           <Field label="Länge (mm)"><NumberInput value={c.inner.l} min={50} onChange={(v) => set({ inner: { ...c.inner, l: v } })} /></Field>
           <Field label="Breite (mm)"><NumberInput value={c.inner.w} min={50} onChange={(v) => set({ inner: { ...c.inner, w: v } })} /></Field>
           <Field label="Höhe (mm)"><NumberInput value={c.inner.h} min={10} onChange={(v) => set({ inner: { ...c.inner, h: v } })} /></Field>
         </div>
 
-        <h4>Deckel</h4>
+        </Section>
+        <Section id="case.lid" title="Deckel" defaultOpen summary={c.lidKind === 'none' ? 'ohne' : `${LID_LABELS[c.lidKind]}, ${c.lidH} mm`}>
         <div className="row gap8">
           <Field label="Art" grow={2}><select disabled={ro} value={c.lidKind} onChange={(e) => { const k = e.target.value as FlightCase['lidKind']; set({ lidKind: k, lidH: k === 'none' ? 0 : c.lidH || 100 }); }}>
             {Object.entries(LID_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
@@ -81,7 +86,8 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
           {c.lidKind !== 'none' ? <Field label="Höhe innen (mm)"><NumberInput value={c.lidH} min={20} max={c.inner.h - 20} onChange={(v) => set({ lidH: v })} /></Field> : null}
         </div>
 
-        <h4>Bauweise</h4>
+        </Section>
+        <Section id="case.build" title="Bauweise" summary={`${String(c.panel).replace('.', ',')} mm, ${c.profile === 'none' ? 'ohne Profil' : c.profile === 'alu30' ? 'Alu 30' : 'Alu 35'}${c.cornerBalls ? ', Kugelecken' : ''}`}>
         <div className="row gap8">
           <Field label="Platte"><select disabled={ro} value={c.panel} onChange={(e) => set({ panel: Number(e.target.value) })}>{[5, 6.5, 7, 9, 10, 12, 15].map((t) => <option key={t} value={t}>{String(t).replace('.', ',')} mm</option>)}</select></Field>
           <Field label="Kantenprofil"><select disabled={ro} value={c.profile} onChange={(e) => set({ profile: e.target.value as FlightCase['profile'] })}><option value="alu30">Alu 30 × 30</option><option value="alu35">Alu 35 × 35</option><option value="none">ohne</option></select></Field>
@@ -89,13 +95,15 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
         </div>
         <label className="check"><input disabled={ro} type="checkbox" checked={c.cornerBalls} onChange={(e) => set({ cornerBalls: e.target.checked })} /> Kugelecken an allen Außenecken</label>
 
-        <h4>Rollen</h4>
+        </Section>
+        <Section id="case.castors" title="Rollen" summary={castors ? `${castors} × ${c.castorSize} mm` : 'keine'}>
         <div className="row gap8">
           <Field label="Anzahl"><select disabled={ro} value={castors} onChange={(e) => setCastors(Number(e.target.value))}><option value={0}>keine</option><option value={4}>4, davon 2 mit Bremse</option></select></Field>
           <Field label="Raddurchmesser"><select disabled={ro} value={c.castorSize} onChange={(e) => set({ castorSize: Number(e.target.value) as FlightCase['castorSize'] })}><option value={75}>75 mm</option><option value={100}>100 mm</option><option value={125}>125 mm</option></select></Field>
         </div>
 
-        <h4>Beschläge</h4>
+        </Section>
+        <Section id="case.hardware" title="Beschläge" summary={`${c.hardware.filter((h) => !h.kind.startsWith('castor')).reduce((n, h) => n + h.count, 0)} Teile`}>
         <div className="hw-list">
           {c.hardware.map((h, i) => (h.kind.startsWith('castor') ? null : (
             <div key={i} className="hw-row">
@@ -115,14 +123,17 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
           </div>
         ) : null}
 
-        <h4>Einlage</h4>
+        </Section>
+        <Section id="case.inlay" title="Einlage" summary={nItems ? `${nItems} Ausschnitte` : 'leer'}>
         <div className="muted small">
           {nItems ? `${nItems} Ausschnitt${nItems === 1 ? '' : 'e'}, Einlage ${inlayThickness(c)} mm` : 'Noch keine Ausschnitte'}. {FOAM_MATERIALS[foamMaterial(c)].label}, Boden {c.foam.bottom} mm, Rand {c.foam.sides} mm{c.lidKind !== 'none' ? `, Deckel ${c.foam.lid} mm` : ''}.
         </div>
         <button className="btn" onClick={() => openCaseInlay(c)} title="Schaumstoff und Ausschnitte dieses Cases im Einlagen-Designer bearbeiten">Einlage im Einlagen-Designer bearbeiten</button>
 
-        <Field label="Notizen"><textarea disabled={ro} rows={2} value={c.notes ?? ''} onChange={(e) => set({ notes: e.target.value || undefined })} /></Field>
-        {warnings.length ? <div className="warn-box"><h4>Hinweise</h4>{warnings.map((w, i) => <div key={i} className="warn">{w.text}</div>)}</div> : null}
+        </Section>
+        <Section id="case.notes" title="Notizen" summary={c.notes ? c.notes.slice(0, 40) : 'keine'}>
+          <textarea disabled={ro} rows={3} value={c.notes ?? ''} onChange={(e) => set({ notes: e.target.value || undefined })} aria-label="Notizen" />
+        </Section>
       </div>
     </aside>
   );
@@ -185,17 +196,19 @@ export function CaseWorkspace() {
     <main className="workspace">
       <section className="center">
         <Toolbar>
-          <ToolGroup label="Ansicht">
+          <ToolGroup>
             <Seg value={view} onChange={setView} options={[
               { id: 'drawing', label: 'Zeichnung', title: 'Maßzeichnung: Innenansicht, Vorder- und Seitenansicht' },
               { id: '3d', label: '3D', title: 'Räumliche Ansicht, mit der Maus drehen und zoomen' },
             ]} />
           </ToolGroup>
           {!ro ? (
-            <ToolGroup label="Inhalt">
+            <ToolGroup>
               <button className="btn sm" onClick={() => openCaseInlay(c)} title="Schaumstoff und Ausschnitte dieses Cases im Einlagen-Designer bearbeiten">Einlage bearbeiten</button>
             </ToolGroup>
           ) : null}
+          <span className="spacer" />
+          <ShowMenu list="Stückliste" />
         </Toolbar>
         <div className="stage">
           <ErrorBoundary resetKey={view + c.id}>

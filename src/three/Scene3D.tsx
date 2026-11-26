@@ -7,6 +7,7 @@ import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { GTAOPass } from 'three/examples/jsm/postprocessing/GTAOPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { S, disposeTree } from './caseParts';
+import { useLayout } from '../model/layout';
 
 /** What a build callback reports back for framing the camera (all mm). */
 export interface BuildResult {
@@ -25,6 +26,7 @@ export function Scene3D({ build, deps, children }: { build: (root: THREE.Group) 
   const ctxRef = useRef<{ scene: THREE.Scene; content: THREE.Group; camera: THREE.PerspectiveCamera; controls: OrbitControls; sun: THREE.DirectionalLight; ao: GTAOPass | null } | null>(null);
   const [failed, setFailed] = useState(false);
   const lastSize = useRef<string>('');
+  const { ao: aoOn } = useLayout();
 
   useEffect(() => {
     const el = host.current!;
@@ -110,6 +112,8 @@ export function Scene3D({ build, deps, children }: { build: (root: THREE.Group) 
       ctxRef.current = null;
     };
   }, []);
+
+  useEffect(() => { if (ctxRef.current?.ao) ctxRef.current.ao.enabled = aoOn; }, [aoOn]);
 
   useEffect(() => {
     const ctx = ctxRef.current;

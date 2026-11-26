@@ -10,8 +10,9 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { Splitter } from './Splitter';
 import { DEFAULT_LAYOUT, setLayout, useLayout } from '../model/layout';
 import { Field, NumberInput } from './Modal';
+import { Section } from './Section';
 import { SheetCanvas } from './SheetCanvas';
-import { Seg, ToolGroup, Toolbar } from './Shell';
+import { Menu, MenuCheck, Seg, ShowMenu, ToolGroup, Toolbar } from './Shell';
 
 const st = useStore.getState;
 const kg = (n: number) => String(n).replace('.', ',');
@@ -76,11 +77,13 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
           <div><dt>Einbau</dt><dd>{totalUnits(t)} HE, {t.depth} mm tief</dd></div>
         </dl>
         {d.castorH ? <div className="muted small">Höhe inklusive {d.castorH} mm Rollen.</div> : null}
+        {problems.length ? <div className="warn-box">{problems.map((p, i) => <div key={i} className="warn">Zu tief: {p}</div>)}</div> : null}
 
-        <h4>Bauart</h4>
+        <div className="sect-lead">
         <Seg value={(BUILD_KINDS.some((k) => k.id === t.kind) ? t.kind : 'cabinet') as RackKind} onChange={(k) => setT({ kind: k })} options={BUILD_KINDS} />
+        </div>
 
-        <h4>Einbaufelder</h4>
+        <Section id="build.bays" title="Einbaufelder" defaultOpen summary={bays.map((x) => `${x.heightU} HE`).join(' + ')}>
         <div className="bay-list">
           {bays.map((bay, i) => (
             <div key={i} className="bay-row">
@@ -111,7 +114,8 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
           </>
         ) : null}
 
-        <h4>Tiefe und Freiräume</h4>
+        </Section>
+        <Section id="build.depth" title="Tiefe und Freiräume" summary={`${t.depth} mm, vorne ${b.railInset}, hinten ${b.rearGap}`}>
         <div className="row gap8">
           <Field label="Einbautiefe" title="Abstand vordere bis hintere Rackschiene in mm"><NumberInput value={t.depth} min={100} step={10} onChange={(v) => setT({ depth: v })} /></Field>
           <Field label="Platz vorne" title="Freiraum vor den Frontschienen für Knöpfe, Griffe und Kabel (mm)"><NumberInput value={b.railInset} min={0} step={5} onChange={(v) => setB({ railInset: v })} /></Field>
@@ -123,9 +127,10 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
         </div>
         <label className="check"><input disabled={ro} type="checkbox" checked={t.hasRearRails} onChange={(e) => setT({ hasRearRails: e.target.checked })} /> Hintere Rackschienen (Montage auch von hinten)</label>
 
+        </Section>
         {flight ? (
           <>
-            <h4>Deckel</h4>
+            <Section id="build.lids" title="Deckel" summary={`vorne ${b.frontLid || 'ohne'}, hinten ${b.rearLid || 'ohne'}`}>
             <div className="row gap8">
               <Field label="Frontdeckel (mm)" title="Innentiefe des Frontdeckels, 0 = kein Deckel"><NumberInput value={b.frontLid} min={0} step={10} onChange={(v) => setB({ frontLid: Math.max(0, v) })} /></Field>
               <Field label="Rückdeckel (mm)" title="Innentiefe des Rückdeckels, 0 = kein Deckel"><NumberInput value={b.rearLid} min={0} step={10} onChange={(v) => setB({ rearLid: Math.max(0, v) })} /></Field>
@@ -134,7 +139,8 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
               <option value={4}>4 (je Seite einer)</option><option value={6}>6 (oben und unten je zwei)</option><option value={8}>8 (je Seite zwei)</option>
             </select></Field>
 
-            <h4>Bauweise</h4>
+            </Section>
+            <Section id="build.construction" title="Bauweise" summary={`${b.panel} mm, ${b.profile === 'none' ? 'ohne Profil' : b.profile === 'alu30' ? 'Alu 30' : 'Alu 35'}${t.kind === 'shockmount' ? `, ${b.shock?.travel ?? 35} mm Federweg` : ''}`}>
             <div className="row gap8">
               <Field label="Platte"><select disabled={ro} value={b.panel} onChange={(e) => setB({ panel: Number(e.target.value) })}>{[7, 9, 10, 12, 15].map((x) => <option key={x} value={x}>{x} mm</option>)}</select></Field>
               <Field label="Kantenprofil"><select disabled={ro} value={b.profile} onChange={(e) => setB({ profile: e.target.value as RackBuild['profile'] })}><option value="alu30">Alu 30 × 30</option><option value="alu35">Alu 35 × 35</option><option value="none">ohne</option></select></Field>
@@ -148,33 +154,33 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
               </div>
             ) : null}
 
-            <h4>Griffe und Stapeln</h4>
+            </Section>
+            <Section id="build.handles" title="Griffe und Stapeln" summary={`${b.handles} je Seite${b.stackCups ? ', Stapelschalen' : ''}`}>
             <div className="row gap8">
               <Field label="Klappgriffe je Seite"><select disabled={ro} value={b.handles} onChange={(e) => setB({ handles: Number(e.target.value) as RackBuild['handles'] })}><option value={0}>keine</option><option value={1}>1</option><option value={2}>2</option></select></Field>
             </div>
             <label className="check"><input disabled={ro} type="checkbox" checked={b.stackCups} onChange={(e) => setB({ stackCups: e.target.checked })} /> Stapelschalen oben (Rollen des oberen Racks stehen darin)</label>
+            </Section>
           </>
         ) : (
           <>
-            <h4>Farbe</h4>
+            <Section id="build.color" title="Farbe">
             <Field label="Pulverbeschichtung"><input disabled={ro} type="color" value={t.color} onChange={(e) => setT({ color: e.target.value })} /></Field>
+            </Section>
           </>
         )}
 
-        <h4>Rollen</h4>
+        <Section id="build.castors" title="Rollen" summary={b.castors ? `4 × ${b.castorSize} mm` : 'keine'}>
         <div className="row gap8">
           <Field label="Anzahl"><select disabled={ro} value={b.castors} onChange={(e) => setB({ castors: Number(e.target.value) as RackBuild['castors'] })}><option value={0}>keine</option><option value={4}>4, davon 2 mit Bremse</option></select></Field>
           <Field label="Raddurchmesser"><select disabled={ro} value={b.castorSize} onChange={(e) => setB({ castorSize: Number(e.target.value) as RackBuild['castorSize'] })}><option value={75}>75 mm</option><option value={100}>100 mm</option><option value={125}>125 mm</option></select></Field>
         </div>
 
-        {!ro ? (
-          <>
-            <h4>Wiederverwenden</h4>
-            <button className="btn sm" onClick={() => { const copy = { ...deepClone(t), id: uid('rt-'), custom: true }; st().upsertRackType(copy); st().updateRack(rack.id, { type: copy }); st().showToast(`„${t.name}“ ist jetzt unter Bibliotheken → Rack-Typen gespeichert`); }} title="Dieses Gehäuse als eigenen Rack-Typ speichern, um es für weitere Racks zu verwenden">Als Rack-Typ speichern</button>
-          </>
-        ) : null}
-        <Field label="Notizen"><textarea disabled={ro} rows={2} value={t.notes ?? ''} onChange={(e) => st().updateRack(rack.id, { type: { ...t, notes: e.target.value || undefined } })} /></Field>
-        {problems.length ? <div className="warn-box"><h4>Zu tief</h4>{problems.map((p, i) => <div key={i} className="warn">{p}</div>)}</div> : null}
+        </Section>
+        <Section id="build.more" title="Notizen und Wiederverwenden" summary={t.notes ? t.notes.slice(0, 30) : undefined}>
+          <textarea disabled={ro} rows={3} value={t.notes ?? ''} placeholder="Notizen zum Gehäuse" onChange={(e) => st().updateRack(rack.id, { type: { ...t, notes: e.target.value || undefined } })} aria-label="Notizen" />
+          {!ro ? <button className="btn sm" onClick={() => { const copy = { ...deepClone(t), id: uid('rt-'), custom: true }; st().upsertRackType(copy); st().updateRack(rack.id, { type: copy }); st().showToast(`„${t.name}“ ist jetzt unter Einstellungen, Racks gespeichert`); }} title="Dieses Gehäuse als eigenen Rack-Typ speichern, um es für weitere Racks zu verwenden">Als Rack-Typ speichern</button> : null}
+        </Section>
       </div>
     </aside>
   );
@@ -214,7 +220,7 @@ export function RackBuildWorkspace() {
   const ro = useStore((s) => s.readOnly);
   const layout = useLayout();
   const [view, setView] = useState<'drawing' | '3d'>('drawing');
-  const [devices, setDevices] = useState(true);
+  const devices = layout.buildDevices;
   const L = rackSheetLayout(rack);
   const pad = 90 * L.u;
   const types = allRackTypes(project);
@@ -222,24 +228,26 @@ export function RackBuildWorkspace() {
     <main className="workspace">
       <section className="center">
         <Toolbar>
-          <ToolGroup label="Ansicht">
+          <ToolGroup>
             <Seg value={view} onChange={setView} options={[
               { id: 'drawing', label: 'Zeichnung', title: 'Vorderansicht, Seitenansicht und Schnitt mit Maßen' },
               { id: '3d', label: '3D', title: 'Räumliche Ansicht des Gehäuses' },
             ]} />
-            <label className="check" title="Die eingebauten Geräte in Zeichnung und 3D zeigen"><input type="checkbox" checked={devices} onChange={(e) => setDevices(e.target.checked)} /> Geräte zeigen</label>
           </ToolGroup>
           {!ro ? (
-            <ToolGroup label="Startpunkt">
-              <select className="tool-select" value="" onChange={(e) => {
-                const src = types.find((x) => x.id === e.target.value);
-                if (src) commit(rack, { ...deepClone(src), id: rack.type.custom ? rack.type.id : uid('rt-'), name: src.name, build: undefined, custom: true });
-              }} title="Maße und Bauart eines vorhandenen Rack-Typs übernehmen und dann anpassen. Die eingebauten Geräte bleiben.">
-                <option value="">Werte aus einem Rack-Typ übernehmen …</option>
-                {types.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
-              </select>
+            <ToolGroup>
+              <Menu label="Werte übernehmen" className="sm" title="Maße und Bauart eines vorhandenen Rack-Typs übernehmen und dann anpassen. Die eingebauten Geräte bleiben.">
+                <div className="menu-head">Startpunkt aus einem Rack-Typ</div>
+                {types.map((x) => (
+                  <button key={x.id} onClick={() => commit(rack, { ...deepClone(x), id: rack.type.custom ? rack.type.id : uid('rt-'), name: x.name, build: undefined, custom: true })}>{x.name}</button>
+                ))}
+              </Menu>
             </ToolGroup>
           ) : null}
+          <span className="spacer" />
+          <ShowMenu list="Stückliste">
+            <MenuCheck checked={devices} onChange={(v) => setLayout({ buildDevices: v })}>Eingebaute Geräte</MenuCheck>
+          </ShowMenu>
         </Toolbar>
         <div className="stage">
           <ErrorBoundary resetKey={view + rack.id}>

@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { caseList, inlayList } from '../model/inlay';
 import { allRackTypes, useActiveRack, useStore } from '../model/store';
-import type { Bay, CableType, Face, RackKind, RackType, SignalType } from '../model/types';
+import type { Bay, Face, RackKind, RackType } from '../model/types';
 import { RACK_KIND_LABELS } from '../library/rackTypes';
-import { SIGNAL_LABELS } from '../model/connectors';
 import { arrangeBays, faceWidth, rackBays, rackExtent, U } from '../model/geometry';
 import { deepClone, downloadBlob, safeFileName, uid } from '../model/util';
 import { Field, Modal, NumberInput } from './Modal';
+import { getLayout } from '../model/layout';
 import { rackSvgSize, rackSvgString, svgToPngBlob } from '../export/render';
 import { buildInteractiveHtml } from '../export/html';
 import { RfExportCard } from './RfDialogs';
@@ -160,105 +160,6 @@ export function RackTypeEditor() {
 }
 
 // ----------------------------------------------------------------------------- cable types
-
-export function CableTypeEditor() {
-  const project = useStore((s) => s.project);
-  const st = useStore.getState;
-  const usage = (id: string) => project.racks.reduce((n, r) => n + r.cables.filter((c) => c.typeId === id).length, 0);
-  const upd = (t: CableType, p: Partial<CableType>) => st().upsertCableType({ ...t, ...p });
-  return (
-    <Modal wide title="Kabeltypen & Farben" footer={
-      <>
-        <button className="btn accent" onClick={() => st().upsertCableType({ id: uid('ct-'), name: 'Neuer Kabeltyp', signal: 'other', color: '#14b8a6', width: 2, stockLengths: [0.5, 1, 2, 3, 5], custom: true })} title="Eigenen Kabeltyp mit Farbe und Lagerlängen anlegen">+ Neuer Kabeltyp</button>
-        <span className="spacer" />
-        <button className="btn primary" onClick={() => st().openModal(null)}>Fertig</button>
-      </>
-    }>
-      <div className="hint">Farben und Lagerlängen gelten für das ganze Projekt. Automatische Längen werden auf die nächste Lagerlänge aufgerundet (abschaltbar in den Einstellungen).</div>
-      <table className="ct-table">
-        <thead><tr><th>Farbe</th><th>Name</th><th>Signal</th><th>Strich</th><th>Lagerlängen (m)</th><th>Stecker (Auto-Zuordnung)</th><th>Verwendet</th><th /></tr></thead>
-        <tbody>
-          {project.cableTypes.map((t) => (
-            <tr key={t.id}>
-              <td><input type="color" value={t.color} onChange={(e) => upd(t, { color: e.target.value })} /></td>
-              <td><input value={t.name} onChange={(e) => upd(t, { name: e.target.value })} /></td>
-              <td>
-                <select value={t.signal} onChange={(e) => upd(t, { signal: e.target.value as SignalType })}>
-                  {Object.entries(SIGNAL_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
-                </select>
-              </td>
-              <td>
-                <select value={t.dash ?? ''} onChange={(e) => upd(t, { dash: e.target.value || undefined })}>
-                  <option value="">durchgezogen</option><option value="6 3">gestrichelt</option><option value="2 2">gepunktet</option>
-                </select>
-              </td>
-              <td><LengthsInput value={t.stockLengths} onChange={(v) => upd(t, { stockLengths: v })} /></td>
-              <td><input value={(t.connectors ?? []).join(', ')} onChange={(e) => upd(t, { connectors: e.target.value.split(',').map((s) => s.trim()).filter(Boolean) })} /></td>
-              <td className="muted">{usage(t.id)}</td>
-              <td><button className="icon-btn" disabled={usage(t.id) > 0} title="Löschen" onClick={() => st().deleteCableType(t.id)}>🗑</button></td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </Modal>
-  );
-}
-
-function LengthsInput({ value, onChange }: { value: number[]; onChange: (v: number[]) => void }) {
-  const [text, setText] = useState(value.map((v) => String(v).replace('.', ',')).join('; '));
-  return (
-    <input
-      value={text}
-      onChange={(e) => setText(e.target.value)}
-      onBlur={() => {
-        const v = text.split(/[;\s]+/).map((s) => parseFloat(s.replace(',', '.'))).filter((n) => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
-        onChange(v);
-        setText(v.map((x) => String(x).replace('.', ',')).join('; '));
-      }}
-    />
-  );
-}
-
-// ----------------------------------------------------------------------------- settings
-
-export function SettingsDialog() {
-  const project = useStore((s) => s.project);
-  const s = project.settings;
-  const st = useStore.getState;
-  const up = st().updateSettings;
-  return (
-    <Modal title="Projekt-Einstellungen" footer={<><span className="spacer" /><button className="btn primary" onClick={() => st().openModal(null)}>Fertig</button></>}>
-      <Field label="Projektname"><input value={project.name} onChange={(e) => st().mutate((p) => { p.name = e.target.value; })} /></Field>
-      <Field label="Ersteller / Firma"><input value={project.author ?? ''} onChange={(e) => st().mutate((p) => { p.author = e.target.value; })} /></Field>
-      <h4>Kabellängen (automatisch)</h4>
-      <div className="row gap8">
-        <Field label="Zuschlag (%)"><NumberInput value={s.slackPercent} min={0} max={200} onChange={(v) => up({ slackPercent: v })} /></Field>
-        <Field label="Serviceschlaufe (mm)"><NumberInput value={s.serviceLoop} min={0} step={10} onChange={(v) => up({ serviceLoop: v })} /></Field>
-        <Field label="Biegeweg je Ende (mm)"><NumberInput value={s.exitLength} min={0} step={5} onChange={(v) => up({ exitLength: v })} /></Field>
-      </div>
-      <label className="check"><input type="checkbox" checked={s.roundToStock} onChange={(e) => up({ roundToStock: e.target.checked })} /> Auf Lagerlängen des Kabeltyps aufrunden (sonst auf 0,1 m)</label>
-      <div className="hint">Länge = (Weg orthogonal entlang Rack, Front↔Rück über die Seite + Biegewege) × (1 + Zuschlag) + Serviceschlaufe.</div>
-      <h4>Darstellung</h4>
-      <div className="row gap8">
-        <Field label="Kabelverlauf">
-          <select value={s.curveStyle} onChange={(e) => up({ curveStyle: e.target.value as typeof s.curveStyle })}>
-            <option value="orthogonal">orthogonal, 90° (Übersicht)</option><option value="curved">hängend (realistisch)</option><option value="straight">direkt (Linie)</option>
-          </select>
-        </Field>
-        <Field label="Kabel-Beschriftung">
-          <select value={s.cableLabel} onChange={(e) => up({ cableLabel: e.target.value as typeof s.cableLabel })}>
-            <option value="length">Länge</option><option value="number">Kabelnummer</option><option value="both">Nummer + Länge</option><option value="none">keine</option>
-          </select>
-        </Field>
-      </div>
-      <label className="check"><input type="checkbox" checked={s.showPortLabels} onChange={(e) => up({ showPortLabels: e.target.checked })} /> Anschlussnamen anzeigen</label>
-      <label className="check"><input type="checkbox" checked={s.showCableLabels} onChange={(e) => up({ showCableLabels: e.target.checked })} /> Kabel-Beschriftung anzeigen</label>
-      <div className="row gap8" style={{ marginTop: 8 }}>
-        <button className="btn sm" onClick={() => { if (confirm('Kabelnummern projektweit neu vergeben (W001 …)?')) st().renumberCables(); }}>Kabel neu nummerieren</button>
-      </div>
-    </Modal>
-  );
-}
 
 // ----------------------------------------------------------------------------- export
 
@@ -420,9 +321,10 @@ function RackExportDialog() {
   const readOnly = useStore((s) => s.readOnly);
   const [scope, setScope] = useState<'current' | 'all'>('current');
   const [views, setViews] = useState<'both' | Face>('both');
-  const [format, setFormat] = useState<'a4' | 'a3'>('a3');
-  const [cableList, setCableList] = useState(true);
-  const [bom, setBom] = useState(true);
+  const prefs = getLayout();
+  const [format, setFormat] = useState<'a4' | 'a3'>(prefs.pdfFormat);
+  const [cableList, setCableList] = useState(prefs.pdfCableList);
+  const [bom, setBom] = useState(prefs.pdfBom);
   const [busy, setBusy] = useState<string | null>(null);
   const st = useStore.getState;
   const racks = scope === 'all' ? project.racks : [rack];

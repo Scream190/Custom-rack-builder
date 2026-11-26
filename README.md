@@ -24,14 +24,14 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
 | Drehen (3D) | linke Maustaste, oder `Shift` + mittlere Maustaste (wie Fusion 360) |
 | Einpassen | Doppelklick mittlere Maustaste, `F6`, oder Einpassen-Knopf |
 | 3D-Standardansichten | ViewCube oben rechts (Seite anklicken), ⌂ = Startansicht |
-| Bereiche anpassen | Trennlinien zwischen Bibliothek / Ansicht / Eigenschaften / Kabelliste ziehen (Doppelklick = Standard); ein-/ausblenden über die Schalter in der Rack-Leiste |
+| Bereiche anpassen | Trennlinien zwischen Bibliothek / Ansicht / Eigenschaften / Kabelliste ziehen (Doppelklick = Standard); ein-/ausblenden über *Anzeigen* rechts in der Werkzeugleiste |
 
 ### Funktionen
 - **Rack-Typen:** Rackcases, Shockmount-Cases, Doppeltür, Schränke, Open Frame, Wandgehäuse, Pulte, 10"-Minirack.
   Eigene Typen mit beliebiger HE, Einbautiefe, Außenmaß, hinteren Schienen, Gewicht und Farbe.
 - **Vorder- und Rückansicht**, Geräte auf vorderen *und* hinteren Schienen, ½/⅓-Breite, Tiefen-Kollisionsprüfung.
 - **Kabelführung in 2D schematisch für maximale Übersicht:** gerade Linien mit 90°-Ecken, jedes Kabel auf eigener Spur
-  (wahlweise „hängend“ oder „direkt“ in den Projekt-Einstellungen).
+  (wahlweise „hängend“ oder „direkt“ unter *Einstellungen → Darstellung*).
 - **Schubladen (1–4 HE) mit Inhaltsliste:** Menge + Artikel, auch als Liste einfügbar („4x SM58“ pro Zeile); erscheint als
   Etikett auf der Schubladenfront, im Viewer und als eigener Abschnitt im PDF.
 - **Kabel color-coded nach Kabeltyp**. Farben, Strichart, Lagerlängen und Stecker-Zuordnung sind editierbar.
@@ -52,7 +52,7 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
 - **Y-Kabel:** Im Kabel-Inspector „Ast an Ende A/B hinzufügen“ und dann den Zielanschluss anklicken. Alle Äste teilen den
   gemeinsamen Stecker (Ende A), heißen W012a, W012b … und haben je eine eigene Länge ab dem gemeinsamen Stecker. Kabeltyp
   und Farbe gelten für das ganze Y-Kabel; die 3D-Führung lässt die Äste am gemeinsamen Stecker zusammenlaufen.
-- **Split- und Kombidosen:** „+ Dose“ in der Bibliothek oder *Bibliotheken → Split- oder Kombidose …*. Eine Dose hat
+- **Split- und Kombidosen:** *+ Eigene → Split- oder Kombidose* in der Bibliothek oder *Einstellungen → Eigene Vorlagen*. Eine Dose hat
   Sammelanschlüsse (z. B. CEE 32 A, Harting, Socapex, D-Sub, Multipin) und Einzelanschlüsse; die innere Verdrahtung
   ergibt sich aus der Zuordnung. Dosen stehen unter dem Rack (in Vorder- und Rückansicht), werden wie Geräte verkabelt
   und haben eine Entfernung zum Rack, die in die automatische Kabellänge eingeht. Mitgeliefert sind Beispiel-Dosen
@@ -157,10 +157,32 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
 
 ### Arbeitsbereiche
 Oben in der Kopfleiste wählst du den Arbeitsbereich: **Racks bestücken** (Geräte, Kabel, Kabelliste), **Rackgehäuse**
-(das Gehäuse des Racks konstruieren), **Flightcases** (Cases konstruieren) und **Einlagen** (Schaumstoff mit Ausschnitten). Jeder Bereich ist gleich aufgebaut: darunter die
-Leiste mit deinen Racks, Cases oder Einlagen als Tabs, rechts daneben *Neu*, *Duplizieren* und *Löschen* als eine Gruppe
-und die Schalter für die Seitenbereiche. Über der Zeichenfläche liegt die Werkzeugleiste: zuerst die Ansicht, danach die
-Werkzeuge in beschrifteten Gruppen. Jeder Knopf erklärt im Tooltip, was er tut.
+(das Gehäuse des Racks konstruieren), **Flightcases** (Cases konstruieren) und **Einlagen** (Schaumstoff mit Ausschnitten).
+Jeder Bereich ist gleich und bewusst sparsam aufgebaut:
+
+- **Objektleiste:** deine Racks, Cases oder Einlagen als Tabs, rechts *+ Neu* und ein Menü mit dem Namen des Objekts
+  (*Rack ▾*, *Case ▾*, *Einlage ▾*) für Duplizieren und Löschen.
+- **Werkzeugleiste:** links die Ansicht, dann die wenigen Werkzeuge des Bereichs; seltener Gebrauchtes steckt in Menüs
+  (Trennwände, Werte aus einem Rack-Typ übernehmen). Rechts *Anzeigen ▾* mit den Seitenbereichen und Anzeigeoptionen
+  (Anschlussnamen, Kabelbeschriftung, eingebaute Geräte).
+- **Eigenschaften:** oben Name und wichtigste Werte, darunter aufklappbare Abschnitte. Zugeklappt zeigt jeder Abschnitt
+  rechts eine Kurzfassung (z. B. „9 mm, Alu 30, Kugelecken“); welche Abschnitte offen sind, merkt sich die App.
+  Lange Listen wie Anschlüsse, Vorlagen oder Bibliothekskategorien sind anfangs zugeklappt, die Suche zeigt Treffer sofort.
+- Hinweise zur Bedienung einer Zeichenfläche stehen im **?** unten links (Tooltip).
+
+### Einstellungen
+Alle Einstellungen liegen in einem Dialog (*Einstellungen* oben rechts), sortiert nach Themen. Jeder Block sagt, ob er
+für das Projekt gilt (in der Projektdatei gespeichert) oder für diesen Browser:
+
+| Thema | Inhalt |
+|---|---|
+| Darstellung | Kabelverlauf, Text an den Kabeln, Anschlussnamen, Seitenbereiche und ihre Größen, 3D-Kontaktschatten, Geräte im Rackgehäuse |
+| Kabel | Längenberechnung (Zuschlag, Serviceschlaufe, Biegeweg, Lagerlängen), Kabeltyp für neue Verbindungen, Kabeltypen und Farben, Kabel neu nummerieren |
+| Racks | eigene Rack-Typen ansehen und löschen, Rack-Typen bearbeiten, Sprung zum Rack-Designer |
+| Cases und Einlagen | Raster beim Ziehen, Abstand beim automatischen Anordnen, Schaumart und Farbe für neue Einlagen |
+| Eigene Vorlagen | eigene Geräte, Rackblenden und Dosen anlegen und bearbeiten |
+| Export | Voreinstellungen für das PDF der Bestückung (Format, Kabelliste, Geräteliste) |
+| Projekt | Projektname, Ersteller oder Firma |
 
 ### Rack-Designer (Rackgehäuse)
 Das Gehäuse eines Racks wird aus Parametern konstruiert statt aus einer Liste gewählt. Die Rack-Typen dienen nur noch
@@ -211,7 +233,7 @@ jedes Flightcases.
 - **Ausschnitte:** eigene Maße, 16 Vorlagen oder Geräte aus der Bibliothek. Rechteckig mit einstellbarem Eckenradius oder
   rund/oval, Schnitttiefe getrennt von der Höhe des Inhalts, Griffmulden (halbrund) an jeder Seite, Name als Gravur.
   Schubladen-Einlagen bekommen für jede Zeile der Inhaltsliste einen Ausschnitt (zunächst 100 × 60 mm).
-- **Anordnen:** ziehen mit Raster 1, 5 oder 10 mm (`Alt` = frei), *Automatisch anordnen* mit einstellbarem Abstand
+- **Anordnen:** ziehen mit Raster 1, 5 oder 10 mm (`Alt` = frei), *Automatisch anordnen* mit Abstand (beides unter *Einstellungen → Cases und Einlagen*)
   (MaxRects); was nicht passt, liegt rot markiert daneben. Holz-Trennwände längs und quer. Warnungen bei Überlappung,
   Ausschnitt im Randschaum oder zu wenig Höhe.
 - **Schaumstoff:** PE (fest, geschlossenzellig), PU (weich) oder EVA (dicht, glatt), Farbe, Boden-, Rand- und Deckelstärke.

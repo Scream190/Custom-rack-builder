@@ -10,8 +10,9 @@ import { ErrorBoundary } from './ErrorBoundary';
 import { Splitter } from './Splitter';
 import { DEFAULT_LAYOUT, setLayout, useLayout } from '../model/layout';
 import { Field, NumberInput } from './Modal';
+import { Section } from './Section';
 import { SheetCanvas } from './SheetCanvas';
-import { EmptyState, Seg, ToolGroup, Toolbar } from './Shell';
+import { EmptyState, Menu, Seg, ShowMenu, ToolGroup, Toolbar } from './Shell';
 import { projectDrawers } from './CaseWorkspace';
 
 const st = useStore.getState;
@@ -43,7 +44,7 @@ function AddPanel({ c, project, layer }: { c: FlightCase; project: Project; laye
       <div className="panel-head"><strong>Ausschnitte</strong><span className="muted small">{mine.length} in {layer === 'lid' ? 'Deckel' : 'dieser Ebene'}</span></div>
       <div className="lib-list">
         <div className="insp add-form">
-          <h4 className="first">Eigener Ausschnitt</h4>
+          <Section id="inlay.add.own" title="Eigener Ausschnitt" defaultOpen>
           <Field label="Name"><input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></Field>
           <Seg value={form.shape} onChange={(v) => setForm({ ...form, shape: v })} options={[
             { id: 'rect', label: 'Rechteck', title: 'Rechteckiger Ausschnitt mit gerundeten Ecken' },
@@ -56,19 +57,23 @@ function AddPanel({ c, project, layer }: { c: FlightCase; project: Project; laye
             <Field label="Anzahl"><NumberInput value={form.qty} min={1} max={50} onChange={(v) => setForm({ ...form, qty: Math.max(1, Math.round(v)) })} /></Field>
           </div>
           <button className="btn" onClick={() => add({ name: form.name, l: form.l, w: form.w, h: form.h, shape: form.shape === 'circle' ? 'circle' : undefined }, form.qty)} title="Ausschnitt an einer freien Stelle einfügen">Ausschnitt einfügen</button>
+          </Section>
 
-          <h4>Vorlagen</h4>
+          <Section id="inlay.add.presets" title="Vorlagen" summary={`${ITEM_PRESETS.length} typische Inhalte`}>
           <div className="muted small">Typische Außenmaße, danach anpassen.</div>
           {ITEM_PRESETS.map((p) => (
             <button key={p.name} className="list-btn" onClick={() => add(p)} title={`${p.name} einfügen (${p.l} × ${p.w} × ${p.h} mm)`}>
               {p.name} <span className="muted small">{p.l} × {p.w} × {p.h}</span>
             </button>
           ))}
-          <h4>Aus der Gerätebibliothek</h4>
+          </Section>
+          <Section id="inlay.add.library" title="Aus der Gerätebibliothek" summary="Gehäusemaße übernehmen">
           <input placeholder="Gerät suchen, z. B. SM58" value={q} onChange={(e) => setQ(e.target.value)} />
           {hits.map((t) => <button key={t.id} className="list-btn" onClick={() => add(itemFromTemplate(t))} title="Mit den Gehäusemaßen des Geräts einfügen">{t.manufacturer} {t.name}</button>)}
+          </Section>
         </div>
-        <h4 className="list-head">In dieser Ebene</h4>
+        <div className="insp add-form">
+        <Section id="inlay.add.list" title="In dieser Ebene" defaultOpen summary={`${mine.length} Ausschnitte`}>
         {mine.length ? mine.map((it) => (
           <button key={it.id} className={'lib-item item-row' + (selection?.kind === 'caseItem' && selection.id === it.id ? ' sel-item' : '')} onClick={() => st().select({ kind: 'caseItem', id: it.id })} title="Ausschnitt auswählen">
             <span className="lib-text">
@@ -77,6 +82,8 @@ function AddPanel({ c, project, layer }: { c: FlightCase; project: Project; laye
             </span>
           </button>
         )) : <div className="hint">Noch keine Ausschnitte.</div>}
+        </Section>
+        </div>
       </div>
     </aside>
   );
@@ -101,7 +108,8 @@ function ItemInspector({ c, it }: { c: FlightCase; it: CaseItem }) {
           <input className="insp-title" disabled={ro} value={it.name} onChange={(e) => up({ name: e.target.value })} title="Name des Ausschnitts" />
           <div className="muted small">Ausschnitt in {c.name}</div>
         </div>
-        <h4>Form und Maße</h4>
+        {warnings.length ? <div className="warn-box">{warnings.map((w, i) => <div key={i} className="warn">{w.text}</div>)}</div> : null}
+        <Section id="inlay.item.size" title="Form und Maße" defaultOpen summary={`${it.l} × ${it.w}, Tiefe ${cutDepth(it)} mm`}>
         <Seg value={round ? 'circle' : 'rect'} onChange={(v) => up({ shape: v === 'circle' ? 'circle' : undefined })} options={[
           { id: 'rect', label: 'Rechteck', title: 'Rechteckig mit gerundeten Ecken' },
           { id: 'circle', label: 'Rund', title: 'Rund oder oval' },
@@ -116,7 +124,8 @@ function ItemInspector({ c, it }: { c: FlightCase; it: CaseItem }) {
           {!round ? <Field label="Eckenradius"><NumberInput value={it.radius ?? 6} min={0} max={50} onChange={(v) => up({ radius: v === 6 ? undefined : v })} /></Field> : null}
         </div>
         <div className="muted small">Schnitttiefe ist sonst gleich der Höhe. Platz in der Höhe: {Math.round(depthAvailable(c, it.layer))} mm.</div>
-        <h4>Position</h4>
+        </Section>
+        <Section id="inlay.item.pos" title="Position" summary={`${Math.round(it.x)} / ${Math.round(it.y)} mm`}>
         <div className="row gap8">
           <Field label="von links (mm)"><NumberInput value={it.x} step={5} onChange={(v) => up({ x: v })} /></Field>
           <Field label="von vorne (mm)"><NumberInput value={it.y} step={5} onChange={(v) => up({ y: v })} /></Field>
@@ -124,9 +133,10 @@ function ItemInspector({ c, it }: { c: FlightCase; it: CaseItem }) {
         {hasLid(c) ? (
           <Field label="Ebene"><select disabled={ro} value={it.layer} onChange={(e) => up({ layer: e.target.value as CaseItem['layer'] })}><option value="body">Unterteil</option><option value="lid">Deckel</option></select></Field>
         ) : null}
+        </Section>
         {!round ? (
           <>
-            <h4>Griffmulden</h4>
+            <Section id="inlay.item.grips" title="Griffmulden und Gravur" summary={[it.grips?.length ? `${it.grips.length} Griffmulden` : '', it.engrave ? 'graviert' : ''].filter(Boolean).join(', ') || 'keine'}>
             <div className="muted small">Halbrunde Aussparungen, um den Inhalt greifen zu können.</div>
             <div className="row gap8 wrap">
               {SIDES.map((s) => (
@@ -136,9 +146,10 @@ function ItemInspector({ c, it }: { c: FlightCase; it: CaseItem }) {
                 }} /> {s.label}</label>
               ))}
             </div>
+            <label className="check"><input disabled={ro} type="checkbox" checked={!!it.engrave} onChange={(e) => up({ engrave: e.target.checked || undefined })} /> Namen in den Schaum gravieren</label>
+            </Section>
           </>
-        ) : null}
-        <label className="check"><input disabled={ro} type="checkbox" checked={!!it.engrave} onChange={(e) => up({ engrave: e.target.checked || undefined })} /> Namen in den Schaum gravieren</label>
+        ) : <label className="check"><input disabled={ro} type="checkbox" checked={!!it.engrave} onChange={(e) => up({ engrave: e.target.checked || undefined })} /> Namen in den Schaum gravieren</label>}
         <Field label="Gewicht Inhalt (kg)"><NumberInput value={it.weight ?? 0} step={0.1} min={0} onChange={(v) => up({ weight: v || undefined })} /></Field>
         {!ro ? (
           <div className="action-row">
@@ -149,7 +160,6 @@ function ItemInspector({ c, it }: { c: FlightCase; it: CaseItem }) {
             <button className="btn sm danger" onClick={() => st().removeCaseItem(c.id, it.id)} title="Ausschnitt entfernen (Entf)">Entfernen</button>
           </div>
         ) : null}
-        {warnings.map((w, i) => <div key={i} className="warn">{w.text}</div>)}
       </div>
     </aside>
   );
@@ -172,11 +182,12 @@ function InlayInspector({ c, project }: { c: FlightCase; project: Project }) {
         </div>
         <dl className="keyfigs">
           <div><dt>Innenmaß</dt><dd>{c.inner.l} × {c.inner.w} × {c.inner.h} mm</dd></div>
-          <div><dt>Einlage</dt><dd>{inlayThickness(c) || '–'} mm stark</dd></div>
+          <div><dt>Einlage</dt><dd>{inlayThickness(c) ? `${inlayThickness(c)} mm stark` : 'noch leer'}</dd></div>
           <div><dt>Gewicht Schaum</dt><dd>ca. {kg(b.weight.foam)} kg</dd></div>
         </dl>
+        {warnings.length ? <div className="warn-box">{warnings.map((w, i) => <div key={i} className="warn">{w.text}</div>)}</div> : null}
 
-        <h4>Behälter</h4>
+        <Section id="inlay.container" title="Behälter und Innenmaß" defaultOpen={!isCase} summary={inlayContainer(project, c)}>
         {isDrawer(c) ? (
           <>
             <div className="muted small">{link ? `${link.device.label || link.tpl.name} in „${link.rack.name}“, HE ${link.device.u}.` : 'Die verknüpfte Schublade gibt es nicht mehr im Rack.'} Die Innenmaße sind aus der Schubladen-Vorlage geschätzt. Bitte nachmessen.</div>
@@ -196,7 +207,8 @@ function InlayInspector({ c, project }: { c: FlightCase; project: Project }) {
           </div>
         ) : null}
 
-        <h4>Schaumstoff</h4>
+        </Section>
+        <Section id="inlay.foam" title="Schaumstoff" defaultOpen summary={`${mat}, Boden ${c.foam.bottom}, Rand ${c.foam.sides} mm`}>
         <Field label="Material"><select disabled={ro} value={mat} onChange={(e) => set({ foam: { ...c.foam, material: e.target.value as FoamMaterial } })}>
           {Object.entries(FOAM_MATERIALS).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
         </select></Field>
@@ -207,8 +219,8 @@ function InlayInspector({ c, project }: { c: FlightCase; project: Project }) {
           {hasLid(c) ? <Field label="Deckel (mm)"><NumberInput value={c.foam.lid} min={0} onChange={(v) => set({ foam: { ...c.foam, lid: v } })} /></Field> : null}
           <Field label="Farbe"><input disabled={ro} type="color" value={c.foam.color} onChange={(e) => set({ foam: { ...c.foam, color: e.target.value } })} title="Farbe des Schaumstoffs" /></Field>
         </div>
-        {!isCase ? <Field label="Notizen"><textarea disabled={ro} rows={2} value={c.notes ?? ''} onChange={(e) => set({ notes: e.target.value || undefined })} /></Field> : null}
-        {warnings.length ? <div className="warn-box"><h4>Hinweise</h4>{warnings.map((w, i) => <div key={i} className="warn">{w.text}</div>)}</div> : null}
+        </Section>
+        {!isCase ? <Section id="inlay.notes" title="Notizen" summary={c.notes ? c.notes.slice(0, 36) : 'keine'}><textarea disabled={ro} rows={3} value={c.notes ?? ''} onChange={(e) => set({ notes: e.target.value || undefined })} aria-label="Notizen" /></Section> : null}
       </div>
     </aside>
   );
@@ -259,8 +271,7 @@ export function InlayWorkspace() {
   const layout = useLayout();
   const [view, setView] = useState<'plan' | '3d'>('plan');
   const [layerSel, setLayer] = useState<InlayLayer>('body');
-  const [gap, setGap] = useState(15);
-  const [snap, setSnap] = useState(5);
+  const snap = layout.snap, gap = layout.packGap;
   const list = inlayList(project);
   const c = list.find((x) => x.id === activeId) ?? list[0];
   if (!c) {
@@ -285,42 +296,38 @@ export function InlayWorkspace() {
       ) : null}
       <section className="center">
         <Toolbar>
-          <ToolGroup label="Ansicht">
+          <ToolGroup>
             <Seg value={view} onChange={setView} options={[
               { id: 'plan', label: 'Zuschnitt', title: 'Zuschnittplan: Draufsicht mit Maßen und Schnitt' },
               { id: '3d', label: '3D', title: 'Räumliche Ansicht der Einlage im Behälter' },
             ]} />
-          </ToolGroup>
-          {hasLid(c) ? (
-            <ToolGroup label="Ebene">
+            {hasLid(c) ? (
               <Seg value={layer} onChange={setLayer} options={[
                 { id: 'body', label: 'Unterteil', title: 'Schaum im Unterteil des Cases' },
                 { id: 'lid', label: 'Deckel', title: 'Schaum im Deckel des Cases' },
               ]} />
+            ) : null}
+          </ToolGroup>
+          {!ro ? (
+            <ToolGroup>
+              <button className="btn sm" disabled={!c.items.length} onClick={() => st().updateCase(c.id, { items: arrangeItems(c, gap) })} title={`Alle Ausschnitte platzsparend verteilen, Abstand ${gap} mm (änderbar in den Einstellungen). Was nicht passt, landet rot markiert daneben.`}>Automatisch anordnen</button>
+              {layer === 'body' ? (
+                <Menu label="Trennwände" className="sm" title="Holz-Trennwände im Behälter">
+                  <button onClick={() => st().updateCase(c.id, { dividers: [...c.dividers, { axis: 'x', pos: Math.round(c.inner.w / 2) }] })}>Trennwand längs einsetzen</button>
+                  <button onClick={() => st().updateCase(c.id, { dividers: [...c.dividers, { axis: 'y', pos: Math.round(c.inner.l / 2) }] })}>Trennwand quer einsetzen</button>
+                  {c.dividers.length ? <><hr /><button className="danger" onClick={() => st().updateCase(c.id, { dividers: [] })}>Alle {c.dividers.length} Trennwände entfernen</button></> : null}
+                </Menu>
+              ) : null}
             </ToolGroup>
           ) : null}
-          {!ro ? (
-            <>
-              <ToolGroup label="Anordnen">
-                <label className="inline-field" title="Mindestabstand zwischen den Ausschnitten beim automatischen Anordnen">Abstand <NumberInput value={gap} min={0} max={80} step={5} onChange={(v) => setGap(Math.max(0, v))} style={{ width: 54 }} /> mm</label>
-                <button className="btn sm" disabled={!c.items.length} onClick={() => st().updateCase(c.id, { items: arrangeItems(c, gap) })} title="Alle Ausschnitte platzsparend verteilen; was nicht passt, landet rot markiert daneben">Automatisch anordnen</button>
-                <label className="inline-field" title="Raster beim Ziehen (Alt gedrückt = frei)">Raster <select value={snap} onChange={(e) => setSnap(Number(e.target.value))}><option value={1}>1 mm</option><option value={5}>5 mm</option><option value={10}>10 mm</option></select></label>
-              </ToolGroup>
-              {layer === 'body' ? (
-                <ToolGroup label="Trennwände">
-                  <button className="btn sm" onClick={() => st().updateCase(c.id, { dividers: [...c.dividers, { axis: 'x', pos: Math.round(c.inner.w / 2) }] })} title="Holz-Trennwand parallel zur Länge einsetzen">+ längs</button>
-                  <button className="btn sm" onClick={() => st().updateCase(c.id, { dividers: [...c.dividers, { axis: 'y', pos: Math.round(c.inner.l / 2) }] })} title="Holz-Trennwand quer einsetzen">+ quer</button>
-                  {c.dividers.length ? <button className="btn sm" onClick={() => st().updateCase(c.id, { dividers: [] })} title="Alle Trennwände entfernen">alle entfernen</button> : null}
-                </ToolGroup>
-              ) : null}
-            </>
-          ) : null}
+          <span className="spacer" />
+          <ShowMenu library="Ausschnitte einfügen" list="Zuschnittliste" />
         </Toolbar>
         <div className="stage">
           <ErrorBoundary resetKey={view + c.id}>
             {view === '3d' ? <Case3D c={c} /> : (
               <SheetCanvas c={c} size={{ x: -pad, y: -10, w: L.w + pad + 20, h: L.h + 20 }} fitKey={`${c.id}:${layer}:${Math.round(L.w)}:${Math.round(L.h)}`} snap={snap} editable={!ro}
-                hint={`Ausschnitte ziehen (Raster ${snap} mm, Alt = frei), Mausrad zoomt, Ziehen auf freier Fläche verschiebt, Doppelklick passt ein.`}>
+                hint={`Ausschnitte ziehen (Raster ${snap} mm, Alt gedrückt = frei). Mausrad zoomt, Ziehen auf freier Fläche verschiebt, Doppelklick passt ein.`}>
                 {(onDown) => <InlaySheet c={c} layer={layer} selectedItemId={it?.id ?? null} warnItemIds={warnIds} onItemPointerDown={onDown} />}
               </SheetCanvas>
             )}

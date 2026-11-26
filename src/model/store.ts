@@ -29,7 +29,8 @@ export type Modal =
   | { kind: 'cableTypes' }
   | { kind: 'panel'; templateId?: string }
   | { kind: 'box'; templateId?: string }
-  | { kind: 'settings' }
+  /** global settings; tab = topic to open (see SettingsDialog) */
+  | { kind: 'settings'; tab?: 'view' | 'cables' | 'racks' | 'inlays' | 'library' | 'export' | 'project' }
   | { kind: 'export' }
   | { kind: 'rfImport'; data: RfImport };
 

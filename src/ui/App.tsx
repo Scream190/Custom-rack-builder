@@ -9,19 +9,20 @@ import { RfImportDialog } from './RfDialogs';
 import { parseRfFile } from '../integration/rf';
 import { NavBar } from './NavBar';
 import { Splitter } from './Splitter';
-import { DEFAULT_LAYOUT, setLayout, useLayout } from '../model/layout';
+import { DEFAULT_LAYOUT, getLayout, setLayout, useLayout } from '../model/layout';
 import { DeviceEditor } from './DeviceEditor';
 import { PanelDesigner } from './PanelDesigner';
 import { BoxEditor } from './BoxEditor';
 import { CaseWorkspace, openDrawerInlay, projectDrawers } from './CaseWorkspace';
 import { InlayWorkspace } from './InlayWorkspace';
 import { RackBuildWorkspace } from './RackBuildWorkspace';
-import { ObjectBar, Seg, ToolGroup, Toolbar } from './Shell';
+import { Menu, MenuCheck, ObjectBar, Seg, ShowMenu, ToolGroup, Toolbar } from './Shell';
 import { caseList, inlayList, newFreeInlay } from '../model/inlay';
 import type { AppMode } from '../model/store';
 import { newCase } from '../model/cases';
 import { rackSizeLabel } from '../model/geometry';
-import { CableTypeEditor, ExportDialog, RackTypeEditor, SettingsDialog } from './Dialogs';
+import { ExportDialog, RackTypeEditor } from './Dialogs';
+import { SettingsDialog } from './SettingsDialog';
 import { Rack3D } from '../three/Rack3D';
 import { sampleProject } from '../library/sample';
 import type { Project } from '../model/types';
@@ -100,11 +101,6 @@ export function App() {
   };
 
   const highlightCable = hover ?? (selection?.kind === 'cable' ? selection.id : null);
-  const toggles = (lib: string, list: string, libTitle: string, listTitle: string) => [
-    ...(!readOnly ? [{ label: lib, title: libTitle, on: layout.showLibrary, onClick: () => setLayout({ showLibrary: !layout.showLibrary }) }] : []),
-    { label: list, title: listTitle, on: layout.showCableList, onClick: () => setLayout({ showCableList: !layout.showCableList }) },
-    { label: 'Eigenschaften', title: 'Eigenschaften der Auswahl rechts ein- oder ausblenden', on: layout.showInspector, onClick: () => setLayout({ showInspector: !layout.showInspector }) },
-  ];
   const cases = caseList(project);
   const curCase = cases.find((c) => c.id === activeCaseId) ?? cases[0];
   const inlays = inlayList(project);
@@ -123,29 +119,14 @@ export function App() {
         )}
         {!readOnly ? (
           <div className="menu-group">
-            <details className="menu">
-              <summary className="btn" title="Projekt anlegen, öffnen, importieren, speichern">Datei ▾</summary>
-              <div className="menu-pop" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}>
-                <button onClick={() => { if (confirm('Neues leeres Projekt beginnen? (Rückgängig möglich)')) st().newProject(); }}>Neues Projekt</button>
-                <button onClick={() => fileInput.current?.click()}>Projekt öffnen …</button>
-                <button onClick={() => st().openModal({ kind: 'export' })}>Speichern und exportieren …</button>
-                <hr />
-                <button onClick={() => rfInput.current?.click()}>Aus RF Frequency Manager importieren …</button>
-                <button onClick={() => st().setProject(sampleProject(), true)}>Beispielprojekt laden (UHF-Rack)</button>
-                <hr />
-                <button onClick={() => st().openModal({ kind: 'settings' })}>Projekt-Einstellungen …</button>
-              </div>
-            </details>
-            <details className="menu">
-              <summary className="btn" title="Eigene Geräte, Dosen, Blenden, Rack- und Kabeltypen anlegen">Bibliotheken ▾</summary>
-              <div className="menu-pop" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}>
-                <button onClick={() => st().openModal({ kind: 'device' })}>Neues Gerät …</button>
-                <button onClick={() => st().openModal({ kind: 'box' })}>Split- oder Kombidose …</button>
-                <button onClick={() => st().openModal({ kind: 'panel' })}>Blenden-Designer …</button>
-                <button onClick={() => st().openModal({ kind: 'rackTypes' })}>Rack-Typen …</button>
-                <button onClick={() => st().openModal({ kind: 'cableTypes' })}>Kabeltypen und Farben …</button>
-              </div>
-            </details>
+            <Menu label="Datei" title="Projekt anlegen, öffnen, importieren, speichern">
+              <button onClick={() => { if (confirm('Neues leeres Projekt beginnen? (Rückgängig möglich)')) st().newProject(); }}>Neues Projekt</button>
+              <button onClick={() => fileInput.current?.click()}>Projekt öffnen …</button>
+              <button onClick={() => st().openModal({ kind: 'export' })}>Speichern und exportieren …</button>
+              <hr />
+              <button onClick={() => rfInput.current?.click()}>Aus RF Frequency Manager importieren …</button>
+              <button onClick={() => st().setProject(sampleProject(), true)}>Beispielprojekt laden (UHF-Rack)</button>
+            </Menu>
             <div className="btn-group">
               <button className="btn icon" disabled={!canUndo} onClick={() => st().undo()} title="Rückgängig (Strg+Z)" aria-label="Rückgängig">↶</button>
               <button className="btn icon" disabled={!canRedo} onClick={() => st().redo()} title="Wiederholen (Strg+Y)" aria-label="Wiederholen">↷</button>
@@ -158,6 +139,7 @@ export function App() {
           ))}
         </nav>
         <span className="spacer" />
+        {!readOnly ? <button className="btn" onClick={() => st().openModal({ kind: 'settings' })} title="Alle Einstellungen: Darstellung, Kabel, Racks, Cases und Einlagen, Export, Projekt">Einstellungen</button> : null}
         <button className="btn primary big" onClick={() => st().openModal({ kind: 'export' })} title="PDF, Zeichnungen, DXF, Projektdatei">Export</button>
         <input ref={rfInput} type="file" accept=".rfse,.rfreq,.json,.txt" hidden onChange={async (e) => {
           const f = e.target.files?.[0]; e.target.value = '';
@@ -174,7 +156,7 @@ export function App() {
             newButton={<button className="btn sm accent" onClick={() => st().addRack(allRackTypes(project).find((t) => t.id === rack.type.id) ?? rack.type)} title="Neues leeres Rack mit dem gleichen Gehäuse anlegen">+ Neues Rack</button>}
             onDuplicate={() => st().duplicateRack(rack.id)}
             onDelete={project.racks.length > 1 ? () => { if (confirm(`„${rack.name}“ löschen?`)) st().removeRack(rack.id); } : undefined}
-            toggles={toggles('Bibliothek', 'Kabelliste', 'Gerätebibliothek links ein- oder ausblenden', 'Kabelliste unten ein- oder ausblenden')} />
+            deleteHint="Das letzte Rack kann nicht gelöscht werden." />
           <main className="workspace">
             {!readOnly && layout.showLibrary ? (
               <>
@@ -184,17 +166,22 @@ export function App() {
             ) : null}
             <section className="center">
               <Toolbar>
-                <ToolGroup label="Ansicht">
+                <ToolGroup>
                   <Seg value={view} onChange={(v) => st().setView(v)} options={VIEWS} />
                 </ToolGroup>
                 {!readOnly ? (
-                  <ToolGroup label="Neue Kabel">
+                  <ToolGroup>
                     <select className="tool-select" value={activeCableTypeId} onChange={(e) => st().setActiveCableType(e.target.value)} title="Kabeltyp für neue Verbindungen. Kabel ziehen: Anschluss anklicken, dann Zielanschluss.">
-                      <option value="auto">Kabeltyp automatisch nach Stecker</option>
-                      {project.cableTypes.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                      <option value="auto">Neue Kabel: Typ nach Stecker</option>
+                      {project.cableTypes.map((t) => <option key={t.id} value={t.id}>Neue Kabel: {t.name}</option>)}
                     </select>
                   </ToolGroup>
                 ) : null}
+                <span className="spacer" />
+                <ShowMenu library="Bibliothek" list="Kabelliste">
+                  <MenuCheck checked={project.settings.showPortLabels} onChange={(v) => st().updateSettings({ showPortLabels: v })}>Anschlussnamen</MenuCheck>
+                  <MenuCheck checked={project.settings.showCableLabels} onChange={(v) => st().updateSettings({ showCableLabels: v })}>Kabelbeschriftung</MenuCheck>
+                </ShowMenu>
               </Toolbar>
               {pending ? <div className="cabling-banner">Kabel ziehen: Zielanschluss anklicken. <kbd>Esc</kbd> bricht ab.</div> : null}
               <div className="stage">
@@ -229,7 +216,7 @@ export function App() {
             newButton={<button className="btn sm accent" onClick={() => st().addRack(allRackTypes(project).find((t) => t.id === rack.type.id) ?? rack.type)} title="Neues leeres Rack mit dem gleichen Gehäuse anlegen">+ Neues Rack</button>}
             onDuplicate={() => st().duplicateRack(rack.id)}
             onDelete={project.racks.length > 1 ? () => { if (confirm(`„${rack.name}“ löschen?`)) st().removeRack(rack.id); } : undefined}
-            toggles={toggles('', 'Stückliste', '', 'Stückliste des Gehäuses unten ein- oder ausblenden').filter((t) => t.label)} />
+            deleteHint="Das letzte Rack kann nicht gelöscht werden." />
           <RackBuildWorkspace />
         </>
       ) : mode === 'cases' ? (
@@ -238,8 +225,7 @@ export function App() {
             tabs={cases.map((c) => ({ id: c.id, label: c.name, sub: `${c.inner.l} × ${c.inner.w} × ${c.inner.h}` }))}
             newButton={<button className="btn sm accent" onClick={() => st().addCase(newCase(`Case ${cases.length + 1}`))} title="Neues Flightcase mit Standardmaßen anlegen">+ Neues Case</button>}
             onDuplicate={curCase ? () => st().duplicateCase(curCase.id) : undefined}
-            onDelete={curCase ? () => { if (confirm(`„${curCase.name}“ samt Einlage löschen?`)) st().removeCase(curCase.id); } : undefined}
-            toggles={toggles('Bibliothek', 'Stückliste', '', 'Stückliste unten ein- oder ausblenden').filter((t) => t.label !== 'Bibliothek')} />
+            onDelete={curCase ? () => { if (confirm(`„${curCase.name}“ samt Einlage löschen?`)) st().removeCase(curCase.id); } : undefined} />
           <CaseWorkspace />
         </>
       ) : (
@@ -247,21 +233,18 @@ export function App() {
           <ObjectBar noun="Einlage" activeId={curInlay?.id ?? null} onSelect={(id) => st().setActiveInlay(id)} emptyText="Noch keine Einlage angelegt."
             tabs={inlays.map((c) => ({ id: c.id, label: c.name, sub: c.kind === 'drawer' ? 'Schublade' : c.kind === 'inlay' ? 'frei' : 'Case' }))}
             newButton={!readOnly ? (
-              <details className="menu">
-                <summary className="btn sm accent" title="Neue Einlage für eine Schublade oder einen beliebigen Behälter">+ Neue Einlage ▾</summary>
-                <div className="menu-pop" onClick={(e) => (e.currentTarget.parentElement as HTMLDetailsElement).removeAttribute('open')}>
-                  <button onClick={() => st().addCase(newFreeInlay(`Einlage ${inlays.filter((c) => c.kind === 'inlay').length + 1}`))}>Für einen beliebigen Behälter (eigene Innenmaße)</button>
-                  {drawers.length ? <hr /> : null}
-                  {drawers.map((x) => (
-                    <button key={x.device.id} onClick={() => openDrawerInlay(project, x.rack.id, x.device.id)}>Für Schublade {x.device.label || x.tpl.name} ({x.rack.name}, HE {x.device.u})</button>
-                  ))}
-                  {cases.length ? <><hr /><div className="menu-note">Jedes Flightcase hat seine Einlage schon in der Liste.</div></> : null}
-                </div>
-              </details>
+              <Menu label="+ Neue Einlage" className="sm accent" title="Neue Einlage für eine Schublade oder einen beliebigen Behälter" align="right">
+                <button onClick={() => st().addCase({ ...newFreeInlay(`Einlage ${inlays.filter((c) => c.kind === 'inlay').length + 1}`), foam: { bottom: 10, lid: 0, sides: 15, color: getLayout().foamColor, material: getLayout().foamMaterial } })}>Für einen beliebigen Behälter (eigene Innenmaße)</button>
+                {drawers.length ? <><hr /><div className="menu-head">Für eine Rackschublade</div></> : null}
+                {drawers.map((x) => (
+                  <button key={x.device.id} onClick={() => openDrawerInlay(project, x.rack.id, x.device.id)}>{x.device.label || x.tpl.name} ({x.rack.name}, HE {x.device.u})</button>
+                ))}
+                {cases.length ? <><hr /><div className="menu-note">Jedes Flightcase hat seine Einlage schon in der Liste.</div></> : null}
+              </Menu>
             ) : undefined}
             onDuplicate={curInlay && curInlay.kind && curInlay.kind !== 'case' ? () => st().duplicateCase(curInlay.id) : undefined}
             onDelete={curInlay && curInlay.kind && curInlay.kind !== 'case' ? () => { if (confirm(`Einlage „${curInlay.name}“ löschen?`)) st().removeCase(curInlay.id); } : undefined}
-            toggles={toggles('Ausschnitte', 'Zuschnittliste', 'Liste zum Einfügen von Ausschnitten links ein- oder ausblenden', 'Zuschnittliste unten ein- oder ausblenden')} />
+            deleteHint="Diese Einlage gehört zu einem Flightcase. Das Case löschst du unter „Flightcases“." />
           <InlayWorkspace />
         </>
       )}
@@ -270,8 +253,8 @@ export function App() {
       {modal?.kind === 'panel' ? <PanelDesigner key={modal.templateId ?? 'new'} templateId={modal.templateId} /> : null}
       {modal?.kind === 'box' ? <BoxEditor key={modal.templateId ?? 'new'} templateId={modal.templateId} /> : null}
       {modal?.kind === 'rackTypes' ? <RackTypeEditor /> : null}
-      {modal?.kind === 'cableTypes' ? <CableTypeEditor /> : null}
-      {modal?.kind === 'settings' ? <SettingsDialog /> : null}
+      {modal?.kind === 'cableTypes' ? <SettingsDialog tab="cables" /> : null}
+      {modal?.kind === 'settings' ? <SettingsDialog tab={modal.tab} /> : null}
       {modal?.kind === 'export' ? <ExportDialog /> : null}
       {modal?.kind === 'rfImport' ? <RfImportDialog data={modal.data} /> : null}
       {toast ? <div className={'toast ' + toast.kind}>{toast.text}</div> : null}

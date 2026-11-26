@@ -73,7 +73,7 @@ export function SheetCanvas({ c, size, fitKey, snap = 5, editable, hint, childre
         onDoubleClick={(e) => { if (!(e.target as Element).closest('[data-item]')) setVb(size); }}>
         {children(onItemDown)}
       </svg>
-      {hint ? <div className="case-hint">{hint}</div> : null}
+      {hint ? <span className="nav-help canvas-help" title={hint} aria-label={hint}>?</span> : null}
     </div>
   );
 }

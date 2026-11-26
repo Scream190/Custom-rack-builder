@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Section } from './Section';
 import { allRackTypes, useActiveRack, useStore } from '../model/store';
 import { bayOf, cableLength, formatLength, rackBays, rackSizeLabel, resolveEnd, totalUnits, usedUnits } from '../model/geometry';
 import { connectorDef, SIGNAL_LABELS } from '../model/connectors';
@@ -67,7 +68,7 @@ function RackInspector({ rack, project }: { rack: Rack; project: Project }) {
         {stats.weight > 0 ? <div><dt>Gewicht</dt><dd>ca. {stats.weight.toFixed(1).replace('.', ',')} kg</dd></div> : null}
         {stats.power > 0 ? <div><dt>Leistung</dt><dd>ca. {stats.power} W</dd></div> : null}
       </dl>
-      <h4>Gehäuse</h4>
+      <Section id="rack.housing" title="Gehäuse und Details" summary={rack.type.name}>
       <Field label="Rack-Typ">
         <select
           disabled={ro}
@@ -103,9 +104,9 @@ function RackInspector({ rack, project }: { rack: Rack; project: Project }) {
         <div><span>Geräte</span><b>{rack.devices.length}</b></div>
         <div><span>Kabel</span><b>{rack.cables.length}</b></div>
       </div>
+      </Section>
       {Object.keys(stats.lengths).length ? (
-        <>
-          <h4>Kabel nach Typ</h4>
+        <Section id="rack.cables" title="Kabel nach Typ" summary={`${rack.cables.length} Kabel`}>
           <div className="stats">
             {Object.entries(stats.lengths).map(([id, v]) => {
               const ct = project.cableTypes.find((t) => t.id === id);
@@ -117,17 +118,11 @@ function RackInspector({ rack, project }: { rack: Rack; project: Project }) {
               );
             })}
           </div>
-        </>
+        </Section>
       ) : null}
-      <Field label="Notizen">
-        <textarea disabled={ro} rows={4} value={rack.notes ?? ''} onChange={(e) => st().updateRack(rack.id, { notes: e.target.value })} />
-      </Field>
-      {!ro ? (
-        <div className="hint">
-          Kabel ziehen: Anschluss anklicken, dann den Zielanschluss. <kbd>Esc</kbd> bricht ab, <kbd>Entf</kbd> löscht die Auswahl,
-          <kbd>Strg</kbd>+<kbd>Z</kbd> macht rückgängig. Einen belegten Anschluss mit <kbd>Alt</kbd> anklicken, um ein weiteres Kabel anzuschließen.
-        </div>
-      ) : null}
+      <Section id="rack.notes" title="Notizen" summary={rack.notes ? rack.notes.slice(0, 36) : 'keine'}>
+        <textarea disabled={ro} rows={4} value={rack.notes ?? ''} onChange={(e) => st().updateRack(rack.id, { notes: e.target.value })} aria-label="Notizen" />
+      </Section>
     </div>
   );
 }
@@ -174,6 +169,16 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
           </Field>
         ) : null}
       </div>
+      {!ro ? (
+        <div className="action-row">
+          <div className="btn-group">
+            <button className="btn sm" onClick={() => st().duplicateDevice(rack.id, id)} title="Gleiches Gerät noch einmal einbauen (Strg+D)">Duplizieren</button>
+            <button className="btn sm" onClick={() => st().openModal(tpl.panel ? { kind: 'panel', templateId: tpl.id } : { kind: 'device', templateId: tpl.id })} title="Anschlüsse und Maße der Vorlage ändern; gilt für alle Geräte dieses Typs">Vorlage bearbeiten</button>
+          </div>
+          <button className="btn sm danger" onClick={() => st().removeDevice(rack.id, id)} title="Gerät aus dem Rack nehmen, seine Kabel werden mit entfernt (Entf)">Entfernen</button>
+        </div>
+      ) : null}
+      <Section id="device.fields" title="Eigene Felder" summary={fieldNames.length ? fieldNames.join(', ') : 'z. B. IP-Adresse'}>
       {fieldNames.map((f) => (
         <Field key={f} label={f}>
           <input disabled={ro} value={d.fields?.[f] ?? ''} onChange={(e) => st().updateDevice(rack.id, id, { fields: { ...(d.fields ?? {}), [f]: e.target.value } })} />
@@ -185,21 +190,13 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
           <button className="btn sm" disabled={!newField.trim()} title="Eigenes Feld mit diesem Namen anlegen" onClick={() => { st().updateDevice(rack.id, id, { fields: { ...(d.fields ?? {}), [newField.trim()]: '' } }); setNewField(''); }}>Feld anlegen</button>
         </div>
       ) : null}
+      </Section>
       {rfProductsFor(tpl).length ? <RfSection project={project} rack={rack} d={d} ro={ro} /> : null}
       {tpl.drawer ? <DrawerContents rack={rack} deviceId={id} items={d.contents ?? []} ro={ro} /> : null}
-      <Field label="Notizen">
-        <textarea disabled={ro} rows={3} value={d.notes ?? ''} onChange={(e) => st().updateDevice(rack.id, id, { notes: e.target.value })} />
-      </Field>
-      {!ro ? (
-        <div className="action-row">
-          <div className="btn-group">
-            <button className="btn sm" onClick={() => st().duplicateDevice(rack.id, id)} title="Gleiches Gerät noch einmal einbauen (Strg+D)">Duplizieren</button>
-            <button className="btn sm" onClick={() => st().openModal(tpl.panel ? { kind: 'panel', templateId: tpl.id } : { kind: 'device', templateId: tpl.id })} title="Anschlüsse und Maße der Vorlage ändern; gilt für alle Geräte dieses Typs">Vorlage bearbeiten</button>
-          </div>
-          <button className="btn sm danger" onClick={() => st().removeDevice(rack.id, id)} title="Gerät aus dem Rack nehmen, seine Kabel werden mit entfernt (Entf)">Entfernen</button>
-        </div>
-      ) : null}
-      <h4>Anschlüsse ({tpl.ports.length})</h4>
+      <Section id="device.notes" title="Notizen" summary={d.notes ? d.notes.slice(0, 36) : 'keine'}>
+        <textarea disabled={ro} rows={3} value={d.notes ?? ''} onChange={(e) => st().updateDevice(rack.id, id, { notes: e.target.value })} aria-label="Notizen" />
+      </Section>
+      <Section id="device.ports" title={`Anschlüsse (${tpl.ports.length})`} summary={`${cables.length} belegt`}>
       <div className="port-list">
         {tpl.ports.map((p) => {
           const c = cables.find((x) => (x.a.deviceId === id && x.a.portId === p.id) || (x.b.deviceId === id && x.b.portId === p.id));
@@ -214,6 +211,7 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
           );
         })}
       </div>
+      </Section>
     </div>
   );
 }
@@ -273,7 +271,7 @@ function CableInspector({ rack, id, project }: { rack: Rack; id: string; project
       <Field label="Beschriftung / Notiz">
         <input disabled={ro} value={c.label ?? ''} placeholder="z. B. Vox 1" onChange={(e) => st().updateCable(rack.id, id, { label: e.target.value || undefined })} />
       </Field>
-      <h4>Y-Kabel</h4>
+      <Section id="cable.y" title="Y-Kabel" summary={c.yGroup ? `${rack.cables.filter((x) => x.yGroup === c.yGroup).length} Äste` : 'Ast hinzufügen'}>
       {c.yGroup ? (
         <div className="muted small">
           Ast {String.fromCharCode(96 + (c.yLeg ?? 1))} von {rack.cables.filter((x) => x.yGroup === c.yGroup).length}. Alle Äste teilen den Stecker an Ende A
@@ -290,6 +288,7 @@ function CableInspector({ rack, id, project }: { rack: Rack; id: string; project
               </>}
         </div>
       ) : null}
+      </Section>
       {!ro ? (
         <div className="action-row" style={{ marginTop: 10 }}>
           {!c.yGroup ? <button className="btn sm" onClick={() => st().updateCable(rack.id, id, { a: c.b, b: c.a })} title="Anfang und Ende tauschen (für Beschriftung und Kabelliste)">A und B tauschen</button> : <span />}
@@ -327,13 +326,14 @@ function BoxInspector({ rack, id, project }: { rack: Rack; id: string; project: 
           <button className="btn sm danger" onClick={() => st().removeBox(rack.id, id)} title="Dose entfernen, ihre Kabel werden mit entfernt (Entf)">Entfernen</button>
         </div>
       ) : null}
-      <h4>Innere Verdrahtung</h4>
+      <Section id="box.links" title="Innere Verdrahtung" summary={`${tpl.box.links.length} Sammelanschlüsse`}>
       <div className="stats">
         {tpl.box.links.map((l) => (
           <div key={l.multi}><span>{portName(l.multi)}</span><b>{l.singles.map(portName).join(', ') || '–'}</b></div>
         ))}
       </div>
-      <h4>Anschlüsse ({tpl.ports.length})</h4>
+      </Section>
+      <Section id="box.ports" title={`Anschlüsse (${tpl.ports.length})`} summary={`${cables.length} belegt`}>
       <div className="port-list">
         {tpl.ports.map((p) => {
           const c = cables.find((x) => (x.a.deviceId === id && x.a.portId === p.id) || (x.b.deviceId === id && x.b.portId === p.id));
@@ -348,6 +348,7 @@ function BoxInspector({ rack, id, project }: { rack: Rack; id: string; project: 
           );
         })}
       </div>
+      </Section>
     </div>
   );
 }
@@ -365,8 +366,8 @@ function DrawerContents({ rack, deviceId, items, ro }: { rack: Rack; deviceId: s
   const [bulk, setBulk] = useState<string | null>(null);
   const save = (next: DrawerItem[]) => st().updateDevice(rack.id, deviceId, { contents: next });
   return (
+    <Section id="device.drawer" title="Inhalt der Schublade" defaultOpen summary={`${items.length} Positionen`}>
     <div className="drawer-box">
-      <h4>Inhalt der Schublade</h4>
       <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => openDrawerInlay(st().project, rack.id, deviceId)}>Schaumstoff-Einlage gestalten</button>
       {items.length === 0 && ro ? <div className="muted small">leer</div> : null}
       {items.map((it, i) => (
@@ -394,6 +395,7 @@ function DrawerContents({ rack, deviceId, items, ro }: { rack: Rack; deviceId: s
         </>
       ) : null}
     </div>
+    </Section>
   );
 }
 
@@ -416,8 +418,8 @@ function RfSection({ project, rack, d, ro }: { project: Project; rack: Rack; d: 
   const zones = Array.from(new Set(project.racks.flatMap((r) => r.devices.map((x) => x.rf?.zone).filter(Boolean) as string[])));
   const inBand = (f?: number) => !f || !band || band.ranges.some(([a, z]) => f >= a - 1e-6 && f <= z + 1e-6);
   return (
+    <Section id="device.rf" title="Funk (RF Frequency Manager)" defaultOpen summary={rf.band ? `Band ${rf.band}` : 'kein Band'}>
     <div className="drawer-box">
-      <h4>Funk (RF Frequency Manager)</h4>
       {products.length > 1 ? (
         <Field label="Betriebsart / Produkt">
           <select disabled={ro} value={prod?.id} onChange={(e) => save({ product: e.target.value, band: undefined })}>
@@ -464,5 +466,6 @@ function RfSection({ project, rack, d, ro }: { project: Project; rack: Rack; d: 
       </table>
       {rf.backups?.length ? <div className="small muted">Backup: {rf.backups.map((f) => f.toFixed(3)).join(', ')} MHz</div> : null}
     </div>
+    </Section>
   );
 }
