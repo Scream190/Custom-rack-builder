@@ -169,7 +169,10 @@ Oben links von *Racks* auf *Cases* umschalten. Pro Projekt beliebig viele Cases,
   (oder in der Cases-Leiste *+ Schubladen-Einlage*). Die Einlage übernimmt das Innenmaß der Schublade und legt für
   jede Zeile der Inhaltsliste einen Ausschnitt an (zunächst 100 × 60 mm, dann auf die tatsächlichen Maße anpassen).
 - **Ansichten:** Maßzeichnung (Innenansicht Unterteil und Deckel, Vorder- und Seitenansicht mit Beschlägen) und 3D
-  (Deckel auf/zu).
+  (Deckel auf/zu, Scharnierdeckel klappt auf). Dargestellt wie ein gebautes Case: Laminat mit Hammerschlag-Struktur,
+  Alu-Winkelprofile mit Nieten, Hybrid-Schließprofil, Kugelecken, versenkte Butterflyverschlüsse und Schalengriffe,
+  Lenkrollen mit Gabel, Nabe und Bremse. In 3D mit Spiegelungen und Schattenwurf, die Schaumeinlage hat ausgeschnittene
+  Aussparungen, in denen der Inhalt liegt. Schubladen-Einlagen erscheinen in einer 19"-Stahlschublade.
 - **Stückliste:** Plattenzuschnitte, Profillängen, Beschläge, Schaumteile, Gewicht (Case + Inhalt) und Volumen.
 
 **Genauigkeit:** Gewichte sind Schätzungen aus Dichten (Sperrholz 680 kg/m³, PE-Schaum 30 kg/m³, Alu-Profile

@@ -8,7 +8,6 @@ import { shade } from './DeviceFace';
  */
 
 const GAP = 140, LABEL = 34;
-const ALU = '#b8bcc2', METAL = '#cfd3d8', DARK = '#16171a';
 
 export function sheetLayout(c: FlightCase) {
   const d = caseDims(c);
@@ -67,6 +66,78 @@ function DimV({ y1, y2, x, label, ink }: { y1: number; y2: number; x: number; la
 /** positions of `count` items spread evenly along a span */
 const spread = (from: number, to: number, count: number) => Array.from({ length: count }, (_, i) => from + ((to - from) * (i + 1)) / (count + 1));
 
+/** gradients and patterns used by the case drawing (ids are shared; identical definitions may appear twice) */
+function CaseDefs() {
+  return (
+    <defs>
+      <linearGradient id="cs-alu-v" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="#8e949c" /><stop offset="0.18" stopColor="#e9ecef" /><stop offset="0.55" stopColor="#c3c8ce" /><stop offset="1" stopColor="#9aa0a8" />
+      </linearGradient>
+      <linearGradient id="cs-alu-h" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#eef0f2" /><stop offset="0.35" stopColor="#c7ccd2" /><stop offset="0.8" stopColor="#aab0b8" /><stop offset="1" stopColor="#80868e" />
+      </linearGradient>
+      <linearGradient id="cs-chrome" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#f8f9fa" /><stop offset="0.45" stopColor="#c9ced4" /><stop offset="0.6" stopColor="#eef0f2" /><stop offset="1" stopColor="#8c929a" />
+      </linearGradient>
+      <radialGradient id="cs-dome" cx="0.35" cy="0.32" r="0.75">
+        <stop offset="0" stopColor="#ffffff" /><stop offset="0.35" stopColor="#d9dde2" /><stop offset="0.85" stopColor="#7d838b" /><stop offset="1" stopColor="#5b6168" />
+      </radialGradient>
+      <linearGradient id="cs-recess" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#060708" /><stop offset="0.5" stopColor="#1d1f23" /><stop offset="1" stopColor="#34373c" />
+      </linearGradient>
+      <linearGradient id="cs-shade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#ffffff" stopOpacity="0.07" /><stop offset="0.5" stopColor="#ffffff" stopOpacity="0" /><stop offset="1" stopColor="#000000" stopOpacity="0.22" />
+      </linearGradient>
+      <radialGradient id="cs-hub" cx="0.4" cy="0.38" r="0.65">
+        <stop offset="0" stopColor="#c4c9cf" /><stop offset="1" stopColor="#6b7178" />
+      </radialGradient>
+      {/* phenolic hammer-tone laminate */}
+      <pattern id="cs-lam" patternUnits="userSpaceOnUse" width="14" height="12">
+        <circle cx="3.5" cy="3" r="2.3" fill="#ffffff" fillOpacity="0.045" />
+        <circle cx="10.5" cy="9" r="2.3" fill="#ffffff" fillOpacity="0.045" />
+        <circle cx="4.2" cy="3.7" r="1.6" fill="#000000" fillOpacity="0.12" />
+        <circle cx="11.2" cy="9.7" r="1.6" fill="#000000" fillOpacity="0.12" />
+      </pattern>
+      {/* closed-cell foam pores */}
+      <pattern id="cs-foam" patternUnits="userSpaceOnUse" width="9" height="9">
+        <circle cx="2" cy="3" r="0.9" fill="#000000" fillOpacity="0.16" />
+        <circle cx="6.6" cy="7.1" r="0.7" fill="#000000" fillOpacity="0.14" />
+        <circle cx="7.2" cy="1.6" r="0.6" fill="#ffffff" fillOpacity="0.08" />
+        <circle cx="3.4" cy="7.6" r="0.5" fill="#ffffff" fillOpacity="0.07" />
+      </pattern>
+    </defs>
+  );
+}
+
+const EDGE = '#3f444b';
+const along = (a: number, b: number, step: number) => {
+  const n = Math.max(1, Math.round((b - a) / step));
+  return Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
+};
+const Rivet = ({ x, y, r = 2.6 }: { x: number; y: number; r?: number }) => <circle cx={x} cy={y} r={r} fill="url(#cs-dome)" stroke="#5b6168" strokeWidth={0.4} />;
+
+/** laminated panel with texture and soft shading */
+function Panel({ x, y, w, h, color }: { x: number; y: number; w: number; h: number; color: string }) {
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} fill={color} />
+      <rect x={x} y={y} width={w} height={h} fill="url(#cs-lam)" />
+      <rect x={x} y={y} width={w} height={h} fill="url(#cs-shade)" />
+    </g>
+  );
+}
+
+/** ball corner seen from the front; (x, y) = outer corner, sx/sy = direction into the case */
+function BallCorner({ x, y, sx, sy }: { x: number; y: number; sx: number; sy: number }) {
+  return (
+    <g transform={`translate(${x},${y}) scale(${sx},${sy})`}>
+      <path d="M0,0 H48 Q47,10 38,16 L16,38 Q10,47 0,48 Z" fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
+      <circle cx={13} cy={13} r={16} fill="url(#cs-dome)" stroke={EDGE} strokeWidth={0.8} />
+      <Rivet x={34} y={9} r={2.2} /><Rivet x={9} y={34} r={2.2} />
+    </g>
+  );
+}
+
 /** one outside view (front = length, side = width) with the hardware of that face */
 function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: number; ink: string }) {
   const d = caseDims(c);
@@ -75,7 +146,8 @@ function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: nu
   const hw = c.hardware.filter((h) => h.face === face);
   const castors = c.hardware.filter((h) => h.kind === 'castor' || h.kind === 'castor-braked').reduce((n, h) => n + h.count, 0);
   const braked = c.hardware.filter((h) => h.kind === 'castor-braked').reduce((n, h) => n + h.count, 0);
-  const prof = c.profile !== 'none' ? 9 : 0;
+  const leg = c.profile === 'alu35' ? 35 : c.profile === 'alu30' ? 30 : 0;
+  const closeH = hasLid ? 20 : 0;
   const lam = c.color;
   const items: JSX.Element[] = [];
   const draw = (h: CaseHardware, i: number) => {
@@ -85,62 +157,125 @@ function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: nu
       switch (h.kind) {
         case 'butterfly': case 'butterfly-small': {
           const s = h.kind === 'butterfly' ? 1 : 0.7;
+          const top = bodyTop + closeH + 2, cy = top + 28 * s;
           return (
-            <g key={key} transform={`translate(${x},${bodyTop})`}>
-              <rect x={-34 * s} y={-26 * s} width={68 * s} height={52 * s} rx={4} fill={METAL} stroke={DARK} strokeWidth={1} />
-              <circle r={14 * s} fill="#9ca3af" stroke={DARK} strokeWidth={1} />
-              <rect x={-3} y={-12 * s} width={6} height={24 * s} fill={DARK} />
+            <g key={key}>
+              {hasLid ? <g transform={`translate(${x},${bodyTop - closeH - 2})`}>
+                <rect x={-20 * s} y={-18 * s} width={40 * s} height={18 * s} rx={2.5} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
+                <rect x={-9 * s} y={-9 * s} width={18 * s} height={6 * s} rx={1.5} fill="url(#cs-recess)" />
+                <Rivet x={-14 * s} y={-11 * s} r={2} /><Rivet x={14 * s} y={-11 * s} r={2} />
+              </g> : null}
+              <g transform={`translate(${x},${cy})`}>
+                <rect x={-34 * s} y={-27 * s} width={68 * s} height={54 * s} rx={6} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
+                <rect x={-27 * s} y={-20 * s} width={54 * s} height={40 * s} rx={4.5} fill="url(#cs-recess)" />
+                <rect x={-3.5 * s} y={-27 * s - (hasLid ? closeH + 2 : 0)} width={7 * s} height={27 * s + (hasLid ? closeH + 2 : 0)} rx={1.5} fill="url(#cs-alu-v)" stroke={EDGE} strokeWidth={0.5} />
+                <path transform={`scale(${s})`} d="M-22,0 C-22,-13 -6,-10 0,-4 C6,-10 22,-13 22,0 C22,13 6,10 0,4 C-6,10 -22,13 -22,0 Z" fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
+                <circle r={4.5 * s} fill="url(#cs-dome)" stroke={EDGE} strokeWidth={0.5} />
+                {[[-29, -22], [29, -22], [-29, 22], [29, 22]].map(([rx, ry], j) => <Rivet key={j} x={rx * s} y={ry * s} r={2} />)}
+              </g>
             </g>
           );
         }
         case 'handle-recessed':
           return (
-            <g key={key} transform={`translate(${x},${(bodyTop + bodyBottom) / 2})`}>
-              <rect x={-75} y={-48} width={150} height={96} rx={10} fill={METAL} stroke={DARK} strokeWidth={1} />
-              <rect x={-58} y={-30} width={116} height={60} rx={8} fill="#6b7280" />
-              <rect x={-50} y={-8} width={100} height={14} rx={6} fill={DARK} />
+            <g key={key} transform={`translate(${x},${(bodyTop + closeH + bodyBottom) / 2})`}>
+              <rect x={-75} y={-48} width={150} height={96} rx={10} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
+              <rect x={-63} y={-36} width={126} height={72} rx={9} fill="url(#cs-recess)" />
+              <rect x={-53} y={-3} width={6} height={20} fill="url(#cs-alu-v)" /><rect x={47} y={-3} width={6} height={20} fill="url(#cs-alu-v)" />
+              <rect x={-52} y={10} width={104} height={13} rx={6.5} fill="url(#cs-alu-h)" stroke={EDGE} strokeWidth={0.6} />
+              {[[-66, -40], [66, -40], [-66, 40], [66, 40]].map(([rx, ry], j) => <Rivet key={j} x={rx} y={ry} />)}
             </g>
           );
         case 'handle-strap':
-          return <g key={key} transform={`translate(${x},${(bodyTop + bodyBottom) / 2})`}><rect x={-70} y={-10} width={140} height={20} rx={9} fill={DARK} /><rect x={-80} y={-12} width={16} height={24} fill={METAL} /><rect x={64} y={-12} width={16} height={24} fill={METAL} /></g>;
+          return (
+            <g key={key} transform={`translate(${x},${(bodyTop + closeH + bodyBottom) / 2})`}>
+              <path d="M-64,-11 Q0,-17 64,-11 L64,11 Q0,17 -64,11 Z" fill="#1a1b1e" stroke="#000" strokeWidth={0.6} />
+              <path d="M-60,-6 Q0,-11 60,-6" stroke="#3a3d42" strokeWidth={1} fill="none" strokeDasharray="4 3" />
+              <path d="M-60,6 Q0,11 60,6" stroke="#3a3d42" strokeWidth={1} fill="none" strokeDasharray="4 3" />
+              {[-72, 72].map((ex) => <g key={ex}><rect x={ex - 10} y={-15} width={20} height={30} rx={3} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.6} /><Rivet x={ex} y={0} /></g>)}
+            </g>
+          );
         case 'label':
-          return <g key={key} transform={`translate(${x},${bodyBottom - 70})`}><rect x={-45} y={-28} width={90} height={56} rx={3} fill={METAL} stroke={DARK} strokeWidth={1} /><rect x={-38} y={-21} width={76} height={42} fill="#f5f5f4" /></g>;
+          return (
+            <g key={key} transform={`translate(${x},${bodyBottom - leg - 52})`}>
+              <rect x={-46} y={-29} width={92} height={58} rx={3} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
+              <rect x={-39} y={-22} width={78} height={44} fill="#f3f1ec" />
+              <line x1={-32} y1={-8} x2={22} y2={-8} stroke="#9ca3af" strokeWidth={1.4} />
+              <line x1={-32} y1={4} x2={10} y2={4} stroke="#9ca3af" strokeWidth={1.4} />
+              <Rivet x={-42} y={0} r={1.8} /><Rivet x={42} y={0} r={1.8} />
+            </g>
+          );
         case 'hinge':
-          return <g key={key} transform={`translate(${x},${bodyTop})`}><rect x={-30} y={-22} width={60} height={44} fill={METAL} stroke={DARK} strokeWidth={1} /><line x1={-30} y1={0} x2={30} y2={0} stroke={DARK} strokeWidth={2} /></g>;
+          return (
+            <g key={key} transform={`translate(${x},${bodyTop})`}>
+              <rect x={-30} y={-22 - closeH} width={60} height={22} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
+              <rect x={-30} y={closeH} width={60} height={22} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
+              <rect x={-30} y={-5} width={60} height={10} rx={5} fill="url(#cs-alu-h)" stroke={EDGE} strokeWidth={0.6} />
+            </g>
+          );
         default: return null;
       }
     });
   };
   hw.forEach((h, i) => items.push(...(draw(h, i).filter(Boolean) as JSX.Element[])));
+
+  // aluminium angle strips (vertical edges per half, horizontal at the bottom and at the lid top)
+  const vStrip = (x: number, y1: number, y2: number, k: string) => (
+    <g key={k}>
+      <rect x={x} y={y1} width={leg} height={y2 - y1} fill="url(#cs-alu-v)" stroke={EDGE} strokeWidth={0.5} />
+      {along(y1 + 40, y2 - 40, 110).map((y, j) => <Rivet key={j} x={x + leg / 2} y={y} />)}
+    </g>
+  );
+  const hStrip = (y: number, k: string) => (
+    <g key={k}>
+      <rect x={0} y={y} width={w} height={leg} fill="url(#cs-alu-h)" stroke={EDGE} strokeWidth={0.5} />
+      {along(70, w - 70, 120).map((x, j) => <Rivet key={j} x={x} y={y + leg / 2} />)}
+    </g>
+  );
   return (
     <g>
       {/* lid and body */}
-      {hasLid ? <rect x={0} y={0} width={w} height={d.lidH} rx={4} fill={lam} stroke={shade(lam, 0.35)} strokeWidth={1.2} /> : null}
-      <rect x={0} y={bodyTop} width={w} height={d.bodyH} rx={4} fill={lam} stroke={shade(lam, 0.35)} strokeWidth={1.2} />
-      {/* aluminium edge and closing profiles */}
-      {prof ? <>
-        <rect x={0} y={0} width={prof} height={bodyBottom} fill={ALU} /><rect x={w - prof} y={0} width={prof} height={bodyBottom} fill={ALU} />
-        <rect x={0} y={bodyBottom - prof} width={w} height={prof} fill={ALU} />
-        {hasLid ? <rect x={0} y={0} width={w} height={prof} fill={ALU} /> : null}
+      {hasLid ? <Panel x={0} y={0} w={w} h={d.lidH} color={lam} /> : null}
+      <Panel x={0} y={bodyTop} w={w} h={d.bodyH} color={lam} />
+      {leg ? <>
+        {hasLid ? hStrip(0, 'ht') : null}
+        {hStrip(bodyBottom - leg, 'hb')}
+        {!hasLid ? hStrip(0, 'ho') : null}
+        {hasLid ? [vStrip(0, leg, bodyTop - closeH, 'v1'), vStrip(w - leg, leg, bodyTop - closeH, 'v2')] : null}
+        {vStrip(0, bodyTop + closeH, bodyBottom - leg, 'v3')}{vStrip(w - leg, bodyTop + closeH, bodyBottom - leg, 'v4')}
+        {!hasLid ? [vStrip(0, leg, bodyBottom - leg, 'v5'), vStrip(w - leg, leg, bodyBottom - leg, 'v6')] : null}
       </> : null}
-      {hasLid ? <rect x={0} y={bodyTop - 7} width={w} height={14} fill={ALU} stroke={shade(ALU, -0.3)} strokeWidth={0.8} /> : null}
-      {c.cornerBalls ? [[0, 0], [w, 0], [0, bodyBottom], [w, bodyBottom]].filter(([, y]) => hasLid || y > 0).map(([x, y], i) => (
-        <circle key={i} cx={x} cy={y} r={16} fill={METAL} stroke={DARK} strokeWidth={1} />
-      )) : null}
+      {/* hybrid closing profile at the split */}
+      {hasLid ? <g>
+        <rect x={-1} y={bodyTop - closeH} width={w + 2} height={closeH} fill="url(#cs-alu-h)" stroke={EDGE} strokeWidth={0.6} />
+        <rect x={-1} y={bodyTop} width={w + 2} height={closeH} fill="url(#cs-alu-h)" stroke={EDGE} strokeWidth={0.6} />
+        <rect x={-1} y={bodyTop - 1} width={w + 2} height={2} fill="#0b0c0e" />
+        {along(60, w - 60, 150).map((x, j) => <g key={j}><Rivet x={x} y={bodyTop - closeH / 2} /><Rivet x={x} y={bodyTop + closeH / 2} /></g>)}
+      </g> : null}
       {items}
-      {/* castors */}
+      {c.cornerBalls ? <>
+        {hasLid ? <><BallCorner x={0} y={0} sx={1} sy={1} /><BallCorner x={w} y={0} sx={-1} sy={1} /></> : null}
+        <BallCorner x={0} y={bodyBottom} sx={1} sy={-1} /><BallCorner x={w} y={bodyBottom} sx={-1} sy={-1} />
+      </> : null}
+      {/* castors: plate, swivel, fork, wheel */}
       {castors ? [0.12, 0.88].map((f, i) => {
-        const x = w * f, r = c.castorSize / 2;
+        const x = Math.max(60, Math.min(w - 60, w * f)), r = c.castorSize / 2;
+        const cy = bodyBottom + d.castorH - r;
+        const forkTop = bodyBottom + 16;
         return (
           <g key={i}>
-            <rect x={x - 45} y={bodyBottom} width={90} height={12} fill={METAL} stroke={DARK} strokeWidth={0.8} />
-            <rect x={x - 12} y={bodyBottom + 12} width={24} height={d.castorH - 12 - r * 1.6} fill="#4b5563" />
-            <circle cx={x} cy={bodyBottom + d.castorH - r} r={r} fill={DARK} stroke="#4b5563" strokeWidth={6} />
-            {i === 0 && braked ? <rect x={x + r * 0.4} y={bodyBottom + d.castorH - r * 1.7} width={30} height={10} fill="#dc2626" /> : null}
+            <rect x={x - 50} y={bodyBottom} width={100} height={6} rx={1.5} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.6} />
+            <rect x={x - 28} y={bodyBottom + 6} width={56} height={10} rx={2} fill="url(#cs-alu-h)" stroke={EDGE} strokeWidth={0.6} />
+            <circle cx={x} cy={cy} r={r} fill="#25282d" stroke="#0d0e10" strokeWidth={1} />
+            <circle cx={x} cy={cy} r={r * 0.86} fill="none" stroke="#33373d" strokeWidth={1.2} />
+            <circle cx={x} cy={cy} r={r * 0.58} fill="url(#cs-hub)" stroke="#4b5057" strokeWidth={0.8} />
+            <path d={`M${x - 24},${forkTop} L${x + 24},${forkTop} L${x + 12},${cy + 4} L${x - 12},${cy + 4} Z`} fill="url(#cs-alu-v)" stroke={EDGE} strokeWidth={0.6} />
+            <circle cx={x} cy={cy} r={6} fill="url(#cs-dome)" stroke={EDGE} strokeWidth={0.6} />
+            {i === 0 && braked ? <path d={`M${x + 14},${forkTop + 4} L${x + 44},${forkTop - 2} L${x + 46},${forkTop + 6} L${x + 16},${forkTop + 13} Z`} fill="#c62828" stroke="#7f1d1d" strokeWidth={0.6} /> : null}
           </g>
         );
       }) : null}
-      {!castors && d.castorH ? <rect x={20} y={bodyBottom} width={w - 40} height={d.castorH} fill="#4b5563" /> : null}
+      {!castors && d.castorH ? [0.1, 0.9].map((f, i) => <rect key={i} x={w * f - 35} y={bodyBottom} width={70} height={d.castorH} rx={3} fill="#2b2e34" />) : null}
       <DimH x1={0} x2={w} y={d.H + 34} label={`${Math.round(w)} mm`} ink={ink} />
       <DimV y1={0} y2={d.H} x={w + 26} label={`${Math.round(d.H)} mm`} ink={ink} />
       {hasLid ? <DimV y1={0} y2={d.lidH} x={-48} label={`${Math.round(d.lidH)}`} ink={ink} /> : null}
@@ -165,6 +300,7 @@ function InlayView({ c, layer, x0, y0, ink, props }: { c: FlightCase; layer: 'bo
   return (
     <g>
       <rect x={x0} y={y0} width={c.inner.l} height={W} fill={c.foam.color} stroke={shade(c.foam.color, 0.4)} strokeWidth={1} />
+      <rect x={x0} y={y0} width={c.inner.l} height={W} fill="url(#cs-foam)" pointerEvents="none" />
       {c.foam.sides > 0 ? <rect x={x0 + area.x0} y={Y(area.y1)} width={area.x1 - area.x0} height={area.y1 - area.y0} fill="none" stroke={shade(c.foam.color, 0.5)} strokeWidth={1} strokeDasharray="8 6" /> : null}
       {layer === 'body' ? c.dividers.map((dv, i) => (
         dv.axis === 'x'
@@ -177,10 +313,15 @@ function InlayView({ c, layer, x0, y0, ink, props }: { c: FlightCase; layer: 'bo
         const fs = Math.max(8, Math.min(22, f.l / Math.max(8, it.name.length) * 1.6, f.w / 3.2));
         const lines = fitLabel(it.name, f.l - 8, fs, f.w > fs * 4.2 ? 2 : 1);
         const showSize = f.w > fs * (lines.length + 1.6) * 1.15;
+        const wallIn = Math.max(1.5, Math.min(6, f.l / 10, f.w / 10, it.h / 8));
         return (
           <g key={it.id} data-item={it.id} style={{ cursor: props.onItemPointerDown ? 'grab' : undefined }} onPointerDown={props.onItemPointerDown ? (e) => props.onItemPointerDown!(e, it.id) : undefined}>
-            <rect x={x0 + it.x} y={Y(it.y + f.w)} width={f.l} height={f.w} rx={4} fill={shade(c.foam.color, -0.55)}
-              stroke={warn ? '#ef4444' : sel ? '#22d3ee' : shade(c.foam.color, 0.5)} strokeWidth={sel || warn ? 3 : 1.2} />
+            <rect x={x0 + it.x} y={Y(it.y + f.w)} width={f.l} height={f.w} rx={4} fill={shade(c.foam.color, -0.45)} />
+            {/* cut-out walls: lit from the top left, so the lower and right walls catch light */}
+            <rect x={x0 + it.x + wallIn} y={Y(it.y + f.w) + wallIn} width={Math.max(1, f.l - 2 * wallIn)} height={Math.max(1, f.w - 2 * wallIn)} rx={3} fill={shade(c.foam.color, -0.7)} />
+            <rect x={x0 + it.x + wallIn} y={Y(it.y + f.w) + wallIn} width={Math.max(1, f.l - 2 * wallIn)} height={Math.max(1, f.w - 2 * wallIn)} rx={3} fill="url(#cs-foam)" />
+            <rect x={x0 + it.x} y={Y(it.y + f.w)} width={f.l} height={f.w} rx={4} fill="none"
+              stroke={warn ? '#ef4444' : sel ? '#22d3ee' : shade(c.foam.color, 0.35)} strokeWidth={sel || warn ? 3 : 1} />
             {lines.map((t, k) => (
               <text key={k} x={x0 + it.x + f.l / 2} y={Y(it.y + f.w / 2) + fs * (k - (lines.length - 1) / 2 - (showSize ? 0.45 : -0.35)) * 1.15} fontSize={fs} textAnchor="middle" fill="#f5f5f4" pointerEvents="none">{t}</text>
             ))}
@@ -190,6 +331,17 @@ function InlayView({ c, layer, x0, y0, ink, props }: { c: FlightCase; layer: 'bo
       })}
       <DimH x1={x0} x2={x0 + c.inner.l} y={y0 + W + 30} label={`innen ${c.inner.l} mm`} ink={ink} />
       <DimV y1={y0} y2={y0 + W} x={x0 + c.inner.l + 24} label={`${W}`} ink={ink} />
+    </g>
+  );
+}
+
+/** case seen from above with the lid off: aluminium closing profile on the wall tops, ball corners below */
+function TopRim({ x, y, c }: { x: number; y: number; c: FlightCase }) {
+  const d = caseDims(c);
+  return (
+    <g>
+      <rect x={x} y={y} width={d.L} height={d.W} rx={3} fill="url(#cs-alu-h)" stroke="#3f444b" strokeWidth={0.8} />
+      <rect x={x + 3} y={y + 3} width={d.L - 6} height={d.W - 6} rx={2} fill="none" stroke="#ffffff" strokeOpacity={0.35} strokeWidth={1} />
     </g>
   );
 }
@@ -207,6 +359,7 @@ export function CaseSheet(props: CaseSheetProps) {
     const bottom = c.foam.bottom;
     return (
       <g>
+        <CaseDefs />
         {title(L.top.x, L.top.y, 'Schaumstoff-Einlage, Draufsicht')}
         <InlayView c={c} layer="body" x0={L.top.x} y0={L.top.y} ink={ink} props={props} />
         {title(s.x, s.y, 'Schnitt (von vorne)')}
@@ -223,12 +376,13 @@ export function CaseSheet(props: CaseSheetProps) {
   }
   return (
     <g>
+      <CaseDefs />
       {title(L.top.x, L.top.y, 'Innenansicht Unterteil (von oben, vorne = unten)')}
-      <rect x={L.top.x} y={L.top.y} width={d.L} height={d.W} rx={6} fill={c.color} stroke={shade(c.color, 0.35)} strokeWidth={1.2} />
+      <TopRim x={L.top.x} y={L.top.y} c={c} />
       <InlayView c={c} layer="body" x0={L.top.x + wall} y0={L.top.y + wall} ink={ink} props={props} />
       {L.lid ? <>
         {title(L.lid.x, L.lid.y, 'Deckel-Einlage (von innen)')}
-        <rect x={L.lid.x} y={L.lid.y} width={d.L} height={d.W} rx={6} fill={c.color} stroke={shade(c.color, 0.35)} strokeWidth={1.2} />
+        <TopRim x={L.lid.x} y={L.lid.y} c={c} />
         <InlayView c={c} layer="lid" x0={L.lid.x + wall} y0={L.lid.y + wall} ink={ink} props={props} />
       </> : null}
       {title(L.front.x, L.front.y - 30, 'Vorderansicht')}
