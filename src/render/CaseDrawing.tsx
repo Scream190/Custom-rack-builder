@@ -131,6 +131,7 @@ function Panel({ x, y, w, h, color }: { x: number; y: number; w: number; h: numb
 function BallCorner({ x, y, sx, sy }: { x: number; y: number; sx: number; sy: number }) {
   return (
     <g transform={`translate(${x},${y}) scale(${sx},${sy})`}>
+      <path d="M0,0 H48 Q47,10 38,16 L16,38 Q10,47 0,48 Z" transform="translate(2,3)" fill="#000" fillOpacity={0.35} />
       <path d="M0,0 H48 Q47,10 38,16 L16,38 Q10,47 0,48 Z" fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
       <circle cx={13} cy={13} r={16} fill="url(#cs-dome)" stroke={EDGE} strokeWidth={0.8} />
       <Rivet x={34} y={9} r={2.2} /><Rivet x={9} y={34} r={2.2} />
@@ -166,6 +167,7 @@ function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: nu
                 <Rivet x={-14 * s} y={-11 * s} r={2} /><Rivet x={14 * s} y={-11 * s} r={2} />
               </g> : null}
               <g transform={`translate(${x},${cy})`}>
+                <rect x={-34 * s + 2.5} y={-27 * s + 3.5} width={68 * s} height={54 * s} rx={6} fill="#000" fillOpacity={0.35} />
                 <rect x={-34 * s} y={-27 * s} width={68 * s} height={54 * s} rx={6} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
                 <rect x={-27 * s} y={-20 * s} width={54 * s} height={40 * s} rx={4.5} fill="url(#cs-recess)" />
                 <rect x={-3.5 * s} y={-27 * s - (hasLid ? closeH + 2 : 0)} width={7 * s} height={27 * s + (hasLid ? closeH + 2 : 0)} rx={1.5} fill="url(#cs-alu-v)" stroke={EDGE} strokeWidth={0.5} />
@@ -179,6 +181,7 @@ function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: nu
         case 'handle-recessed':
           return (
             <g key={key} transform={`translate(${x},${(bodyTop + closeH + bodyBottom) / 2})`}>
+              <rect x={-72} y={-44} width={150} height={96} rx={10} fill="#000" fillOpacity={0.35} />
               <rect x={-75} y={-48} width={150} height={96} rx={10} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
               <rect x={-63} y={-36} width={126} height={72} rx={9} fill="url(#cs-recess)" />
               <rect x={-53} y={-3} width={6} height={20} fill="url(#cs-alu-v)" /><rect x={47} y={-3} width={6} height={20} fill="url(#cs-alu-v)" />
@@ -198,6 +201,7 @@ function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: nu
         case 'label':
           return (
             <g key={key} transform={`translate(${x},${bodyBottom - leg - 52})`}>
+              <rect x={-44} y={-26} width={92} height={58} rx={3} fill="#000" fillOpacity={0.3} />
               <rect x={-46} y={-29} width={92} height={58} rx={3} fill="url(#cs-chrome)" stroke={EDGE} strokeWidth={0.8} />
               <rect x={-39} y={-22} width={78} height={44} fill="#f3f1ec" />
               <line x1={-32} y1={-8} x2={22} y2={-8} stroke="#9ca3af" strokeWidth={1.4} />
@@ -223,12 +227,14 @@ function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: nu
   const vStrip = (x: number, y1: number, y2: number, k: string) => (
     <g key={k}>
       <rect x={x} y={y1} width={leg} height={y2 - y1} fill="url(#cs-alu-v)" stroke={EDGE} strokeWidth={0.5} />
+      <line x1={x < 1 ? leg - 1 : x + 1} y1={y1} x2={x < 1 ? leg - 1 : x + 1} y2={y2} stroke="#000" strokeOpacity={0.35} strokeWidth={1.4} />
       {along(y1 + 40, y2 - 40, 110).map((y, j) => <Rivet key={j} x={x + leg / 2} y={y} />)}
     </g>
   );
   const hStrip = (y: number, k: string) => (
     <g key={k}>
       <rect x={0} y={y} width={w} height={leg} fill="url(#cs-alu-h)" stroke={EDGE} strokeWidth={0.5} />
+      <line x1={0} y1={y < 1 ? leg - 1 : y + 1} x2={w} y2={y < 1 ? leg - 1 : y + 1} stroke="#000" strokeOpacity={0.35} strokeWidth={1.4} />
       {along(70, w - 70, 120).map((x, j) => <Rivet key={j} x={x} y={y + leg / 2} />)}
     </g>
   );

@@ -315,6 +315,8 @@ export type CaseFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
 export type HardwareKind =
   | 'butterfly' | 'butterfly-small' | 'handle-recessed' | 'handle-strap' | 'stack-cup' | 'hinge' | 'label'
   | 'castor' | 'castor-braked' | 'skid';
+/** PE = polyethylene (closed cell, firm), PU = polyurethane (open cell, soft), EVA = ethylene vinyl acetate (dense, smooth) */
+export type FoamMaterial = 'PE' | 'PU' | 'EVA';
 export interface CaseHardware { kind: HardwareKind; face: CaseFace; count: number }
 
 /** something packed into the case: a foam cut-out (x/y = left-front corner in the inner space, mm) */
@@ -334,13 +336,26 @@ export interface CaseItem {
   weight?: number;
   /** linked device template (dimensions/weight taken from it) */
   templateId?: string;
+  /** cut-out outline: rectangle with rounded corners (default) or circle/ellipse */
+  shape?: 'rect' | 'circle';
+  /** corner radius of a rectangular cut-out in mm (default 6) */
+  radius?: number;
+  /** cut depth in mm (default: item height) */
+  depth?: number;
+  /** finger grips (half-round notches) on these sides, to lift the item out */
+  grips?: ('left' | 'right' | 'front' | 'back')[];
+  /** engrave the name next to the cut-out */
+  engrave?: boolean;
 }
 
 export interface FlightCase {
   id: string;
   name: string;
-  /** 'drawer' = foam inlay for a rack drawer (no walls, lid or hardware; sizes follow the drawer) */
-  kind?: 'case' | 'drawer';
+  /**
+   * 'case' = flight case (default), 'drawer' = foam inlay for a rack drawer (sizes follow the drawer),
+   * 'inlay' = free foam inlay for any container (bought case, toolbox, transport box)
+   */
+  kind?: 'case' | 'drawer' | 'inlay';
   /** the rack drawer this inlay belongs to */
   drawer?: { rackId: string; deviceId: string };
   /** clear inside of the walls in mm (h = body + lid) */
@@ -356,7 +371,7 @@ export interface FlightCase {
   cornerBalls: boolean;
   hardware: CaseHardware[];
   castorSize: 75 | 100 | 125;
-  foam: { bottom: number; lid: number; sides: number; color: string };
+  foam: { bottom: number; lid: number; sides: number; color: string; material?: FoamMaterial };
   items: CaseItem[];
   /** compartment walls in the inner space: axis 'x' = wall parallel to the length at y = pos */
   dividers: { axis: 'x' | 'y'; pos: number }[];

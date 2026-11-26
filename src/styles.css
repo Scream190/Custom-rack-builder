@@ -254,3 +254,4 @@ input.bad { border-color: var(--danger); color: #fca5a5; }
 .lib-item.sel-item { background: #0e3a44; }
 .parts-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 28px; padding: 0 6px 8px; }
 .parts-grid table { width: auto; flex: 0 0 auto; }
+.view3d-btn { position: absolute; top: 10px; left: 10px; z-index: 5; }
