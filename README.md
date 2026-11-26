@@ -38,12 +38,13 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   Der Kabeltyp wird automatisch nach Stecker gewählt oder über „Kabel:“ in der Toolbar festgelegt.
 - **Kabellängen automatisch** (orthogonaler Weg im Rack, Front↔Rück über die Seite, + Biegewege, + Zuschlag %,
   + Serviceschlaufe, aufgerundet auf Lagerlängen) **oder manuell**. Kabelnummern W001 … für Beschriftung.
-- **Kabelkonfektion:** Die Kabelliste hat neben „Liste“ die Ansicht „Konfektion“. Dort ist jede Kabelart gezeichnet:
+- **Kabelkonfektion:** Wie die Kabel gebaut werden, steht im eigenen Arbeitsbereich **Kabel** (siehe unten); die
+  Kabelliste führt mit *Bauanleitungen* dorthin. Jede Kabelart ist gezeichnet:
   benötigter Kabelstecker an beiden Enden (das Gegenstück zur Gerätebuchse, z. B. XLR-Kupplung an einem XLR-Ausgang),
   Kabelfarbe, Länge, Stückzahl und Kabelnummern. Darunter steht der Steckerbedarf mit Stückzahlen. Kabelstecker sind als
   Kabelstecker gezeichnet (Seitenansicht mit Knickschutz), das Einbau-Piktogramm erscheint nur bei den Einbausteckern,
   die für Dosen und eigene Blenden gebraucht werden. Alles kommt auch als Seite „Kabelkonfektion“ ins PDF.
-- **Pinbelegung:** Für jedes selbst konfektionierbare Kabel zeigt die Konfektion ein Verdrahtungsschema: Pins beider
+- **Pinbelegung:** Für jedes selbst konfektionierbare Kabel gibt es ein Verdrahtungsschema: Pins beider
   Stecker, farbige Adern mit Signal (sich kreuzend, wo die Reihenfolge abweicht, z. B. XLR 1-2-3 auf Klinke T-R-S),
   Brücken (symmetrisch auf unsymmetrisch) und Hinweise. Abgedeckt: Audio (XLR, Klinke, TT, Cinch, Phoenix), DMX (XLR 5),
   Lautsprecher (speakON NL4/NL8), Koax (BNC, N, SMA), Netzwerk (RJ45/etherCON nach T568B), MIDI, D-Sub 25 (AES59),
@@ -156,7 +157,8 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   eindeutige Hauptaktion.
 
 ### Arbeitsbereiche
-Oben in der Kopfleiste wählst du den Arbeitsbereich: **Racks bestücken** (Geräte, Kabel, Kabelliste), **Rackgehäuse**
+Oben in der Kopfleiste wählst du den Arbeitsbereich: **Racks bestücken** (Geräte, Kabel, Kabelliste), **Kabel**
+(Kabel bauen, eigene Kabel), **Rackgehäuse**
 (das Gehäuse des Racks konstruieren), **Flightcases** (Cases konstruieren) und **Einlagen** (Schaumstoff mit Ausschnitten).
 Jeder Bereich ist gleich und bewusst sparsam aufgebaut:
 
@@ -183,6 +185,28 @@ für das Projekt gilt (in der Projektdatei gespeichert) oder für diesen Browser
 | Eigene Vorlagen | eigene Geräte, Rackblenden und Dosen anlegen und bearbeiten |
 | Export | Voreinstellungen für das PDF der Bestückung (Format, Kabelliste, Geräteliste) |
 | Projekt | Projektname, Ersteller oder Firma |
+
+### Kabel (Kabelbau)
+Eigener Arbeitsbereich dafür, wie die Kabel gebaut werden. Links stehen die eigenen Kabel und die Kabel aus den Racks
+(gleiche Stecker, Längen und Typ zusammengefasst), in der Mitte die Bauanleitung oder die Bauliste, rechts die Eigenschaften.
+
+- **Bauanleitung** des gewählten Kabels: Zeichnung mit beiden Kabelsteckern, Länge und Stückzahl, Pinbelegung mit
+  farbigen Adern und Brücken, Teileliste (Stecker mit Montageart löten / crimpen / schrauben, Kabelmeter inklusive
+  Reserve, Beschriftungen, Schrumpfschlauch bei Y-Kabeln) und Arbeitsschritte passend zu den Steckern (Abmanteln,
+  T568B bei RJ45, Koax nach Herstellermaß, Aderendhülsen bei Schraubklemmen, Belegung Pin für Pin, Prüfung, bei Netzkabeln
+  DGUV V3, Beschriftung mit Kabelnummer und Länge).
+- **Bauliste:** alle Kabel des Projekts mit Kabelmetern je Typ, Steckerbedarf, Einbausteckern für Dosen und Blenden und
+  allen Pinbelegungen.
+- **Eigene Kabel** (*+ Eigenes Kabel*): beliebiger Stecker an Ende A und B aus allen bekannten Kabelsteckern, Länge,
+  Kabeltyp, Anzahl, beliebig viele Äste für Y-Kabel. Die passende Verdrahtung erscheint sofort; für Kombinationen ohne
+  Standard (z. B. XLR auf RJ45) und für Sonderfälle legst du eine eigene Belegung Pin für Pin fest, *Phase drehen* tauscht
+  Plus und Minus mit einem Klick. Abweichende Belegungen werden im Schema als solche gekennzeichnet.
+- **Verbindung zum Rackplaner:** Ein eigenes Kabel kann Rack-Kabeln zugeordnet werden (*Alle zuordnen* für Kabel mit
+  denselben Steckern, oder im Rack in den Kabel-Eigenschaften unter *Konfektion → Gebaut als*). Dann gelten Name und
+  Belegung für diese Rack-Kabel, auch in der Kabelkonfektion des Rack-PDFs. Aus einer Kabelart der Racks entsteht mit
+  *Eigene Variante anlegen* direkt ein eigenes Kabel, dem diese Rack-Kabel zugeordnet sind. Kabelnummern springen ins Rack,
+  *Bauanleitung öffnen* im Rack springt zurück.
+- **Export:** Kabelbau-PDF mit Bauliste, Pinbelegungen und den Arbeitsanweisungen jeder Kabelart.
 
 ### Rack-Designer (Rackgehäuse)
 Das Gehäuse eines Racks wird aus Parametern konstruiert statt aus einer Liste gewählt. Die Rack-Typen dienen nur noch
@@ -288,7 +312,7 @@ Beispiele liegen in `beispiele/`.
 npm install
 npm run dev      # Entwicklungsserver
 npm run build    # erzeugt dist/index.html (eine selbstständige Datei)
-npm test         # Bibliothek prüfen (Stecker im Gehäuse, keine Überlappung, eindeutige Namen) + Case-Designer + 3D-Kollisionstest
+npm test         # Bibliothek prüfen (Stecker im Gehäuse, keine Überlappung, eindeutige Namen) + Case-Designer + Kabelbau + 3D-Kollisionstest
 ```
 
 Während `npm run dev` läuft, zeigt `http://localhost:5173/gallery.html` alle Marken-Geräte (Front + Rückseite) zum visuellen Abgleich
@@ -298,6 +322,7 @@ Stack: React + TypeScript + Vite, zustand (State, Undo/Redo), SVG-Rendering, thr
 
 ```
 src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry, cases.ts = Case-Designer,
+                cableBuild.ts = Kabelbau (eigene Kabel, Belegung, Arbeitsschritte),
                 rackBuild.ts = Rack-Designer (Maße, Stückliste, Gewicht),
                 inlay.ts = Einlagen (Umrisse, Griffmulden, Schaumarten, Plattenaufbau)
 src/library/    Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
@@ -305,6 +330,7 @@ src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auc
 src/ui/         Oberfläche, Editoren, Dialoge
 src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung, caseParts.ts = Case-Bauteile, Scene3D.tsx = Studio-Betrachter
 tests/          library.ts: Prüfung der Gerätebibliothek, cases.ts: Packen, Außenmaß, Stückliste, Einlagen, Rack-Designer,
+                cables.ts: Kabelbau (Steckerliste, Belegungen, Zuordnung zu Rack-Kabeln, Arbeitsschritte),
                 collision3d.ts: Kollisionsprüfung der 3D-Kabel
 src/export/     PDF, PNG/SVG, interaktives HTML, DXF
 ```

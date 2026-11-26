@@ -68,7 +68,7 @@ const COLOR: Record<string, [string, string?]> = {
   L1: ['#7c4a1e'], L2: ['#111111'], L3: ['#9ca3af'], N: ['#2563eb'], PE: ['#16a34a', '#facc15'],
   Strom: ['#dc2626'], Daten: ['#2563eb'], 'Pin 1': ['#9ca3af'], 'Pin 2': ['#dc2626'], 'Pin 3': ['#2563eb'], 'Pin 4': ['#16a34a'],
 };
-const colorOf = (family: string, sig: string): [string, string?] => (family === 'net' ? T568B[sig] : sig === 'L' && family === 'mains1' ? ['#7c4a1e'] : COLOR[sig] ?? ['#6b7280']);
+export const colorOf = (family: string, sig: string): [string, string?] => (family === 'net' ? T568B[sig] : sig === 'L' && family === 'mains1' ? ['#7c4a1e'] : COLOR[sig] ?? ['#6b7280']);
 
 /** Wiring between two connectors, or null when the cable is not meant to be self-made / not standardised. */
 export function wiringFor(connA: string, connB: string): Wiring | null {
@@ -106,4 +106,4 @@ export function wiringFor(connA: string, connB: string): Wiring | null {
 }
 
 const LABELS: Record<string, string> = { XLR3F: 'XLR', XLR3M: 'XLR', COMBO: 'XLR', 'AES-XLR': 'XLR', JACK: 'Klinke', 'JACK-D': 'Klinke', TT: 'TT', PHOENIX3: 'Phoenix', RCA: 'Cinch' };
-const connLabel = (c: string) => LABELS[c] ?? c;
+export const connLabel = (c: string) => LABELS[c] ?? c;

@@ -295,6 +295,26 @@ export interface Cable {
   yGroup?: string;
   /** leg index within the Y cable (1, 2, …), shown as W012a, W012b … */
   yLeg?: number;
+  /** built after this custom cable (its name and pin assignment), see Project.customCables */
+  customId?: string;
+}
+
+/** a cable end defined in the cable workshop: the panel connector it plugs into (dir only for mains: in = coupler) */
+export interface PlugSpec { conn: string; dir?: 'in' | 'out' }
+
+/** A cable designed in the cable workshop (not necessarily used in a rack). */
+export interface CustomCable {
+  id: string;
+  name: string;
+  typeId: string;
+  /** common end */
+  a: PlugSpec;
+  /** one branch = plain cable, several = Y cable; length in m */
+  branches: (PlugSpec & { length: number })[];
+  qty: number;
+  /** own pin assignment: pin of end A → pin of end B (applies to every branch); none = standard */
+  wiring?: { a: string; b: string }[];
+  notes?: string;
 }
 
 export interface CableType {
@@ -426,4 +446,6 @@ export interface Project {
   libraryVersion?: number;
   /** flight cases designed in the case designer */
   cases?: FlightCase[];
+  /** cables designed in the cable workshop */
+  customCables?: CustomCable[];
 }

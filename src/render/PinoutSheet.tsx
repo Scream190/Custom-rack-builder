@@ -47,7 +47,7 @@ function Card({ c, light }: { c: PinoutCard; light?: boolean }) {
       </g>
     );
   };
-  const title = `${c.a.plug.label} ↔ ${c.b.plug.label}`;
+  const title = `${c.title ? `${c.title}: ` : ''}${c.a.plug.label} ↔ ${c.b.plug.label}`;
   const titleLines = wrap(title, 60);
   return (
     <g>
@@ -96,12 +96,12 @@ function Card({ c, light }: { c: PinoutCard; light?: boolean }) {
 }
 
 /** Grid of pin diagrams (two per row). */
-export function PinoutSheet({ cards, light, title = 'Pinbelegung (selbst konfektionierbare Kabel)' }: { cards: PinoutCard[]; light?: boolean; title?: string }) {
-  const W = CARD_W * 2 + 16;
+export function PinoutSheet({ cards, light, title = 'Pinbelegung (selbst konfektionierbare Kabel)', cols = 2 }: { cards: PinoutCard[]; light?: boolean; title?: string; cols?: 1 | 2 }) {
+  const W = CARD_W * cols + 16 * (cols - 1);
   const pos: { c: PinoutCard; x: number; y: number }[] = [];
-  let y = 26;
-  for (let i = 0; i < cards.length; i += 2) {
-    const pair = cards.slice(i, i + 2);
+  let y = title ? 26 : 2;
+  for (let i = 0; i < cards.length; i += cols) {
+    const pair = cards.slice(i, i + cols);
     pair.forEach((c, k) => pos.push({ c, x: k * (CARD_W + 16), y }));
     y += Math.max(...pair.map(cardHeight)) + 14;
   }
@@ -109,7 +109,7 @@ export function PinoutSheet({ cards, light, title = 'Pinbelegung (selbst konfekt
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox={`0 0 ${W} ${H}`} width={W} height={H} fontFamily="Inter, Arial, Helvetica, sans-serif" style={{ display: 'block' }}>
       {light ? <rect x={0} y={0} width={W} height={H} fill="#ffffff" /> : null}
-      <text x={2} y={15} fontSize={12} fontWeight={700} fill={light ? '#111' : '#e5e7eb'}>{title}</text>
+      {title ? <text x={2} y={15} fontSize={12} fontWeight={700} fill={light ? '#111' : '#e5e7eb'}>{title}</text> : null}
       {pos.map(({ c, x, y: cy }) => <g key={c.key} transform={`translate(${x},${cy})`}><Card c={c} light={light} /></g>)}
     </svg>
   );

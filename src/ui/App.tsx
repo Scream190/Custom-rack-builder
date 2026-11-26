@@ -16,6 +16,8 @@ import { BoxEditor } from './BoxEditor';
 import { CaseWorkspace, openDrawerInlay, projectDrawers } from './CaseWorkspace';
 import { InlayWorkspace } from './InlayWorkspace';
 import { RackBuildWorkspace } from './RackBuildWorkspace';
+import { CableWorkspace } from './CableWorkspace';
+import { newCustomCable } from '../model/cableBuild';
 import { Menu, MenuCheck, ObjectBar, Seg, ShowMenu, ToolGroup, Toolbar } from './Shell';
 import { caseList, inlayList, newFreeInlay } from '../model/inlay';
 import type { AppMode } from '../model/store';
@@ -36,6 +38,7 @@ const VIEWS: { id: ViewMode; label: string; title: string }[] = [
 
 const MODES: { id: AppMode; label: string; title: string }[] = [
   { id: 'racks', label: 'Racks bestücken', title: 'Geräte einbauen, verkabeln, Kabelliste' },
+  { id: 'cables', label: 'Kabel', title: 'Kabel bauen: Bauanleitung, Pinbelegung, Steckerbedarf, eigene Kabel' },
   { id: 'rackbuild', label: 'Rackgehäuse', title: 'Rackgehäuse konstruieren: Einbaufelder, Tiefe, Deckel, Bauweise, Griffe, Rollen' },
   { id: 'cases', label: 'Flightcases', title: 'Flightcases konstruieren: Maße, Deckel, Beschläge, Rollen' },
   { id: 'inlays', label: 'Einlagen', title: 'Schaumstoff-Einlagen mit Ausschnitten für Schubladen, Cases und andere Behälter' },
@@ -208,6 +211,13 @@ export function App() {
               </>
             ) : null}
           </main>
+        </>
+      ) : mode === 'cables' ? (
+        <>
+          <ObjectBar noun="Kabel" activeId={null} onSelect={() => {}} tabs={[]}
+            emptyText={`${project.racks.reduce((n, r) => n + r.cables.length, 0)} Kabel in ${project.racks.length} ${project.racks.length === 1 ? 'Rack' : 'Racks'}, ${project.customCables?.length ?? 0} eigene Kabelarten`}
+            newButton={<button className="btn sm accent" onClick={() => st().addCustomCable(newCustomCable(project, `Kabel ${(project.customCables?.length ?? 0) + 1}`))} title="Kabel mit beliebigen Steckern, Länge und Belegung anlegen">+ Eigenes Kabel</button>} />
+          <CableWorkspace />
         </>
       ) : mode === 'rackbuild' ? (
         <>

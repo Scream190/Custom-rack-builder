@@ -165,7 +165,7 @@ export function RackTypeEditor() {
 
 export function ExportDialog() {
   const mode = useStore((s) => s.mode);
-  return mode === 'cases' ? <CaseExportDialog /> : mode === 'inlays' ? <InlayExportDialog /> : mode === 'rackbuild' ? <RackBuildExportDialog /> : <RackExportDialog />;
+  return mode === 'cases' ? <CaseExportDialog /> : mode === 'inlays' ? <InlayExportDialog /> : mode === 'rackbuild' ? <RackBuildExportDialog /> : mode === 'cables' ? <CablesExportDialog /> : <RackExportDialog />;
 }
 
 function CaseExportDialog() {
@@ -217,6 +217,34 @@ function CaseExportDialog() {
           </div>
         </>
       )}
+    </Modal>
+  );
+}
+
+function CablesExportDialog() {
+  const project = useStore((s) => s.project);
+  const [busy, setBusy] = useState(false);
+  const st = useStore.getState;
+  return (
+    <Modal title="Export Kabelbau" footer={<><span className="spacer" /><button className="btn" onClick={() => st().openModal(null)}>Schließen</button></>}>
+      <div className="export-grid">
+        <div className="export-card">
+          <h4>Kabelbau (PDF)</h4>
+          <p className="muted small">Bauliste aller Kabel aus den Racks und der eigenen Kabel mit Steckerbedarf, die Pinbelegungen und für jede Kabelart Teile und Arbeitsschritte. Für die Werkstatt.</p>
+          <button className="btn primary" disabled={busy} onClick={async () => {
+            setBusy(true);
+            try {
+              const [{ exportCablesPdf }, { cableAssemblies }, { customAssemblies }] = await Promise.all([import('../export/pdf'), import('../model/assembly'), import('../model/cableBuild')]);
+              downloadBlob(await exportCablesPdf(project, [...customAssemblies(project).filter((a) => a.count > 0), ...cableAssemblies(project, project.racks)]), `${safeFileName(project.name)}_Kabelbau.pdf`);
+            } catch (e) { st().showToast((e as Error).message, 'error'); } finally { setBusy(false); }
+          }}>{busy ? 'Erzeuge …' : 'PDF herunterladen'}</button>
+        </div>
+        <div className="export-card">
+          <h4>Projektdatei</h4>
+          <p className="muted small">Komplettes Projekt mit Racks, eigenen Kabeln, Cases und Einlagen (.rackplan.json).</p>
+          <button className="btn" onClick={() => downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), `${safeFileName(project.name)}.rackplan.json`)}>Projekt speichern</button>
+        </div>
+      </div>
     </Modal>
   );
 }

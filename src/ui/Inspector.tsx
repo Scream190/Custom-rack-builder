@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { Section } from './Section';
+import { openCableBuild } from './CableWorkspace';
 import { allRackTypes, useActiveRack, useStore } from '../model/store';
 import { bayOf, cableLength, formatLength, rackBays, rackSizeLabel, resolveEnd, totalUnits, usedUnits } from '../model/geometry';
-import { connectorDef, SIGNAL_LABELS } from '../model/connectors';
+import { cablePlug, connectorDef, SIGNAL_LABELS } from '../model/connectors';
 import { RACK_KIND_LABELS } from '../library/rackTypes';
 import { cableNumberText } from '../render/cablePaths';
 import { openDrawerInlay } from './CaseWorkspace';
@@ -271,6 +272,21 @@ function CableInspector({ rack, id, project }: { rack: Rack; id: string; project
       <Field label="Beschriftung / Notiz">
         <input disabled={ro} value={c.label ?? ''} placeholder="z. B. Vox 1" onChange={(e) => st().updateCable(rack.id, id, { label: e.target.value || undefined })} />
       </Field>
+      <Section id="cable.build" title="Konfektion" defaultOpen summary={c.customId ? project.customCables?.find((x) => x.id === c.customId)?.name ?? 'eigenes Kabel' : 'Standard'}>
+        <div className="stats">
+          <div><span>Ende A</span><b>{a ? cablePlug(a.port).label : '?'}</b></div>
+          <div><span>Ende B</span><b>{b ? cablePlug(b.port).label : '?'}</b></div>
+        </div>
+        {(project.customCables ?? []).length ? (
+          <Field label="Gebaut als">
+            <select disabled={ro} value={c.customId ?? ''} onChange={(e) => st().updateCable(rack.id, id, { customId: e.target.value || undefined })} title="Eigenes Kabel aus dem Reiter Kabel, dessen Name und Belegung für dieses Kabel gelten">
+              <option value="">Standardbelegung</option>
+              {(project.customCables ?? []).map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
+            </select>
+          </Field>
+        ) : null}
+        <div><button className="btn sm" onClick={() => openCableBuild(cableNumberText(c).replace(c.yGroup ? /[a-z]$/ : /$^/, ''))} title="Bauanleitung mit Pinbelegung und Arbeitsschritten im Reiter Kabel öffnen">Bauanleitung öffnen</button></div>
+      </Section>
       <Section id="cable.y" title="Y-Kabel" summary={c.yGroup ? `${rack.cables.filter((x) => x.yGroup === c.yGroup).length} Äste` : 'Ast hinzufügen'}>
       {c.yGroup ? (
         <div className="muted small">

@@ -1,7 +1,8 @@
 import type { Cable, Project, Rack } from './types';
 import { cableLength, resolveEnd } from './geometry';
 import { cablePlug, connectorDef } from './connectors';
-import { wiringFor, type Wiring } from './pinout';
+import { type Wiring } from './pinout';
+import { cableWiring } from './cableBuild';
 import { cableColor, cableNumberText } from '../render/cablePaths';
 
 /** One kind of cable to prepare: a plain cable (one branch) or a Y cable (several branches from a common plug). */
@@ -15,6 +16,10 @@ export interface Assembly {
   branches: { plug: { key: string; label: string }; conn: string; length: number }[];
   count: number;
   numbers: string[];
+  /** built after a custom cable of the cable workshop */
+  customId?: string;
+  /** name of that custom cable */
+  name?: string;
 }
 
 /** Group the cables of the given racks into assemblies (same type, plugs and lengths). */
@@ -45,11 +50,12 @@ export function cableAssemblies(project: Project, racks: Rack[]): Assembly[] {
         branches = [{ plug: common, conn: commonConn, length: b0.length }];
         common = b0.plug; commonConn = b0.conn;
       }
-      const key = [first.typeId, common.label, ...branches.map((b) => `${b.plug.label}@${b.length}`)].join('|');
+      const custom = first.customId ? project.customCables?.find((x) => x.id === first.customId) : undefined;
+      const key = [first.typeId, common.label, ...branches.map((b) => `${b.plug.label}@${b.length}`), custom?.id ?? ''].join('|');
       const hit = out.get(key);
       const num = legs.length > 1 ? cableNumberText(first).replace(/[a-z]$/, '') : cableNumberText(first);
       if (hit) { hit.count++; hit.numbers.push(num); continue; }
-      out.set(key, { key, typeName: ct?.name ?? '?', color: cableColor(project, first), common, commonConn, branches, count: 1, numbers: [num] });
+      out.set(key, { key, typeName: ct?.name ?? '?', color: cableColor(project, first), common, commonConn, branches, count: 1, numbers: [num], customId: custom?.id, name: custom?.name });
     }
   }
   return [...out.values()].sort((x, y) => x.typeName.localeCompare(y.typeName) || x.branches.length - y.branches.length || x.branches[0].length - y.branches[0].length);
@@ -101,20 +107,25 @@ export interface PinoutCard {
   wiring: Wiring;
   uses: string[];
   y: boolean;
+  /** heading for cards of an own assignment (name of the custom cable) */
+  title?: string;
 }
-export function pinoutCards(assemblies: Assembly[]): PinoutCard[] {
+export function pinoutCards(assemblies: Assembly[], project?: Project): PinoutCard[] {
   const out = new Map<string, PinoutCard>();
   for (const asm of assemblies) {
     const y = asm.branches.length > 1;
+    const map = asm.customId ? project?.customCables?.find((x) => x.id === asm.customId)?.wiring : undefined;
     for (const br of asm.branches) {
-      // cables with the same plugs share one diagram, whatever panel connector they plug into; Y cables get their own
+      // cables with the same plugs share one diagram, whatever panel connector they plug into; Y cables and cables
+      // with an own assignment get their own
       let a = { plug: asm.common, conn: asm.commonConn }, b = { plug: br.plug, conn: br.conn };
-      if (!y && b.plug.label < a.plug.label) [a, b] = [b, a];
-      const wiring = wiringFor(a.conn, b.conn);
-      if (!wiring) continue;
-      const key = `${a.plug.label}|${b.plug.label}|${wiring.a.family}|${y ? 'y' : ''}`;
-      const card = out.get(key) ?? { key, a, b, wiring, uses: [], y };
-      card.uses.push(...asm.numbers.filter((n) => !card.uses.includes(n)));
+      if (!y && !asm.customId && b.plug.label < a.plug.label) [a, b] = [b, a];
+      const wiring = cableWiring(a.conn, b.conn, map).wiring;
+      if (!wiring || !wiring.wires.length) continue;
+      const key = `${a.plug.label}|${b.plug.label}|${wiring.a.family}|${y ? 'y' : ''}|${map ? asm.customId : ''}`;
+      const card = out.get(key) ?? { key, a, b, wiring, uses: [], y, title: map ? asm.name : undefined };
+      const uses = asm.numbers.length ? asm.numbers : asm.name ? [asm.name] : [];
+      card.uses.push(...uses.filter((n) => !card.uses.includes(n)));
       out.set(key, card);
     }
   }

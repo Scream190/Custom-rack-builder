@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Cable, CableEnd, CableType, CaseItem, DeviceTemplate, Face, FlightCase, PlacedBox, PlacedDevice, Project, ProjectSettings, Rack, RackType } from './types';
+import type { CustomCable, Cable, CableEnd, CableType, CaseItem, DeviceTemplate, Face, FlightCase, PlacedBox, PlacedDevice, Project, ProjectSettings, Rack, RackType } from './types';
 import { deepClone, uid } from './util';
 import { connectorDef } from './connectors';
 import { DEFAULT_CABLE_TYPES } from '../library/cableTypes';
@@ -10,7 +10,7 @@ import type { RfImport } from '../integration/rf';
 
 export type ViewMode = 'front' | 'rear' | 'both' | '3d';
 /** workspaces: rack loading + cabling, rack case design, flight case design, foam inlays */
-export type AppMode = 'racks' | 'rackbuild' | 'cases' | 'inlays';
+export type AppMode = 'racks' | 'cables' | 'rackbuild' | 'cases' | 'inlays';
 export type NavMode = 'select' | 'orbit' | 'pan' | 'zoom';
 export const ZOOM_MIN = 0.1;
 export const ZOOM_MAX = 8;
@@ -169,6 +169,8 @@ interface State {
   activeCaseId: string | null;
   /** inlay shown in the inlay designer (a drawer inlay, a free inlay or the foam of a flight case) */
   activeInlayId: string | null;
+  /** cable shown in the cable workshop: an assembly key, "custom:<id>" or "num:<cable number>" from a rack */
+  cableFocus: string | null;
   view: ViewMode;
   selection: Selection;
   hoverCableId: string | null;
@@ -220,6 +222,12 @@ interface State {
   updateCase(id: string, patch: Partial<FlightCase>, coalesce?: string): void;
   removeCase(id: string): void;
   duplicateCase(id: string): void;
+
+  // cable workshop
+  setCableFocus(key: string | null): void;
+  addCustomCable(c: CustomCable): void;
+  updateCustomCable(id: string, patch: Partial<CustomCable>): void;
+  removeCustomCable(id: string): void;
   addCaseItems(caseId: string, items: CaseItem[]): void;
   updateCaseItem(caseId: string, itemId: string, patch: Partial<CaseItem>): void;
   removeCaseItem(caseId: string, itemId: string): void;
@@ -287,6 +295,7 @@ export const useStore = create<State>((set, get) => {
     mode: 'racks',
     activeCaseId: firstCase(initial),
     activeInlayId: firstInlay(initial),
+    cableFocus: null,
     view: 'both',
     selection: null,
     hoverCableId: null,
@@ -381,6 +390,25 @@ export const useStore = create<State>((set, get) => {
     removeCase(id) {
       get().mutate((p) => { p.cases = (p.cases ?? []).filter((c) => c.id !== id); });
       set((s) => ({ activeCaseId: firstCase(s.project), activeInlayId: firstInlay(s.project), selection: null }));
+    },
+    setCableFocus: (cableFocus) => set({ cableFocus }),
+    addCustomCable(c) {
+      get().mutate((p) => { p.customCables = [...(p.customCables ?? []), deepClone(c)]; });
+      set({ cableFocus: `custom:${c.id}`, mode: 'cables' });
+    },
+    updateCustomCable(id, patch) {
+      get().mutate((p) => {
+        const c = p.customCables?.find((x) => x.id === id);
+        if (c) Object.assign(c, deepClone(patch));
+      }, `custom:${id}:${Object.keys(patch).join()}`);
+    },
+    removeCustomCable(id) {
+      get().mutate((p) => {
+        p.customCables = (p.customCables ?? []).filter((x) => x.id !== id);
+        // rack cables built after it fall back to the standard assignment
+        for (const r of p.racks) for (const c of r.cables) if (c.customId === id) delete c.customId;
+      });
+      set({ cableFocus: null });
     },
     duplicateCase(id) {
       const src = get().project.cases?.find((c) => c.id === id);

@@ -2,11 +2,8 @@ import { setLayout, useLayout } from '../model/layout';
 import { useActiveRack, useStore } from '../model/store';
 import { cableLength, formatLength, resolveEnd } from '../model/geometry';
 import { cableColor, cableNumberText } from '../render/cablePaths';
-import { useState } from 'react';
 import type { Project, Rack } from '../model/types';
-import { cableAssemblies, panelDemand, pinoutCards, plugDemand } from '../model/assembly';
-import { PinoutSheet } from '../render/PinoutSheet';
-import { AssemblySheet } from '../render/CableAssemblies';
+import { openCableBuild } from './CableWorkspace';
 
 export interface CableRow {
   id: string;
@@ -54,36 +51,16 @@ export function CableList() {
   const setOpen = (o: boolean) => setLayout({ cableListCollapsed: !o });
   const rows = cableRows(project, rack);
   const st = useStore.getState;
-  const [mode, setMode] = useState<'list' | 'build'>('list');
   return (
     <div className={'cable-list' + (open ? '' : ' closed')}>
       <div className="cable-list-head">
         <button className="cable-list-title" onClick={() => setOpen(!open)} aria-expanded={open} title={open ? 'Kabelliste einklappen' : 'Kabelliste ausklappen'}>{open ? '▾' : '▸'} Kabelliste, {rack.name} ({rows.length})</button>
         <span className="row gap8">
-          {open ? (
-            <span className="seg small-seg">
-              <button className={mode === 'list' ? 'on' : ''} onClick={() => setMode('list')} title="Alle Kabel mit Von, Nach und Länge">Liste</button>
-              <button className={mode === 'build' ? 'on' : ''} onClick={() => setMode('build')} title="Was gebaut werden muss: Stecker, Pinbelegung, Stückzahlen">Konfektion</button>
-            </span>
-          ) : null}
+          <button className="btn sm" onClick={() => { const sel = st().selection; const c = sel?.kind === 'cable' ? rack.cables.find((x) => x.id === sel.id) : undefined; if (c) openCableBuild(cableNumberText(c).replace(c.yGroup ? /[a-z]$/ : /$^/, '')); else st().setMode('cables'); }} title="Stecker, Pinbelegung und Arbeitsschritte im Reiter Kabel">Bauanleitungen</button>
           <span className="muted small">Gesamt: {formatLength(rows.reduce((s, r) => s + r.length, 0))}</span>
         </span>
       </div>
-      {open && mode === 'build' ? (
-        <div className="cable-table-wrap assembly-wrap">
-          {rows.length === 0 ? <div className="hint pad">Noch keine Kabel.</div> : (() => {
-            const asm = cableAssemblies(project, [rack]);
-            const cards = pinoutCards(asm);
-            return (
-              <>
-                <AssemblySheet assemblies={asm} demand={plugDemand(asm)} panels={panelDemand(project, [rack])} />
-                {cards.length ? <div style={{ marginTop: 18 }}><PinoutSheet cards={cards} /></div> : null}
-              </>
-            );
-          })()}
-        </div>
-      ) : null}
-      {open && mode === 'list' ? (
+      {open ? (
         <div className="cable-table-wrap">
           {rows.length === 0 ? (
             <div className="hint pad">Noch keine Kabel. Klicke auf einen Anschluss im Rack und dann auf den Zielanschluss.</div>

@@ -220,7 +220,7 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
         footer(doc, page);
       }
       // pin diagrams of the self-made cables, two per row, as many rows per page as fit
-      const cards = pinoutCards(asm);
+      const cards = pinoutCards(asm, project);
       const pinPages: PinoutCard[][] = [];
       let pc: PinoutCard[] = [], pu = 26;
       for (let i = 0; i < cards.length; i += 2) {
@@ -302,5 +302,77 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
       footer(doc, page);
     }
   }
+  return doc.output('blob');
+}
+
+/**
+ * Cable workshop PDF: assembly drawings with the connector demand, pin diagrams, then the build instructions
+ * (parts and steps) of every kind of cable.
+ */
+export async function exportCablesPdf(project: Project, asm: Assembly[]): Promise<Blob> {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const page = { w: doc.internal.pageSize.getWidth(), h: doc.internal.pageSize.getHeight() };
+  let first = true;
+  const newPage = (title: string) => { if (!first) doc.addPage(); first = false; header(doc, project, title, page); };
+  const W = page.w - 2 * MARGIN, availH = page.h - 2 * MARGIN - 16;
+  const placeSvg = async (markup: string) => {
+    const svgEl = prepareSvgForPdf(markup);
+    const vb = svgEl.viewBox.baseVal;
+    const k = Math.min(W / vb.width, availH / vb.height);
+    try { await doc.svg(svgEl, { x: MARGIN, y: MARGIN + 11, width: vb.width * k, height: vb.height * k }); } finally { svgEl.parentElement?.remove(); }
+  };
+  // drawings, paginated
+  const unitsPerPage = availH / (W / SHEET_W);
+  const pages: Assembly[][] = [];
+  let cur: Assembly[] = [], used = 30;
+  for (const a of asm) {
+    const h = assemblyHeight(a) + 8;
+    if (used + h > unitsPerPage && cur.length) { pages.push(cur); cur = []; used = 30; }
+    cur.push(a); used += h;
+  }
+  if (cur.length) pages.push(cur);
+  const demand = plugDemand(asm), panels = panelDemand(project, project.racks);
+  for (const [i, list] of pages.entries()) {
+    newPage(`Kabelbau – Bauliste${i ? ' (Forts.)' : ''}`);
+    await placeSvg(assemblySheetString(list, i === pages.length - 1 ? demand : undefined, i === pages.length - 1 ? panels : undefined));
+    footer(doc, page);
+  }
+  // pin diagrams
+  const cards = pinoutCards(asm, project);
+  const pinPages: PinoutCard[][] = [];
+  let pc: PinoutCard[] = [], pu = 26;
+  for (let i = 0; i < cards.length; i += 2) {
+    const pair = cards.slice(i, i + 2), h = Math.max(...pair.map(cardHeight)) + 14;
+    if (pu + h > unitsPerPage && pc.length) { pinPages.push(pc); pc = []; pu = 26; }
+    pc.push(...pair); pu += h;
+  }
+  if (pc.length) pinPages.push(pc);
+  for (const [i, list] of pinPages.entries()) {
+    newPage(`Kabelbau – Pinbelegung${i ? ' (Forts.)' : ''}`);
+    await placeSvg(pinoutSheetString(list, i ? ' ' : undefined));
+    footer(doc, page);
+  }
+  // build instructions as text
+  const { buildSteps, cableWiring, partsOf } = await import('../model/cableBuild');
+  newPage('Kabelbau – Arbeitsanweisungen');
+  let y = MARGIN + 16;
+  const line = (t: string, bold = false, indent = 0) => {
+    const parts = doc.splitTextToSize(pdfSafe(t), W - indent) as string[];
+    for (const p of parts) {
+      if (y > page.h - 14) { footer(doc, page); doc.addPage(); header(doc, project, 'Kabelbau – Arbeitsanweisungen (Forts.)', page); y = MARGIN + 16; }
+      doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(bold ? 10.5 : 9); doc.setTextColor(30);
+      doc.text(p, MARGIN + indent, y); y += bold ? 5.6 : 4.4;
+    }
+  };
+  for (const a of asm) {
+    const cc = a.customId ? project.customCables?.find((x) => x.id === a.customId) : undefined;
+    const w = cableWiring(a.commonConn, a.branches[0].conn, cc?.wiring).wiring;
+    line(`${a.count}× ${a.name ?? a.typeName}: ${a.common.label} auf ${a.branches.map((b) => b.plug.label).join(' / ')}, ${a.branches.map((b) => formatLength(b.length)).join(' + ')}`, true);
+    if (a.numbers.length) line(`Kabelnummern: ${a.numbers.join(', ')}`, false, 4);
+    line(`Teile: ${partsOf(a).map((p) => `${String(p.count).replace('.', ',')}${/Reserve/.test(p.label) ? ' m' : '×'} ${p.label}`).join('; ')}`, false, 4);
+    buildSteps(a, w).forEach((s, i) => line(`${i + 1}. ${s}`, false, 4));
+    y += 3;
+  }
+  footer(doc, page);
   return doc.output('blob');
 }
