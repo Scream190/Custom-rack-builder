@@ -170,6 +170,8 @@ Jeder Bereich ist gleich und bewusst sparsam aufgebaut:
 - **Eigenschaften:** oben Name und wichtigste Werte, darunter aufklappbare Abschnitte. Zugeklappt zeigt jeder Abschnitt
   rechts eine Kurzfassung (z. B. „9 mm, Alu 30, Kugelecken“); welche Abschnitte offen sind, merkt sich die App.
   Lange Listen wie Anschlüsse, Vorlagen oder Bibliothekskategorien sind anfangs zugeklappt, die Suche zeigt Treffer sofort.
+  In der Gerätebibliothek hat jede Vorlage eine kleine Frontansicht in echten Proportionen (halbe und Drittel-Breite
+  erscheinen schmaler), innerhalb einer Kategorie nach Hersteller gruppiert und mit Zwischenüberschrift.
 - Hinweise zur Bedienung einer Zeichenfläche stehen im **?** unten links (Tooltip).
 
 ### Einstellungen

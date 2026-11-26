@@ -1,9 +1,25 @@
-import { useMemo, useState } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { allTemplates, useActiveRack, useStore } from '../model/store';
 import type { DeviceTemplate } from '../model/types';
 import { rackBays } from '../model/geometry';
 import { libraryDrag } from './RackCanvas';
 import { Menu } from './Shell';
+import { DeviceFace } from '../render/DeviceFace';
+import { panelHeight } from '../model/geometry';
+
+const multiBrand = (items: DeviceTemplate[]) => items.some((x) => x.manufacturer !== items[0].manufacturer);
+
+/** mini front view at true proportions; fractional devices appear narrower than full-width ones */
+const Thumb = memo(function Thumb({ tpl }: { tpl: DeviceTemplate }) {
+  if (tpl.box) return <div className="lib-thumb box" style={{ background: tpl.color }} />;
+  const full = tpl.rackStandard === 10 ? 254 : 482.6;
+  const w = full / Math.max(1, tpl.slots), h = panelHeight(tpl.heightU);
+  return (
+    <svg className="lib-thumb" viewBox={`0 0 ${full} ${Math.max(h, 44.45)}`} preserveAspectRatio="xMinYMid meet" aria-hidden>
+      <DeviceFace tpl={tpl} panel="front" width={w} showPortLabels={false} />
+    </svg>
+  );
+});
 
 /** prefix of the categories holding the user's own templates (listed first) */
 const CUSTOM = 'Eigene: ';
@@ -31,6 +47,7 @@ export function LibraryPanel() {
       if (!map.has(cat)) map.set(cat, []);
       map.get(cat)!.push(t);
     }
+    for (const list of map.values()) list.sort((a, b) => a.manufacturer.localeCompare(b.manufacturer) || a.name.localeCompare(b.name, undefined, { numeric: true }));
     return [...map.entries()].sort(([a], [b]) => (a.startsWith(CUSTOM) ? -1 : b.startsWith(CUSTOM) ? 1 : a.localeCompare(b)));
   }, [templates, q]);
 
@@ -60,36 +77,44 @@ export function LibraryPanel() {
               <span>{openCats[cat] || q.trim() ? '▾' : '▸'} {cat}</span>
               <span className="muted">{items.length}</span>
             </button>
-            {(openCats[cat] || !!q.trim()) &&
-              items.map((t) => (
-                <div
-                  key={t.id}
-                  className={'lib-item' + (!t.box && !rackBays(rack.type).some((b) => b.rackStandard === t.rackStandard) ? ' incompatible' : '')}
-                  draggable
-                  onDragStart={(e) => {
-                    libraryDrag.tpl = t;
-                    e.dataTransfer.setData('text/plain', t.id);
-                    e.dataTransfer.effectAllowed = 'copy';
-                  }}
-                  onDragEnd={() => { libraryDrag.tpl = null; }}
-                  onDoubleClick={() => add(t)}
-                  title={t.notes || `${t.manufacturer} ${t.name}`}
-                >
-                  <div className="swatch" style={{ background: t.color, height: 6 + t.heightU * 6 }} />
-                  <div className="lib-text">
-                    <div className="lib-name">{t.name}</div>
-                    <div className="muted small">
-                      {t.box ? `${t.box.kind === 'split' ? 'Splitdose' : 'Kombidose'}, ${t.ports.length} Anschlüsse` : [t.manufacturer, `${t.heightU} HE`, t.slots > 1 ? `1/${t.slots} Breite` : '', t.rackStandard === 10 ? '10"' : '', `${t.depth} mm`].filter(Boolean).join(', ')}
+            {(openCats[cat] || !!q.trim()) ? (
+              <div className="lib-rows">
+                {(() => { const multi = multiBrand(items); return items.map((t, i) => {
+                  const brand = i === 0 || items[i - 1].manufacturer !== t.manufacturer;
+                  return (
+                    <div key={t.id} className="lib-entry">
+                      {brand && multi ? <div className="lib-brand">{t.manufacturer || 'Allgemein'}</div> : null}
+                      <div
+                        className={'lib-item' + (!t.box && !rackBays(rack.type).some((b) => b.rackStandard === t.rackStandard) ? ' incompatible' : '')}
+                        draggable
+                        onDragStart={(e) => {
+                          libraryDrag.tpl = t;
+                          e.dataTransfer.setData('text/plain', t.id);
+                          e.dataTransfer.effectAllowed = 'copy';
+                        }}
+                        onDragEnd={() => { libraryDrag.tpl = null; }}
+                        onDoubleClick={() => add(t)}
+                        title={t.notes || `${t.manufacturer} ${t.name}`}
+                      >
+                        <Thumb tpl={t} />
+                        <div className="lib-text">
+                          <div className="lib-name">{t.name}</div>
+                          <div className="muted small">
+                            {t.box ? `${t.box.kind === 'split' ? 'Splitdose' : 'Kombidose'}, ${t.ports.length} Anschlüsse` : [multiBrand(items) ? '' : t.manufacturer, `${t.heightU} HE`, t.slots > 1 ? `1/${t.slots} breit` : '', t.rackStandard === 10 ? '10"' : '', `${t.depth} mm`].filter(Boolean).join(', ')}
+                          </div>
+                        </div>
+                        <button
+                          className="icon-btn"
+                          title={t.panel ? 'Blende bearbeiten' : t.custom ? 'Vorlage bearbeiten' : 'Als eigene Vorlage kopieren und bearbeiten'}
+                          aria-label="Vorlage bearbeiten"
+                          onClick={() => useStore.getState().openModal(t.box ? { kind: 'box', templateId: t.id } : t.panel ? { kind: 'panel', templateId: t.id } : { kind: 'device', templateId: t.id })}
+                        >✎</button>
+                      </div>
                     </div>
-                  </div>
-                  <button
-                    className="icon-btn"
-                    title={t.panel ? 'Blende bearbeiten' : t.custom ? 'Vorlage bearbeiten' : 'Als eigene Vorlage kopieren und bearbeiten'}
-                    aria-label="Vorlage bearbeiten"
-                    onClick={() => useStore.getState().openModal(t.box ? { kind: 'box', templateId: t.id } : t.panel ? { kind: 'panel', templateId: t.id } : { kind: 'device', templateId: t.id })}
-                  >✎</button>
-                </div>
-              ))}
+                  );
+                }); })()}
+              </div>
+            ) : null}
           </div>
         ))}
       </div>

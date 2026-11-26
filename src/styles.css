@@ -88,10 +88,18 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
 .search { margin: 0 10px; }
 .hint { color: var(--muted); font-size: 11.5px; padding: 4px 10px; }
 .lib-list { overflow: auto; flex: 1; padding: 4px 6px 12px; }
-.lib-cat { display: flex; justify-content: space-between; width: 100%; background: none; border: 0; border-top: 1px solid var(--line); padding: 7px 6px 5px; font-weight: 600; font-size: 12.5px; color: var(--text); cursor: pointer; text-align: left; }
+.lib-cat { display: flex; justify-content: space-between; width: 100%; background: none; border: 0; border-top: 1px solid var(--line); padding: 8px 6px 6px; font-weight: 600; font-size: 12.5px; color: var(--text); cursor: pointer; text-align: left; }
+.lib-cat[aria-expanded='true'] { position: sticky; top: -4px; z-index: 1; background: var(--panel); }
+.lib-rows { margin: 0 0 8px; border: 1px solid var(--line); border-radius: 3px; overflow: hidden; }
+.lib-entry + .lib-entry .lib-item { border-top: 1px solid var(--line); }
+.lib-brand { font-size: 11px; font-weight: 600; color: var(--accent); padding: 6px 8px 3px; background: #14171b; border-top: 1px solid var(--line); }
+.lib-entry:first-child .lib-brand { border-top: 0; }
+.lib-entry .lib-brand + .lib-item { border-top: 0; }
+.lib-thumb { width: 76px; height: 24px; flex: none; display: block; }
+.lib-thumb.box { width: 26px; height: 20px; border-radius: 2px; border: 1px solid #3a3f47; margin-right: 50px; }
 .lib-group:first-child .lib-cat { border-top: 0; }
 .lib-cat.static { cursor: default; }
-.lib-item { display: flex; align-items: center; gap: 8px; padding: 4px 6px; border-radius: 2px; cursor: grab; }
+.lib-item { display: flex; align-items: center; gap: 9px; padding: 6px 6px 6px 8px; cursor: grab; }
 .lib-item:hover { background: var(--panel2); }
 .lib-item.incompatible { opacity: .45; }
 .lib-item .swatch { width: 26px; border-radius: 2px; border: 1px solid #3a3f47; flex: none; }
@@ -426,3 +434,6 @@ tr.bad-row td { color: #fca5a5; }
 .se-table td:first-child { color: var(--muted); width: 18px; }
 .se-table input { width: 100%; padding: 2px 4px; }
 .se-table tr.sel td { background: #17343a; }
+
+.lib-rows .lib-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; }
+.lib-rows .lib-text .small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
