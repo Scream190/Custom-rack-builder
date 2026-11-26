@@ -13,7 +13,7 @@ import { pdfSafe } from './render';
 // Layers: KONTUR (outline), AUSSCHNITT (all cut-outs & holes), GRAVUR (engraving / print).
 // ---------------------------------------------------------------------------------------------
 
-class Dxf {
+export class Dxf {
   private out: string[] = [];
   constructor(private h: number) {}
   private g(code: number, value: string | number) {

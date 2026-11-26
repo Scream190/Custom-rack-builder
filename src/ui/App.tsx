@@ -13,6 +13,8 @@ import { DEFAULT_LAYOUT, setLayout, useLayout } from '../model/layout';
 import { DeviceEditor } from './DeviceEditor';
 import { PanelDesigner } from './PanelDesigner';
 import { BoxEditor } from './BoxEditor';
+import { CaseWorkspace, openDrawerInlay, projectDrawers } from './CaseWorkspace';
+import { newCase } from '../model/cases';
 import { rackSizeLabel } from '../model/geometry';
 import { CableTypeEditor, ExportDialog, RackTypeEditor, SettingsDialog } from './Dialogs';
 import { Rack3D } from '../three/Rack3D';
@@ -40,6 +42,8 @@ export function App() {
   const canUndo = useStore((s) => s.past.length > 0);
   const canRedo = useStore((s) => s.future.length > 0);
   const rack = useActiveRack();
+  const mode = useStore((s) => s.mode);
+  const activeCaseId = useStore((s) => s.activeCaseId);
   const st = useStore.getState;
   const fileInput = useRef<HTMLInputElement>(null);
   const rfInput = useRef<HTMLInputElement>(null);
@@ -58,6 +62,8 @@ export function App() {
       else if ((e.key === 'Delete' || e.key === 'Backspace') && s.selection) {
         e.preventDefault();
         if (s.selection.kind === 'device') s.removeDevice(s.activeRackId, s.selection.id);
+        else if (s.selection.kind === 'caseItem') { const c = s.project.cases?.find((x) => x.id === s.activeCaseId) ?? s.project.cases?.[0]; if (c) s.removeCaseItem(c.id, s.selection.id); }
+        else if (s.selection.kind === 'box') s.removeBox(s.activeRackId, s.selection.id);
         else s.removeCable(s.activeRackId, s.selection.id);
       }
     };
@@ -121,11 +127,17 @@ export function App() {
           </div>
         ) : <span className="badge">Nur-Ansicht</span>}
         <div className="seg">
-          {VIEWS.map((v) => (
-            <button key={v.id} className={view === v.id ? 'on' : ''} onClick={() => st().setView(v.id)}>{v.label}</button>
-          ))}
+          <button className={mode === 'racks' ? 'on' : ''} onClick={() => st().setMode('racks')}>Racks</button>
+          <button className={mode === 'cases' ? 'on' : ''} onClick={() => st().setMode('cases')}>Cases</button>
         </div>
-        {!readOnly ? (
+        {mode === 'racks' ? (
+          <div className="seg">
+            {VIEWS.map((v) => (
+              <button key={v.id} className={view === v.id ? 'on' : ''} onClick={() => st().setView(v.id)}>{v.label}</button>
+            ))}
+          </div>
+        ) : null}
+        {!readOnly && mode === 'racks' ? (
           <label className="cable-pick" title="Kabeltyp für neue Verbindungen">
             <span>Kabel:</span>
             <select value={activeCableTypeId} onChange={(e) => st().setActiveCableType(e.target.value)}>
@@ -144,6 +156,8 @@ export function App() {
         <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={(e) => { const f = e.target.files?.[0]; if (f) openFile(f); e.target.value = ''; }} />
       </header>
 
+      {mode === 'racks' ? (
+        <>
       <div className="rack-tabs">
         {project.racks.map((r) => (
           <button key={r.id} className={'tab' + (r.id === rack.id ? ' on' : '')} onClick={() => st().setActiveRack(r.id)}>
@@ -198,6 +212,45 @@ export function App() {
           </>
         ) : null}
       </main>
+        </>
+      ) : (
+        <>
+      <div className="rack-tabs">
+        {(project.cases ?? []).map((c) => (
+          <button key={c.id} className={'tab' + (c.id === (activeCaseId ?? project.cases?.[0]?.id) ? ' on' : '')} onClick={() => st().setActiveCase(c.id)}>
+            {c.name} <span className="muted small">{c.kind === 'drawer' ? 'Schublade' : `${c.inner.l} × ${c.inner.w} × ${c.inner.h}`}</span>
+          </button>
+        ))}
+        <span className="spacer" />
+        <div className="panel-toggles" title="Bereiche ein-/ausblenden">
+          {!readOnly ? <button className={'tgl' + (layout.showLibrary ? ' on' : '')} onClick={() => setLayout({ showLibrary: !layout.showLibrary })}>Inhalt</button> : null}
+          <button className={'tgl' + (layout.showCableList ? ' on' : '')} onClick={() => setLayout({ showCableList: !layout.showCableList })}>Stückliste</button>
+          <button className={'tgl' + (layout.showInspector ? ' on' : '')} onClick={() => setLayout({ showInspector: !layout.showInspector })}>Eigenschaften</button>
+        </div>
+        {!readOnly ? (
+          <>
+            <button className="tab add" onClick={() => st().addCase(newCase(`Case ${(project.cases?.length ?? 0) + 1}`))}>+ Case</button>
+            {projectDrawers(project).length ? (
+              <select className="btn sm" value="" onChange={(e) => { const [r, d] = e.target.value.split('|'); if (r) openDrawerInlay(project, r, d); }}>
+                <option value="">+ Schubladen-Einlage …</option>
+                {projectDrawers(project).map((x) => <option key={x.device.id} value={`${x.rack.id}|${x.device.id}`}>{x.device.label || x.tpl.name} ({x.rack.name}, HE {x.device.u})</option>)}
+              </select>
+            ) : null}
+            {project.cases?.length ? (() => {
+              const cur = project.cases.find((c) => c.id === activeCaseId) ?? project.cases[0];
+              return (
+                <>
+                  <button className="btn sm" onClick={() => st().duplicateCase(cur.id)}>Case duplizieren</button>
+                  <button className="btn sm danger" onClick={() => { if (confirm(`„${cur.name}“ löschen?`)) st().removeCase(cur.id); }}>Case löschen</button>
+                </>
+              );
+            })() : null}
+          </>
+        ) : null}
+      </div>
+          <CaseWorkspace />
+        </>
+      )}
 
       {modal?.kind === 'device' ? <DeviceEditor key={modal.templateId ?? 'new'} templateId={modal.templateId} /> : null}
       {modal?.kind === 'panel' ? <PanelDesigner key={modal.templateId ?? 'new'} templateId={modal.templateId} /> : null}

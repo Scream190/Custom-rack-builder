@@ -309,6 +309,60 @@ export interface ProjectSettings {
   cableLabel: 'length' | 'number' | 'both' | 'none';
 }
 
+// ---------------------------------------------------------------- flight cases (case designer)
+
+export type CaseFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
+export type HardwareKind =
+  | 'butterfly' | 'butterfly-small' | 'handle-recessed' | 'handle-strap' | 'stack-cup' | 'hinge' | 'label'
+  | 'castor' | 'castor-braked' | 'skid';
+export interface CaseHardware { kind: HardwareKind; face: CaseFace; count: number }
+
+/** something packed into the case: a foam cut-out (x/y = left-front corner in the inner space, mm) */
+export interface CaseItem {
+  id: string;
+  name: string;
+  /** length (x), width (y, front to back) and height (z) in mm */
+  l: number;
+  w: number;
+  h: number;
+  x: number;
+  y: number;
+  /** turned by 90° in the top view */
+  rot?: boolean;
+  /** foam layer: in the body or in the lid */
+  layer: 'body' | 'lid';
+  weight?: number;
+  /** linked device template (dimensions/weight taken from it) */
+  templateId?: string;
+}
+
+export interface FlightCase {
+  id: string;
+  name: string;
+  /** 'drawer' = foam inlay for a rack drawer (no walls, lid or hardware; sizes follow the drawer) */
+  kind?: 'case' | 'drawer';
+  /** the rack drawer this inlay belongs to */
+  drawer?: { rackId: string; deviceId: string };
+  /** clear inside of the walls in mm (h = body + lid) */
+  inner: { l: number; w: number; h: number };
+  /** inner height of the lid part (0 = no lid) */
+  lidH: number;
+  lidKind: 'removable' | 'hinged' | 'telescope' | 'none';
+  /** wall thickness (plywood incl. laminate) in mm */
+  panel: number;
+  profile: 'alu30' | 'alu35' | 'none';
+  /** laminate colour */
+  color: string;
+  cornerBalls: boolean;
+  hardware: CaseHardware[];
+  castorSize: 75 | 100 | 125;
+  foam: { bottom: number; lid: number; sides: number; color: string };
+  items: CaseItem[];
+  /** compartment walls in the inner space: axis 'x' = wall parallel to the length at y = pos */
+  dividers: { axis: 'x' | 'y'; pos: number }[];
+  notes?: string;
+}
+
 export interface Project {
   version: 1;
   id: string;
@@ -325,4 +379,6 @@ export interface Project {
   settings: ProjectSettings;
   /** version of the built-in device library the template copies stem from */
   libraryVersion?: number;
+  /** flight cases designed in the case designer */
+  cases?: FlightCase[];
 }

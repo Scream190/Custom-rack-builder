@@ -261,6 +261,64 @@ export function SettingsDialog() {
 // ----------------------------------------------------------------------------- export
 
 export function ExportDialog() {
+  const mode = useStore((s) => s.mode);
+  return mode === 'cases' ? <CaseExportDialog /> : <RackExportDialog />;
+}
+
+function CaseExportDialog() {
+  const project = useStore((s) => s.project);
+  const activeId = useStore((s) => s.activeCaseId);
+  const [scope, setScope] = useState<'current' | 'all'>('current');
+  const [busy, setBusy] = useState(false);
+  const cases = project.cases ?? [];
+  const cur = cases.find((c) => c.id === activeId) ?? cases[0];
+  const list = scope === 'all' ? cases : cur ? [cur] : [];
+  const st = useStore.getState;
+  return (
+    <Modal title="Export Cases" footer={<><span className="spacer" /><button className="btn" onClick={() => st().openModal(null)}>Schließen</button></>}>
+      {!cases.length ? <div className="muted">Noch keine Cases angelegt.</div> : (
+        <>
+          <Field label="Umfang">
+            <select value={scope} onChange={(e) => setScope(e.target.value as 'current' | 'all')}>
+              <option value="current">Aktuelles Case ({cur?.name})</option><option value="all">Alle Cases ({cases.length})</option>
+            </select>
+          </Field>
+          <div className="export-grid">
+            <div className="export-card">
+              <h4>PDF</h4>
+              <p className="muted small">Zeichnung (Innenansicht mit Ausschnitten, Vorder- und Seitenansicht) und Stückliste mit Zuschnitt, Beschlägen, Schaumstoff und Gewicht.</p>
+              <button className="btn primary" disabled={busy} onClick={async () => {
+                setBusy(true);
+                try {
+                  const { exportCasesPdf } = await import('../export/caseExport');
+                  downloadBlob(await exportCasesPdf(project, list), `${safeFileName(scope === 'all' ? project.name + '_Cases' : list[0].name)}.pdf`);
+                } catch (e) { st().showToast((e as Error).message, 'error'); } finally { setBusy(false); }
+              }}>{busy ? 'Erzeuge …' : 'PDF herunterladen'}</button>
+            </div>
+            <div className="export-card">
+              <h4>Schaumstoff-Zuschnitt (DXF)</h4>
+              <p className="muted small">Kontur der Einlage und alle Ausschnitte im Maßstab 1:1 für den CNC- oder Wasserstrahl-Zuschnitt; Namen und Frästiefen als Beschriftung. Eine Datei je Case und Ebene.</p>
+              <button className="btn" onClick={async () => {
+                const { caseFoamDxf } = await import('../export/caseExport');
+                list.forEach((c, i) => {
+                  const layers: ('body' | 'lid')[] = c.items.some((it) => it.layer === 'lid') ? ['body', 'lid'] : ['body'];
+                  layers.forEach((l, j) => setTimeout(() => downloadBlob(new Blob([caseFoamDxf(c, l)], { type: 'application/dxf' }), `${safeFileName(c.name)}_Schaum${l === 'lid' ? '_Deckel' : ''}.dxf`), (i * 2 + j) * 300));
+                });
+              }}>DXF herunterladen</button>
+            </div>
+            <div className="export-card">
+              <h4>Projektdatei</h4>
+              <p className="muted small">Komplettes Projekt mit Racks und Cases (.rackplan.json).</p>
+              <button className="btn" onClick={() => downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), `${safeFileName(project.name)}.rackplan.json`)}>Projekt speichern</button>
+            </div>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function RackExportDialog() {
   const project = useStore((s) => s.project);
   const rack = useActiveRack();
   const readOnly = useStore((s) => s.readOnly);

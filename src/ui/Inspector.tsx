@@ -4,6 +4,7 @@ import { bayOf, cableLength, formatLength, rackBays, rackSizeLabel, resolveEnd, 
 import { connectorDef, SIGNAL_LABELS } from '../model/connectors';
 import { RACK_KIND_LABELS } from '../library/rackTypes';
 import { cableNumberText } from '../render/cablePaths';
+import { openDrawerInlay } from './CaseWorkspace';
 import type { DrawerItem, PlacedDevice, Project, Rack, RfDeviceData } from '../model/types';
 import { bandLabel, channelCount, channelLabel, rfBandsFor, rfProductOf, rfProductsFor } from '../integration/rf';
 
@@ -353,6 +354,7 @@ function DrawerContents({ rack, deviceId, items, ro }: { rack: Rack; deviceId: s
   return (
     <div className="drawer-box">
       <h4>Inhalt der Schublade</h4>
+      <button className="btn sm" style={{ alignSelf: 'flex-start' }} onClick={() => openDrawerInlay(st().project, rack.id, deviceId)}>Schaumstoff-Einlage gestalten</button>
       {items.length === 0 && ro ? <div className="muted small">leer</div> : null}
       {items.map((it, i) => (
         <div key={i} className="row gap4 drawer-row">

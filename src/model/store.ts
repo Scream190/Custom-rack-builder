@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { Cable, CableEnd, CableType, DeviceTemplate, Face, PlacedBox, PlacedDevice, Project, ProjectSettings, Rack, RackType } from './types';
+import type { Cable, CableEnd, CableType, CaseItem, DeviceTemplate, Face, FlightCase, PlacedBox, PlacedDevice, Project, ProjectSettings, Rack, RackType } from './types';
 import { deepClone, uid } from './util';
 import { connectorDef } from './connectors';
 import { DEFAULT_CABLE_TYPES } from '../library/cableTypes';
@@ -9,6 +9,7 @@ import { checkPlacement, findFreeSpot } from './geometry';
 import type { RfImport } from '../integration/rf';
 
 export type ViewMode = 'front' | 'rear' | 'both' | '3d';
+export type AppMode = 'racks' | 'cases';
 export type NavMode = 'select' | 'orbit' | 'pan' | 'zoom';
 export const ZOOM_MIN = 0.1;
 export const ZOOM_MAX = 8;
@@ -17,6 +18,7 @@ export type Selection =
   | { kind: 'device'; id: string }
   | { kind: 'cable'; id: string }
   | { kind: 'box'; id: string }
+  | { kind: 'caseItem'; id: string }
   | null;
 
 export type Modal =
@@ -71,6 +73,7 @@ export function normalizeProject(p: Project): Project {
   proj.settings = { ...DEFAULT_SETTINGS, ...(proj.settings || {}) };
   proj.templates = proj.templates || {};
   proj.rackTypes = proj.rackTypes || [];
+  proj.cases = proj.cases || [];
   proj.cableTypes = proj.cableTypes?.length ? proj.cableTypes : deepClone(DEFAULT_CABLE_TYPES);
   // refresh copies of built-in templates from an older library; cables are re-attached by port name
   if ((proj.libraryVersion ?? 1) < LIBRARY_VERSION) {
@@ -156,6 +159,9 @@ interface State {
   readOnly: boolean;
 
   activeRackId: string;
+  /** racks or the case designer */
+  mode: AppMode;
+  activeCaseId: string | null;
   view: ViewMode;
   selection: Selection;
   hoverCableId: string | null;
@@ -198,6 +204,17 @@ interface State {
   requestHome(): void;
   openModal(m: Modal): void;
   showToast(text: string, kind?: 'info' | 'error'): void;
+
+  // case designer
+  setMode(m: AppMode): void;
+  setActiveCase(id: string): void;
+  addCase(c: FlightCase): void;
+  updateCase(id: string, patch: Partial<FlightCase>, coalesce?: string): void;
+  removeCase(id: string): void;
+  duplicateCase(id: string): void;
+  addCaseItems(caseId: string, items: CaseItem[]): void;
+  updateCaseItem(caseId: string, itemId: string, patch: Partial<CaseItem>): void;
+  removeCaseItem(caseId: string, itemId: string): void;
 
   // racks
   addRack(type: RackType, name?: string): void;
@@ -259,6 +276,8 @@ export const useStore = create<State>((set, get) => {
     future: [],
     readOnly: false,
     activeRackId: initial.racks[0]?.id ?? '',
+    mode: 'racks',
+    activeCaseId: initial.cases?.[0]?.id ?? null,
     view: 'both',
     selection: null,
     hoverCableId: null,
@@ -280,6 +299,7 @@ export const useStore = create<State>((set, get) => {
         past: keepHistory ? [...s.past, s.project] : [],
         future: [],
         activeRackId: project.racks[0]?.id ?? '',
+        activeCaseId: project.cases?.[0]?.id ?? null,
         selection: null,
         pendingPort: null,
       }));
@@ -332,6 +352,49 @@ export const useStore = create<State>((set, get) => {
       set({ toast: { text, kind } });
       const t = get().toast;
       setTimeout(() => { if (get().toast === t) set({ toast: null }); }, 3500);
+    },
+
+    setMode: (mode) => set({ mode, selection: null, pendingPort: null }),
+    setActiveCase: (activeCaseId) => set({ activeCaseId, selection: null }),
+    addCase(c) {
+      get().mutate((p) => { p.cases = [...(p.cases ?? []), deepClone(c)]; });
+      set({ activeCaseId: c.id, mode: 'cases', selection: null });
+    },
+    updateCase(id, patch, coalesce) {
+      get().mutate((p) => {
+        const c = p.cases?.find((x) => x.id === id);
+        if (c) Object.assign(c, deepClone(patch));
+      }, coalesce ?? `case:${id}:${Object.keys(patch).join()}`);
+    },
+    removeCase(id) {
+      get().mutate((p) => { p.cases = (p.cases ?? []).filter((c) => c.id !== id); });
+      set((s) => ({ activeCaseId: s.project.cases?.[0]?.id ?? null, selection: null }));
+    },
+    duplicateCase(id) {
+      const src = get().project.cases?.find((c) => c.id === id);
+      if (!src) return;
+      const copy: FlightCase = { ...deepClone(src), id: uid('case-'), name: src.name + ' (Kopie)', items: src.items.map((it) => ({ ...deepClone(it), id: uid('it-') })) };
+      get().addCase(copy);
+    },
+    addCaseItems(caseId, items) {
+      get().mutate((p) => {
+        const c = p.cases?.find((x) => x.id === caseId);
+        if (c) c.items.push(...deepClone(items));
+      });
+      if (items.length === 1) set({ selection: { kind: 'caseItem', id: items[0].id } });
+    },
+    updateCaseItem(caseId, itemId, patch) {
+      get().mutate((p) => {
+        const it = p.cases?.find((x) => x.id === caseId)?.items.find((x) => x.id === itemId);
+        if (it) Object.assign(it, deepClone(patch));
+      }, `caseItem:${itemId}:${Object.keys(patch).join()}`);
+    },
+    removeCaseItem(caseId, itemId) {
+      get().mutate((p) => {
+        const c = p.cases?.find((x) => x.id === caseId);
+        if (c) c.items = c.items.filter((x) => x.id !== itemId);
+      });
+      set({ selection: null });
     },
 
     addRack(type, name) {

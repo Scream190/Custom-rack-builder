@@ -244,3 +244,13 @@ body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select:
 .rf-table td:first-child { width: 18px; }
 .rf-table td:last-child { width: 92px; }
 input.bad { border-color: var(--danger); color: #fca5a5; }
+
+/* case designer */
+.case-toolbar { display: flex; gap: 6px; align-items: center; padding: 6px 10px; border-bottom: 1px solid var(--line); background: var(--panel); flex-wrap: wrap; }
+.case-canvas { position: absolute; inset: 0; overflow: hidden; touch-action: none; }
+.case-canvas svg { display: block; }
+.case-hint { position: absolute; left: 10px; bottom: 8px; font-size: 11px; color: var(--muted); pointer-events: none; }
+.case-empty { align-items: center; justify-content: center; }
+.lib-item.sel-item { background: #0e3a44; }
+.parts-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 28px; padding: 0 6px 8px; }
+.parts-grid table { width: auto; flex: 0 0 auto; }

@@ -151,6 +151,32 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   Abschnitte durch Linien statt Kästchen getrennt, Überschriften in normaler Schreibweise, Angaben mit Kommas statt
   Mittelpunkten.
 
+### Case-Designer (Flightcases und Schaumstoff-Einlagen)
+Oben links von *Racks* auf *Cases* umschalten. Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
+
+- **Flightcases frei gestalten:** Innenmaß (L × B × H), Deckel (abnehmbar, Scharnierdeckel, Teleskop- bzw. Stülpdeckel oder ohne)
+  mit Deckelhöhe, Plattenstärke, Kantenprofil (Alu 30 / 35 mm oder ohne), Laminatfarbe, Kugelecken. Das Außenmaß
+  wird aus Innenmaß, Platten, Profilen, Schaum und Rollen berechnet.
+- **Beschläge pro Seite:** Butterflyverschlüsse groß/klein, Klappgriffe, Riemengriffe, Scharniere, Stapelschalen,
+  Etikettenhalter, Gleitkufen, Lenkrollen mit und ohne Bremse (75, 100, 125 mm). „Automatisch“ schlägt eine übliche Bestückung
+  passend zur Größe vor.
+- **Schaumstoff:** Boden-, Deckel- und Randschaum mit Stärke und Farbe. Inhalt als Ausschnitte: aus 16 Vorlagen
+  (Handsender, Taschensender, Laptop, Antennen, Kabeltrommel …), aus der Gerätebibliothek oder mit eigenen Maßen.
+  Ausschnitte ziehen (5-mm-Raster, `Alt` = frei), drehen, Unterteil oder Deckel, Trennwände längs/quer.
+  *Automatisch packen* verteilt alles platzsparend (MaxRects); was nicht hineinpasst, landet rot markiert neben dem Case.
+  Warnungen bei Überlappung, Ausschnitt im Randschaum oder zu wenig Höhe.
+- **Schaumstoff-Einlagen für Rackschubladen:** im Rack die Schublade wählen → *Schaumstoff-Einlage gestalten*
+  (oder in der Cases-Leiste *+ Schubladen-Einlage*). Die Einlage übernimmt das Innenmaß der Schublade und legt für
+  jede Zeile der Inhaltsliste einen Ausschnitt an (zunächst 100 × 60 mm, dann auf die tatsächlichen Maße anpassen).
+- **Ansichten:** Maßzeichnung (Innenansicht Unterteil und Deckel, Vorder- und Seitenansicht mit Beschlägen) und 3D
+  (Deckel auf/zu).
+- **Stückliste:** Plattenzuschnitte, Profillängen, Beschläge, Schaumteile, Gewicht (Case + Inhalt) und Volumen.
+
+**Genauigkeit:** Gewichte sind Schätzungen aus Dichten (Sperrholz 680 kg/m³, PE-Schaum 30 kg/m³, Alu-Profile
+nach Meter) und typischen Beschlaggewichten. Plattenzuschnitte sind ohne Fräs- und Falzzugaben gerechnet, das
+genaue Maß legt der Casebauer fest. Die Innenmaße von Schubladen sind aus Frontbreite, Tiefe und HE abgeleitet
+(Schätzung); vor dem Schaumzuschnitt an der Schublade selbst nachmessen.
+
 ### Austausch mit dem RF Frequency Manager (RF-Scan-Editor)
 Beide Programme nutzen dieselben IDs (Produkt `Shure|AD4D`, Band `Shure|ULX-D|G50`). RF Frequency Manager muss dafür
 nicht geändert werden.
@@ -179,6 +205,8 @@ nicht geändert werden.
 - **Blenden:** DXF (R12, mm, 1:1, Layer `KONTUR` / `AUSSCHNITT` / `GRAVUR`) für Frontplattenhersteller wie
   Rack247 oder Schaeffer (deren Frontplatten-Designer importiert DXF), dazu SVG und PDF-Maßzeichnung.
   Texte liegen als DXF-TEXT vor. Manche Fertiger wollen Schrift in Pfade umgewandelt; vor der Bestellung bitte deren Vorgaben prüfen.
+- **Cases (im Cases-Modus):** PDF mit Maßzeichnung und Stückliste je Case, DXF des Schaumzuschnitts (1:1, Layer
+  `KONTUR` = Außenkontur, `AUSSCHNITT` = Ausschnitte, `GRAVUR` = Beschriftung) für Schaumstoff-Zuschneider.
 
 Beispiele liegen in `beispiele/`.
 
@@ -188,7 +216,7 @@ Beispiele liegen in `beispiele/`.
 npm install
 npm run dev      # Entwicklungsserver
 npm run build    # erzeugt dist/index.html (eine selbstständige Datei)
-npm test         # Bibliothek prüfen (Stecker im Gehäuse, keine Überlappung, eindeutige Namen) + 3D-Kollisionstest
+npm test         # Bibliothek prüfen (Stecker im Gehäuse, keine Überlappung, eindeutige Namen) + Case-Designer + 3D-Kollisionstest
 ```
 
 Während `npm run dev` läuft, zeigt `http://localhost:5173/gallery.html` alle Marken-Geräte (Front + Rückseite) zum visuellen Abgleich
@@ -197,11 +225,12 @@ Während `npm run dev` läuft, zeigt `http://localhost:5173/gallery.html` alle M
 Stack: React + TypeScript + Vite, zustand (State, Undo/Redo), SVG-Rendering, three.js (3D), jsPDF + svg2pdf (PDF).
 
 ```
-src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry
+src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry, cases.ts = Case-Designer
 src/library/    Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
 src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auch für Export & 3D-Texturen
 src/ui/         Oberfläche, Editoren, Dialoge
 src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung
-tests/          library.ts: Prüfung der Gerätebibliothek, collision3d.ts: Kollisionsprüfung der 3D-Kabel
+tests/          library.ts: Prüfung der Gerätebibliothek, cases.ts: Packen, Außenmaß, Stückliste, Schubladen-Einlage,
+                collision3d.ts: Kollisionsprüfung der 3D-Kabel
 src/export/     PDF, PNG/SVG, interaktives HTML, DXF
 ```

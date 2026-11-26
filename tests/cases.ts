@@ -1,0 +1,42 @@
+// Case designer checks. Run: npm run test:cases
+import { caseBom, caseDims, caseWarnings, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
+import { sampleProject } from '../src/library/sample';
+import { uid } from '../src/model/util';
+
+let failed = false;
+const ok = (cond: boolean, msg: string) => { if (!cond) { failed = true; console.log('  FAIL', msg); } };
+
+// 1) packing: mixed items into a 800 × 600 case – nothing may overlap or stick into the side foam;
+//    what does not fit must be reported as such
+const c0 = newCase('Test');
+c0.inner = { l: 800, w: 600, h: 350 };
+c0.items = ITEM_PRESETS.slice(0, 12).map((p) => ({ ...p, id: uid('it-'), x: 0, y: 0, layer: 'body' as const }));
+const packed = packItems(c0);
+const w0 = caseWarnings(packed);
+ok(!w0.some((w) => /überlappen|ragt/.test(w.text)), `packing produced: ${w0.map((w) => w.text).join('; ')}`);
+const placed = packed.items.filter((i) => i.x < packed.inner.l).length;
+console.log(`packing: ${placed}/${packed.items.length} items placed, ${w0.filter((w) => /passt nicht/.test(w.text)).length} reported as not fitting`);
+// a set that fits easily must be placed completely
+const c1 = { ...c0, items: ITEM_PRESETS.slice(0, 6).map((p) => ({ ...p, id: uid('it-'), x: 0, y: 0, layer: 'body' as const })) };
+const w1 = caseWarnings(packItems(c1)).filter((w) => !/hoch/.test(w.text));
+ok(w1.length === 0, `small set: ${w1.map((w) => w.text).join('; ')}`);
+
+// 2) outer dimensions and parts list
+const d = caseDims(packed);
+ok(d.L === 800 + 2 * (7 + 2) && d.W === 600 + 2 * (7 + 2), `outer size ${d.L} × ${d.W}`);
+const bom = caseBom(packed);
+ok(bom.panels.length === 6 && bom.weight.case > 5 && bom.weight.case < 40, `parts list: ${bom.panels.length} panels, ${bom.weight.case} kg`);
+ok(bom.hardware.some((h) => h.label.startsWith('Butterfly')), 'butterfly locks in the parts list');
+console.log(`case: outer ${Math.round(d.L)} × ${Math.round(d.W)} × ${Math.round(d.H)} mm, ${bom.weight.case} kg empty`);
+
+// 3) drawer inlay from the sample project's drawer
+const p = sampleProject();
+const rack = p.racks[0];
+const drw = rack.devices.find((x) => p.templates[x.templateId]?.drawer)!;
+const inlay = newDrawerInlay('Einlage', p.templates[drw.templateId], { rackId: rack.id, deviceId: drw.id }, drw.contents ?? []);
+ok(inlay.kind === 'drawer' && inlay.items.length === (drw.contents ?? []).filter((x) => x.text.trim()).length, 'drawer inlay: one cut-out per contents line');
+ok(inlay.inner.h < p.templates[drw.templateId].heightU * 44.45, 'drawer inlay height fits the drawer');
+console.log(`drawer inlay: ${inlay.items.length} cut-outs, inner ${inlay.inner.l} × ${inlay.inner.w} × ${inlay.inner.h} mm, warnings ${caseWarnings(inlay).length}`);
+
+if (failed) { console.error('case designer: problems found'); process.exit(1); }
+console.log('case designer: ok');
