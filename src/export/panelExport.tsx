@@ -42,6 +42,13 @@ export class Dxf {
     this.g(40, height); this.g(1, text.replace(/[\r\n]+/g, ' '));
     if (j) { this.g(72, j); this.g(11, x); this.g(21, this.Y(y)); this.g(31, 0); }
   }
+  /** closed polyline (R12 POLYLINE with vertices) in panel coords */
+  polyline(layer: string, pts: [number, number][], closed = true) {
+    this.g(0, 'POLYLINE'); this.g(8, layer); this.g(66, 1); this.g(70, closed ? 1 : 0);
+    this.g(10, 0); this.g(20, 0); this.g(30, 0);
+    for (const [x, y] of pts) { this.g(0, 'VERTEX'); this.g(8, layer); this.g(10, x); this.g(20, this.Y(y)); this.g(30, 0); }
+    this.g(0, 'SEQEND'); this.g(8, layer);
+  }
   /** rounded rectangle centred at (cx, cy) in panel coords */
   rrect(layer: string, cx: number, cy: number, w: number, h: number, r: number) {
     r = Math.max(0, Math.min(r, w / 2, h / 2));

@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { CaseFace, CaseItem, FlightCase } from '../model/types';
 import { caseDims, footprint, isDrawer, usableArea } from '../model/cases';
+import { cutoutOutline, outlineBox } from '../model/inlay';
 import { Builder, FOAM_MM, boxGeo, faceBasis, inlayGeo, makeMats, v3 } from './caseParts';
 import { Scene3D, type BuildResult } from './Scene3D';
 
@@ -163,20 +164,23 @@ export function addFoam(parent: THREE.Object3D, c: FlightCase, layer: CaseItem['
     else B.add(parent, boxGeo(7, space, iw), mats.ply, X(dv.pos), floor + space / 2, 0);
   }
   if (!items.length) return;
-  const inside = (it: CaseItem) => { const f = footprint(it); return it.x >= area.x0 - 0.5 && it.y >= area.y0 - 0.5 && it.x + f.l <= area.x1 + 0.5 && it.y + f.w <= area.y1 + 0.5; };
-  const holes: { x: number; y: number; l: number; w: number; r: number; circle: boolean }[] = [];
+  // cut-outs inside the usable area that keep at least 1 mm of foam to the contour and to each other
+  const holes: [number, number][][] = [];
+  const boxes: ReturnType<typeof outlineBox>[] = [];
   for (const it of items) {
-    if (!inside(it)) continue;
-    const f = footprint(it);
-    const x = Math.max(it.x, area.x0 + 1), y = Math.max(it.y, area.y0 + 1);
-    const r = { x, y, l: Math.min(it.x + f.l, area.x1 - 1) - x, w: Math.min(it.y + f.w, area.y1 - 1) - y, r: it.radius ?? 6, circle: it.shape === 'circle' };
-    if (r.l < 4 || r.w < 4) continue;
-    const hit = holes.some((h) => r.x < h.x + h.l + 2 && h.x < r.x + r.l + 2 && r.y < h.y + h.w + 2 && h.y < r.y + r.w + 2);
-    if (!hit) holes.push(r);
+    const pts = cutoutOutline(it);
+    const bb = outlineBox(pts);
+    if (bb.x0 < area.x0 - 0.5 || bb.y0 < area.y0 - 0.5 || bb.x1 > area.x1 + 0.5 || bb.y1 > area.y1 + 0.5) continue;
+    if (boxes.some((h) => bb.x0 < h.x1 + 1 && h.x0 < bb.x1 + 1 && bb.y0 < h.y1 + 1 && h.y0 < bb.y1 + 1)) continue;
+    boxes.push(bb);
+    // cut-outs touching the contour are pulled in by a hair so the triangulation stays valid
+    const cx = (x: number) => Math.max(area.x0 + 0.8, Math.min(area.x1 - 0.8, x));
+    const cy = (y: number) => Math.max(area.y0 + 0.8, Math.min(area.y1 - 0.8, y));
+    holes.push(pts.map(([x, y]) => [X(cx(x)), Z(cy(y))]));
   }
   const T = Math.max(10, Math.min(Math.max(...items.map((i) => i.depth ?? i.h)), sideH || space));
   if (sideH > 0 && area.x1 > area.x0 && area.y1 > area.y0) {
-    const g = inlayGeo(X(area.x0), Z(area.y1), X(area.x1), Z(area.y0), holes.map((h) => ({ x: X(h.x), z: Z(h.y + h.w), l: h.l, w: h.w, r: h.r, circle: h.circle })), T);
+    const g = inlayGeo(X(area.x0), Z(area.y1), X(area.x1), Z(area.y0), holes, T);
     B.add(parent, g, mats.foam, 0, lidMode ? surf - T : surf, 0);
   }
   items.forEach((it, i) => {

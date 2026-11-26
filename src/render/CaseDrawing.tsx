@@ -1,6 +1,7 @@
 import type { CaseFace, CaseHardware, FlightCase, Project } from '../model/types';
 import { caseDims, footprint, isDrawer, usableArea } from '../model/cases';
 import { shade } from './DeviceFace';
+import { cutoutOutline, outlinePath } from '../model/inlay';
 
 /*
  * Technical drawing of a flight case in mm (1 svg unit = 1 mm): inner top view with foam cut-outs (interactive in the
@@ -25,7 +26,7 @@ export function sheetLayout(c: FlightCase) {
 }
 
 /** Breaks a label into at most `maxLines` lines that fit `width` at font size `fs`; the last line is shortened with an ellipsis. */
-function fitLabel(text: string, width: number, fs: number, maxLines: number): string[] {
+export function fitLabel(text: string, width: number, fs: number, maxLines: number): string[] {
   const per = Math.max(3, Math.floor(width / (fs * 0.56)));
   if (text.length <= per) return [text];
   const words = text.split(/\s+/);
@@ -67,7 +68,7 @@ function DimV({ y1, y2, x, label, ink }: { y1: number; y2: number; x: number; la
 const spread = (from: number, to: number, count: number) => Array.from({ length: count }, (_, i) => from + ((to - from) * (i + 1)) / (count + 1));
 
 /** gradients and patterns used by the case drawing (ids are shared; identical definitions may appear twice) */
-function CaseDefs() {
+export function CaseDefs() {
   return (
     <defs>
       <linearGradient id="cs-alu-v" x1="0" y1="0" x2="1" y2="0">
@@ -320,14 +321,14 @@ function InlayView({ c, layer, x0, y0, ink, props }: { c: FlightCase; layer: 'bo
         const lines = fitLabel(it.name, f.l - 8, fs, f.w > fs * 4.2 ? 2 : 1);
         const showSize = f.w > fs * (lines.length + 1.6) * 1.15;
         const wallIn = Math.max(1.5, Math.min(6, f.l / 10, f.w / 10, it.h / 8));
+        const dpath = outlinePath(cutoutOutline(it), (x) => x0 + x, Y);
         return (
           <g key={it.id} data-item={it.id} style={{ cursor: props.onItemPointerDown ? 'grab' : undefined }} onPointerDown={props.onItemPointerDown ? (e) => props.onItemPointerDown!(e, it.id) : undefined}>
-            <rect x={x0 + it.x} y={Y(it.y + f.w)} width={f.l} height={f.w} rx={4} fill={shade(c.foam.color, -0.45)} />
-            {/* cut-out walls: lit from the top left, so the lower and right walls catch light */}
-            <rect x={x0 + it.x + wallIn} y={Y(it.y + f.w) + wallIn} width={Math.max(1, f.l - 2 * wallIn)} height={Math.max(1, f.w - 2 * wallIn)} rx={3} fill={shade(c.foam.color, -0.7)} />
-            <rect x={x0 + it.x + wallIn} y={Y(it.y + f.w) + wallIn} width={Math.max(1, f.l - 2 * wallIn)} height={Math.max(1, f.w - 2 * wallIn)} rx={3} fill="url(#cs-foam)" />
-            <rect x={x0 + it.x} y={Y(it.y + f.w)} width={f.l} height={f.w} rx={4} fill="none"
-              stroke={warn ? '#ef4444' : sel ? '#22d3ee' : shade(c.foam.color, 0.35)} strokeWidth={sel || warn ? 3 : 1} />
+            <clipPath id={`cc-${it.id}`}><path d={dpath} /></clipPath>
+            <path d={dpath} fill={shade(c.foam.color, -0.72)} />
+            <path d={dpath} fill="none" stroke={shade(c.foam.color, -0.38)} strokeWidth={wallIn * 2} clipPath={`url(#cc-${it.id})`} />
+            <path d={dpath} fill="url(#cs-foam)" clipPath={`url(#cc-${it.id})`} />
+            <path d={dpath} fill="none" stroke={warn ? '#ef4444' : sel ? '#22d3ee' : shade(c.foam.color, 0.35)} strokeWidth={sel || warn ? 3 : 1} />
             {lines.map((t, k) => (
               <text key={k} x={x0 + it.x + f.l / 2} y={Y(it.y + f.w / 2) + fs * (k - (lines.length - 1) / 2 - (showSize ? 0.45 : -0.35)) * 1.15} fontSize={fs} textAnchor="middle" fill="#f5f5f4" pointerEvents="none">{t}</text>
             ))}
@@ -342,7 +343,7 @@ function InlayView({ c, layer, x0, y0, ink, props }: { c: FlightCase; layer: 'bo
 }
 
 /** case seen from above with the lid off: aluminium closing profile on the wall tops, ball corners below */
-function TopRim({ x, y, c }: { x: number; y: number; c: FlightCase }) {
+export function TopRim({ x, y, c }: { x: number; y: number; c: FlightCase }) {
   const d = caseDims(c);
   return (
     <g>

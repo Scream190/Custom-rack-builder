@@ -151,34 +151,55 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   Abschnitte durch Linien statt Kästchen getrennt, Überschriften in normaler Schreibweise, Angaben mit Kommas statt
   Mittelpunkten.
 
-### Case-Designer (Flightcases und Schaumstoff-Einlagen)
-Oben links von *Racks* auf *Cases* umschalten. Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
+### Arbeitsbereiche
+Oben in der Kopfleiste wählst du den Arbeitsbereich: **Racks bestücken** (Geräte, Kabel, Kabelliste), **Flightcases**
+(Gehäuse konstruieren) und **Einlagen** (Schaumstoff mit Ausschnitten). Jeder Bereich ist gleich aufgebaut: darunter die
+Leiste mit deinen Racks, Cases oder Einlagen als Tabs, rechts daneben *Neu*, *Duplizieren* und *Löschen* als eine Gruppe
+und die Schalter für die Seitenbereiche. Über der Zeichenfläche liegt die Werkzeugleiste: zuerst die Ansicht, danach die
+Werkzeuge in beschrifteten Gruppen. Jeder Knopf erklärt im Tooltip, was er tut.
+
+### Case-Designer (Flightcases)
+Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
 
 - **Flightcases frei gestalten:** Innenmaß (L × B × H), Deckel (abnehmbar, Scharnierdeckel, Teleskop- bzw. Stülpdeckel oder ohne)
-  mit Deckelhöhe, Plattenstärke, Kantenprofil (Alu 30 / 35 mm oder ohne), Laminatfarbe, Kugelecken. Das Außenmaß
-  wird aus Innenmaß, Platten, Profilen, Schaum und Rollen berechnet.
+  mit Deckelhöhe, Plattenstärke, Kantenprofil (Alu 30 / 35 mm oder ohne), Laminatfarbe, Kugelecken. Außenmaß und Gewicht
+  stehen oben in den Eigenschaften und werden aus Innenmaß, Platten, Profilen, Schaum und Rollen berechnet.
 - **Beschläge pro Seite:** Butterflyverschlüsse groß/klein, Klappgriffe, Riemengriffe, Scharniere, Stapelschalen,
-  Etikettenhalter, Gleitkufen, Lenkrollen mit und ohne Bremse (75, 100, 125 mm). „Automatisch“ schlägt eine übliche Bestückung
-  passend zur Größe vor.
-- **Schaumstoff:** Boden-, Deckel- und Randschaum mit Stärke und Farbe. Inhalt als Ausschnitte: aus 16 Vorlagen
-  (Handsender, Taschensender, Laptop, Antennen, Kabeltrommel …), aus der Gerätebibliothek oder mit eigenen Maßen.
-  Ausschnitte ziehen (5-mm-Raster, `Alt` = frei), drehen, Unterteil oder Deckel, Trennwände längs/quer.
-  *Automatisch packen* verteilt alles platzsparend (MaxRects); was nicht hineinpasst, landet rot markiert neben dem Case.
-  Warnungen bei Überlappung, Ausschnitt im Randschaum oder zu wenig Höhe.
-- **Schaumstoff-Einlagen für Rackschubladen:** im Rack die Schublade wählen → *Schaumstoff-Einlage gestalten*
-  (oder in der Cases-Leiste *+ Schubladen-Einlage*). Die Einlage übernimmt das Innenmaß der Schublade und legt für
-  jede Zeile der Inhaltsliste einen Ausschnitt an (zunächst 100 × 60 mm, dann auf die tatsächlichen Maße anpassen).
-- **Ansichten:** Maßzeichnung (Innenansicht Unterteil und Deckel, Vorder- und Seitenansicht mit Beschlägen) und 3D
-  (Deckel auf/zu, Scharnierdeckel klappt auf). Dargestellt wie ein gebautes Case: Laminat mit Hammerschlag-Struktur,
-  Alu-Winkelprofile mit Nieten, Hybrid-Schließprofil, Kugelecken, versenkte Butterflyverschlüsse und Schalengriffe,
-  Lenkrollen mit Gabel, Nabe und Bremse. In 3D mit Spiegelungen und Schattenwurf, die Schaumeinlage hat ausgeschnittene
-  Aussparungen, in denen der Inhalt liegt. Schubladen-Einlagen erscheinen in einer 19"-Stahlschublade.
-- **Stückliste:** Plattenzuschnitte, Profillängen, Beschläge, Schaumteile, Gewicht (Case + Inhalt) und Volumen.
+  Etikettenhalter, Gleitkufen, Lenkrollen mit und ohne Bremse (75, 100, 125 mm). *Passend zur Größe setzen* schlägt eine
+  übliche Bestückung vor.
+- **Ansichten:** Maßzeichnung (Innenansicht, Vorder- und Seitenansicht mit Beschlägen) und 3D (Deckel auf/zu,
+  Scharnierdeckel klappt auf). Dargestellt wie ein gebautes Case: Laminat mit Hammerschlag-Struktur, Alu-Winkelprofile mit
+  Profilquerschnitt und Nieten, Hybrid-Schließprofil mit Fuge, Kugelecken mit Flanschen, gedrückte Schalen für
+  Butterflyverschlüsse und Klappgriffe, Lenkrollen mit gerundetem Reifen, Nabe, Drehkranz, Gabel und Bremspedal. In 3D mit
+  Umgebungsspiegelung, weichen Schatten und Kontaktschatten in Vertiefungen (Ambient Occlusion).
+- **Stückliste:** Plattenzuschnitte, Profillängen, Beschläge, Schaumteile mit Plattenaufbau, Gewicht und Volumen.
+- Den Schaumstoff gestaltest du im Einlagen-Designer (*Einlage bearbeiten*).
 
-**Genauigkeit:** Gewichte sind Schätzungen aus Dichten (Sperrholz 680 kg/m³, PE-Schaum 30 kg/m³, Alu-Profile
+### Einlagen-Designer (Schaumstoff-Zuschnitte)
+Eigener Arbeitsbereich für Schaumstoff-Einlagen. In der Liste stehen Schubladen-Einlagen, freie Einlagen und die Einlage
+jedes Flightcases.
+
+- **Behälter:** Rackschublade (im Rack die Schublade wählen → *Schaumstoff-Einlage gestalten*, oder *+ Neue Einlage*),
+  beliebiger Behälter mit eigenen Innenmaßen (gekaufter Koffer, Transportbox, Werkzeugkiste) oder ein Flightcase aus dem
+  Case-Designer (Unterteil und Deckel als eigene Ebenen).
+- **Ausschnitte:** eigene Maße, 16 Vorlagen oder Geräte aus der Bibliothek. Rechteckig mit einstellbarem Eckenradius oder
+  rund/oval, Schnitttiefe getrennt von der Höhe des Inhalts, Griffmulden (halbrund) an jeder Seite, Name als Gravur.
+  Schubladen-Einlagen bekommen für jede Zeile der Inhaltsliste einen Ausschnitt (zunächst 100 × 60 mm).
+- **Anordnen:** ziehen mit Raster 1, 5 oder 10 mm (`Alt` = frei), *Automatisch anordnen* mit einstellbarem Abstand
+  (MaxRects); was nicht passt, liegt rot markiert daneben. Holz-Trennwände längs und quer. Warnungen bei Überlappung,
+  Ausschnitt im Randschaum oder zu wenig Höhe.
+- **Schaumstoff:** PE (fest, geschlossenzellig), PU (weich) oder EVA (dicht, glatt), Farbe, Boden-, Rand- und Deckelstärke.
+  Die Stückliste zeigt, aus welchen handelsüblichen Plattenstärken sich jede Lage zusammensetzt (z. B. 70 mm = 50 + 20 mm).
+- **Zuschnittplan:** Draufsicht mit Gesamtmaßen, Positionsmaßen des gewählten Ausschnitts und einem Schnitt mit den
+  Schnitttiefen. Unten die Zuschnittliste mit Form, Maß, Tiefe, Position und Griffmulden.
+- **Export:** DXF für den Zuschneider (1:1, Ausschnitte als geschlossene Polylinien mit Radien und Griffmulden, Layer
+  `KONTUR` / `AUSSCHNITT` / `GRAVUR`, Namen und Tiefen auf `INFO`, das nicht geschnitten wird) und Zuschnittplan als PDF.
+
+**Genauigkeit:** Gewichte sind Schätzungen aus Dichten (Sperrholz 680 kg/m³, PE 30, PU 25, EVA 60 kg/m³, Alu-Profile
 nach Meter) und typischen Beschlaggewichten. Plattenzuschnitte sind ohne Fräs- und Falzzugaben gerechnet, das
 genaue Maß legt der Casebauer fest. Die Innenmaße von Schubladen sind aus Frontbreite, Tiefe und HE abgeleitet
-(Schätzung); vor dem Schaumzuschnitt an der Schublade selbst nachmessen.
+(Schätzung); vor dem Schaumzuschnitt an der Schublade selbst nachmessen. Die Plattenstärken je Schaumart sind übliche
+Handelsgrößen; was dein Zuschneider vorrätig hat, kann abweichen.
 
 ### Austausch mit dem RF Frequency Manager (RF-Scan-Editor)
 Beide Programme nutzen dieselben IDs (Produkt `Shure|AD4D`, Band `Shure|ULX-D|G50`). RF Frequency Manager muss dafür
@@ -208,8 +229,8 @@ nicht geändert werden.
 - **Blenden:** DXF (R12, mm, 1:1, Layer `KONTUR` / `AUSSCHNITT` / `GRAVUR`) für Frontplattenhersteller wie
   Rack247 oder Schaeffer (deren Frontplatten-Designer importiert DXF), dazu SVG und PDF-Maßzeichnung.
   Texte liegen als DXF-TEXT vor. Manche Fertiger wollen Schrift in Pfade umgewandelt; vor der Bestellung bitte deren Vorgaben prüfen.
-- **Cases (im Cases-Modus):** PDF mit Maßzeichnung und Stückliste je Case, DXF des Schaumzuschnitts (1:1, Layer
-  `KONTUR` = Außenkontur, `AUSSCHNITT` = Ausschnitte, `GRAVUR` = Beschriftung) für Schaumstoff-Zuschneider.
+- **Flightcases:** PDF mit Maßzeichnung und Stückliste je Case, dazu das DXF des Schaumzuschnitts.
+- **Einlagen:** DXF für den Zuschneider und Zuschnittplan als PDF (siehe Einlagen-Designer).
 
 Beispiele liegen in `beispiele/`.
 
@@ -228,11 +249,12 @@ Während `npm run dev` läuft, zeigt `http://localhost:5173/gallery.html` alle M
 Stack: React + TypeScript + Vite, zustand (State, Undo/Redo), SVG-Rendering, three.js (3D), jsPDF + svg2pdf (PDF).
 
 ```
-src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry, cases.ts = Case-Designer
+src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry, cases.ts = Case-Designer,
+                inlay.ts = Einlagen (Umrisse, Griffmulden, Schaumarten, Plattenaufbau)
 src/library/    Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
 src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auch für Export & 3D-Texturen
 src/ui/         Oberfläche, Editoren, Dialoge
-src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung
+src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung, caseParts.ts = Case-Bauteile, Scene3D.tsx = Studio-Betrachter
 tests/          library.ts: Prüfung der Gerätebibliothek, cases.ts: Packen, Außenmaß, Stückliste, Schubladen-Einlage,
                 collision3d.ts: Kollisionsprüfung der 3D-Kabel
 src/export/     PDF, PNG/SVG, interaktives HTML, DXF

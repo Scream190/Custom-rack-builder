@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { caseList, inlayList } from '../model/inlay';
 import { allRackTypes, useActiveRack, useStore } from '../model/store';
 import type { Bay, CableType, Face, RackKind, RackType, SignalType } from '../model/types';
 import { RACK_KIND_LABELS } from '../library/rackTypes';
@@ -262,7 +263,7 @@ export function SettingsDialog() {
 
 export function ExportDialog() {
   const mode = useStore((s) => s.mode);
-  return mode === 'cases' ? <CaseExportDialog /> : <RackExportDialog />;
+  return mode === 'cases' ? <CaseExportDialog /> : mode === 'inlays' ? <InlayExportDialog /> : <RackExportDialog />;
 }
 
 function CaseExportDialog() {
@@ -270,7 +271,7 @@ function CaseExportDialog() {
   const activeId = useStore((s) => s.activeCaseId);
   const [scope, setScope] = useState<'current' | 'all'>('current');
   const [busy, setBusy] = useState(false);
-  const cases = project.cases ?? [];
+  const cases = caseList(project);
   const cur = cases.find((c) => c.id === activeId) ?? cases[0];
   const list = scope === 'all' ? cases : cur ? [cur] : [];
   const st = useStore.getState;
@@ -309,6 +310,59 @@ function CaseExportDialog() {
             <div className="export-card">
               <h4>Projektdatei</h4>
               <p className="muted small">Komplettes Projekt mit Racks und Cases (.rackplan.json).</p>
+              <button className="btn" onClick={() => downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), `${safeFileName(project.name)}.rackplan.json`)}>Projekt speichern</button>
+            </div>
+          </div>
+        </>
+      )}
+    </Modal>
+  );
+}
+
+function InlayExportDialog() {
+  const project = useStore((s) => s.project);
+  const activeId = useStore((s) => s.activeInlayId);
+  const [scope, setScope] = useState<'current' | 'all'>('current');
+  const [busy, setBusy] = useState(false);
+  const inlays = inlayList(project);
+  const cur = inlays.find((c) => c.id === activeId) ?? inlays[0];
+  const list = scope === 'all' ? inlays : cur ? [cur] : [];
+  const st = useStore.getState;
+  return (
+    <Modal title="Export Einlagen" footer={<><span className="spacer" /><button className="btn" onClick={() => st().openModal(null)}>Schließen</button></>}>
+      {!inlays.length ? <div className="muted">Noch keine Einlagen angelegt.</div> : (
+        <>
+          <Field label="Umfang">
+            <select value={scope} onChange={(e) => setScope(e.target.value as 'current' | 'all')}>
+              <option value="current">Aktuelle Einlage ({cur?.name})</option><option value="all">Alle Einlagen ({inlays.length})</option>
+            </select>
+          </Field>
+          <div className="export-grid">
+            <div className="export-card">
+              <h4>Zuschnitt für den Schaumstoff-Zuschneider (DXF)</h4>
+              <p className="muted small">Maßstab 1:1. Layer KONTUR = Außenkontur, AUSSCHNITT = Ausschnitte mit Eckenradien und Griffmulden, GRAVUR = Gravuren, INFO = Namen und Tiefen (wird nicht geschnitten). Eine Datei je Einlage und Ebene.</p>
+              <button className="btn primary" onClick={async () => {
+                const { caseFoamDxf } = await import('../export/caseExport');
+                list.forEach((c, i) => {
+                  const layers: ('body' | 'lid')[] = c.items.some((it) => it.layer === 'lid') ? ['body', 'lid'] : ['body'];
+                  layers.forEach((l, j) => setTimeout(() => downloadBlob(new Blob([caseFoamDxf(c, l)], { type: 'application/dxf' }), `${safeFileName(c.name)}_Zuschnitt${l === 'lid' ? '_Deckel' : ''}.dxf`), (i * 2 + j) * 300));
+                });
+              }}>DXF herunterladen</button>
+            </div>
+            <div className="export-card">
+              <h4>Zuschnittplan (PDF)</h4>
+              <p className="muted small">Draufsicht mit Maßen und Schnitt je Ebene, dazu die Zuschnittliste mit Positionen, Tiefen, Griffmulden und dem Plattenaufbau.</p>
+              <button className="btn" disabled={busy} onClick={async () => {
+                setBusy(true);
+                try {
+                  const { exportInlaysPdf } = await import('../export/caseExport');
+                  downloadBlob(await exportInlaysPdf(project, list), `${safeFileName(scope === 'all' ? project.name + '_Einlagen' : list[0].name)}_Zuschnittplan.pdf`);
+                } catch (e) { st().showToast((e as Error).message, 'error'); } finally { setBusy(false); }
+              }}>{busy ? 'Erzeuge …' : 'PDF herunterladen'}</button>
+            </div>
+            <div className="export-card">
+              <h4>Projektdatei</h4>
+              <p className="muted small">Komplettes Projekt mit Racks, Cases und Einlagen (.rackplan.json).</p>
               <button className="btn" onClick={() => downloadBlob(new Blob([JSON.stringify(project, null, 2)], { type: 'application/json' }), `${safeFileName(project.name)}.rackplan.json`)}>Projekt speichern</button>
             </div>
           </div>

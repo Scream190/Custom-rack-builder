@@ -487,23 +487,18 @@ export class Builder {
   }
 }
 
-/** foam inlay with rounded rectangular cut-outs (shape in the x/z plane, extruded upwards by `t`) */
-export function inlayGeo(x0: number, z0: number, x1: number, z1: number, holes: { x: number; z: number; l: number; w: number; r?: number; circle?: boolean }[], t: number) {
+/** foam inlay with cut-outs (polygons in world x/z), extruded upwards by `t` */
+export function inlayGeo(x0: number, z0: number, x1: number, z1: number, holes: [number, number][][], t: number) {
   const shape = new THREE.Shape();
+  // shape coordinates: (x, -z); rotated so that the extrusion points up
   shape.moveTo(x0, -z1); shape.lineTo(x1, -z1); shape.lineTo(x1, -z0); shape.lineTo(x0, -z0); shape.lineTo(x0, -z1);
-  for (const h of holes) {
+  for (const poly of holes) {
     const path = new THREE.Path();
-    if (h.circle) {
-      path.absellipse(h.x + h.l / 2, -(h.z + h.w / 2), h.l / 2, h.w / 2, 0, Math.PI * 2, true, 0);
-    } else {
-      const r = Math.min(h.r ?? 6, h.l / 2 - 0.5, h.w / 2 - 0.5);
-      const a = h.x, b = h.x + h.l, c = -(h.z + h.w), d = -h.z;
-      path.moveTo(a + r, c); path.lineTo(b - r, c); path.quadraticCurveTo(b, c, b, c + r); path.lineTo(b, d - r); path.quadraticCurveTo(b, d, b - r, d);
-      path.lineTo(a + r, d); path.quadraticCurveTo(a, d, a, d - r); path.lineTo(a, c + r); path.quadraticCurveTo(a, c, a + r, c);
-    }
+    poly.forEach(([x, z], i) => (i ? path.lineTo(x, -z) : path.moveTo(x, -z)));
+    path.closePath();
     shape.holes.push(path);
   }
-  const g = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false, curveSegments: 10 });
+  const g = new THREE.ExtrudeGeometry(shape, { depth: t, bevelEnabled: false, curveSegments: 4 });
   g.rotateX(-Math.PI / 2);
   const uv = g.attributes.uv as THREE.BufferAttribute;
   for (let i = 0; i < uv.count; i++) uv.setXY(i, uv.getX(i) / FOAM_MM, uv.getY(i) / FOAM_MM);

@@ -2,6 +2,7 @@
 import { caseBom, caseDims, caseWarnings, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
 import { sampleProject } from '../src/library/sample';
 import { uid } from '../src/model/util';
+import { cutoutOutline, foamStack, inlayList, caseList, newFreeInlay, outlineBox, GRIP_R } from '../src/model/inlay';
 
 let failed = false;
 const ok = (cond: boolean, msg: string) => { if (!cond) { failed = true; console.log('  FAIL', msg); } };
@@ -37,6 +38,25 @@ const inlay = newDrawerInlay('Einlage', p.templates[drw.templateId], { rackId: r
 ok(inlay.kind === 'drawer' && inlay.items.length === (drw.contents ?? []).filter((x) => x.text.trim()).length, 'drawer inlay: one cut-out per contents line');
 ok(inlay.inner.h < p.templates[drw.templateId].heightU * 44.45, 'drawer inlay height fits the drawer');
 console.log(`drawer inlay: ${inlay.items.length} cut-outs, inner ${inlay.inner.l} × ${inlay.inner.w} × ${inlay.inner.h} mm, warnings ${caseWarnings(inlay).length}`);
+
+// 4) inlay designer helpers
+const it0 = { id: 'a', name: 'Test', l: 100, w: 60, h: 30, x: 50, y: 40, layer: 'body' as const };
+const plain = outlineBox(cutoutOutline(it0));
+ok(Math.abs(plain.x0 - 50) < 0.01 && Math.abs(plain.x1 - 150) < 0.01 && Math.abs(plain.y0 - 40) < 0.01 && Math.abs(plain.y1 - 100) < 0.01, `plain outline box ${JSON.stringify(plain)}`);
+const gripped = outlineBox(cutoutOutline({ ...it0, grips: ['front', 'right'] }));
+ok(Math.abs(gripped.y0 - (40 - GRIP_R)) < 0.01 && Math.abs(gripped.x1 - (150 + GRIP_R)) < 0.01 && Math.abs(gripped.y1 - 100) < 0.01, `grips extend the outline ${JSON.stringify(gripped)}`);
+const round = outlineBox(cutoutOutline({ ...it0, shape: 'circle' as const, l: 80, w: 80 }));
+ok(Math.abs(round.x1 - round.x0 - 80) < 0.5, 'round cut-out spans its diameter');
+const st70 = foamStack(70, 'PE');
+ok(st70.reduce((a, b) => a + b, 0) >= 70 && st70[0] === 50, `PE stack for 70 mm: ${st70.join('+')}`);
+const pj = sampleProject();
+pj.cases = [newCase('C'), newFreeInlay('F'), inlay];
+ok(inlayList(pj).length === 3 && caseList(pj).length === 1 && inlayList(pj)[0].kind !== 'case', 'inlay list: drawers and free inlays first, cases last');
+const free = newFreeInlay('F2');
+free.items = [{ ...it0, id: 'b', x: 0, y: 0 }];
+const fb = caseBom(packItems(free));
+ok(fb.foam.length === 2 && !fb.foam.some((f) => /Randschaum/.test(f.name)) && fb.weight.foam > 0, `free inlay parts: ${fb.foam.map((f) => f.name).join(', ')}`);
+console.log(`inlays: outline with grips ok, PE stack 70 mm = ${st70.join(' + ')} mm`);
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }
 console.log('case designer: ok');

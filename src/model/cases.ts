@@ -1,6 +1,7 @@
 import type { CaseFace, CaseHardware, CaseItem, DeviceTemplate, FlightCase, HardwareKind, Project } from './types';
 import { faceWidth, U } from './geometry';
 import { uid } from './util';
+import { cutDepth, FOAM_MATERIALS, foamStack, formatStack } from './inlay';
 
 /*
  * Flight case designer: dimensions, hardware, foam inlay packing, checks, parts list and weight estimate.
@@ -196,8 +197,10 @@ export interface CaseBom {
   panels: { name: string; count: number; a: number; b: number }[];
   profiles: { name: string; length: number }[];
   hardware: { label: string; count: number }[];
-  foam: { name: string; a: number; b: number; t: number }[];
-  weight: { case: number; contents: number; total: number };
+  /** stack = how the thickness is made up from standard sheets */
+  foam: { name: string; a: number; b: number; t: number; stack?: string }[];
+  /** case = empty case incl. foam, foam = foam alone */
+  weight: { case: number; contents: number; total: number; foam: number };
   volume: number;
 }
 
@@ -207,12 +210,18 @@ export function caseBom(c: FlightCase, project?: Project): CaseBom {
   const foamParts: CaseBom['foam'] = [];
   const area = (a: number, b: number) => (a * b) / 1e6;
   const usable = usableArea(c);
-  const cut = c.items.filter((i) => i.layer === 'body').reduce((s, i) => s + i.l * i.w * i.h, 0) / 1e9;
-  if (isDrawer(c)) {
-    foamParts.push({ name: 'Grundplatte', a: c.inner.l, b: c.inner.w, t: c.foam.bottom }, { name: 'Einlage mit Ausschnitten', a: c.inner.l, b: c.inner.w, t: Math.max(0, c.inner.h - c.foam.bottom - 3) });
+  const cut = c.items.reduce((s, i) => s + i.l * i.w * cutDepth(i), 0) / 1e9;
+  const mat = c.foam.material ?? 'PE';
+  const density = FOAM_MATERIALS[mat]?.density ?? FOAM_DENSITY;
+  const stackNote = (t: number) => (t > 0 ? formatStack(foamStack(t, mat)) : '');
+  if (isDrawer(c) || c.kind === 'inlay') {
+    const t = Math.max(0, c.inner.h - c.foam.bottom - 3);
+    // one block with the cut-outs; the side foam is just the margin of that block
+    foamParts.push({ name: 'Grundplatte', a: c.inner.l, b: c.inner.w, t: c.foam.bottom, stack: stackNote(c.foam.bottom) });
+    foamParts.push({ name: 'Einlage mit Ausschnitten', a: c.inner.l, b: c.inner.w, t, stack: stackNote(t) });
     const foamVol = foamParts.reduce((s, f) => s + area(f.a, f.b) * f.t / 1000, 0) - cut;
-    const w = Math.max(0, foamVol) * FOAM_DENSITY;
-    return { panels: [], profiles: [], hardware: [], foam: foamParts, weight: { case: round1(w), contents: round1(contents), total: round1(w + contents) }, volume: 0 };
+    const w = Math.max(0, foamVol) * density;
+    return { panels: [], profiles: [], hardware: [], foam: foamParts, weight: { case: round1(w), contents: round1(contents), total: round1(w + contents), foam: round1(w) }, volume: 0 };
   }
   const p = c.panel, L = c.inner.l + 2 * p, Wd = c.inner.w + 2 * p;
   const hasLid = c.lidKind !== 'none' && c.lidH > 0;
@@ -247,16 +256,18 @@ export function caseBom(c: FlightCase, project?: Project): CaseBom {
   }
   if (c.cornerBalls) { hw.set('Kugelecke', (hw.get('Kugelecke') ?? 0) + (hasLid ? 8 : 4)); hwKg += (hasLid ? 8 : 4) * BALL_CORNER_KG; }
   if (hasLid && c.lidKind === 'hinged') { hw.set('Deckelhalter', 2); hwKg += 0.2; }
-  foamParts.push({ name: 'Boden-Schaum', a: c.inner.l, b: c.inner.w, t: c.foam.bottom });
+  foamParts.push({ name: 'Boden-Schaum', a: c.inner.l, b: c.inner.w, t: c.foam.bottom, stack: stackNote(c.foam.bottom) });
   if (c.foam.sides > 0) foamParts.push({ name: 'Randschaum (Streifen)', a: round2(2 * (c.inner.l + c.inner.w)), b: d.bodyInner, t: c.foam.sides });
-  if (c.items.some((i) => i.layer === 'body')) foamParts.push({ name: 'Einlage Unterteil mit Ausschnitten', a: usable.x1 - usable.x0, b: usable.y1 - usable.y0, t: Math.round(Math.max(...c.items.filter((i) => i.layer === 'body').map((i) => i.h))) });
-  if (hasLid && c.foam.lid > 0) foamParts.push({ name: 'Deckel-Schaum', a: c.inner.l, b: c.inner.w, t: c.foam.lid });
+  const bodyItems = c.items.filter((i) => i.layer === 'body'), lidItems = c.items.filter((i) => i.layer === 'lid');
+  if (bodyItems.length) { const t = Math.round(Math.max(...bodyItems.map(cutDepth))); foamParts.push({ name: 'Einlage Unterteil mit Ausschnitten', a: usable.x1 - usable.x0, b: usable.y1 - usable.y0, t, stack: stackNote(t) }); }
+  if (hasLid && c.foam.lid > 0) foamParts.push({ name: 'Deckel-Schaum', a: c.inner.l, b: c.inner.w, t: c.foam.lid, stack: stackNote(c.foam.lid) });
+  if (hasLid && lidItems.length) { const t = Math.round(Math.max(...lidItems.map(cutDepth))); foamParts.push({ name: 'Einlage Deckel mit Ausschnitten', a: usable.x1 - usable.x0, b: usable.y1 - usable.y0, t, stack: stackNote(t) }); }
   const foamVol = foamParts.reduce((s, f) => s + (f.name.startsWith('Randschaum') ? (f.a / 1000) * (f.b / 1000) * (f.t / 1000) : area(f.a, f.b) * f.t / 1000), 0) - cut;
-  const foamKg = Math.max(0, foamVol) * FOAM_DENSITY;
+  const foamKg = Math.max(0, foamVol) * density;
   const caseKg = plyKg + profKg + hwKg + foamKg;
   return {
     panels: panels.filter((x) => x.count > 0), profiles, hardware: [...hw.entries()].map(([label, count]) => ({ label, count })), foam: foamParts,
-    weight: { case: round1(caseKg), contents: round1(contents), total: round1(caseKg + contents) }, volume: round2((d.L * d.W * d.H) / 1e9 * 1000) / 1000,
+    weight: { case: round1(caseKg), contents: round1(contents), total: round1(caseKg + contents), foam: round1(foamKg) }, volume: round2((d.L * d.W * d.H) / 1e9 * 1000) / 1000,
   };
 }
 const round1 = (n: number) => Math.round(n * 10) / 10;

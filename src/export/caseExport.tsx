@@ -6,10 +6,13 @@ import { caseBom, caseDims, footprint, isDrawer, LID_LABELS } from '../model/cas
 import { CaseSheetSvg } from '../render/CaseDrawing';
 import { Dxf } from './panelExport';
 import { pdfSafe } from './render';
+import { cutDepth, cutList, cutoutOutline, FOAM_MATERIALS, foamMaterial, inlayContainer, outlineBox } from '../model/inlay';
+import { InlaySheetSvg } from '../render/InlayDrawing';
 
 /**
- * Foam inlay as DXF (R12, mm, origin bottom-left of the inner space): outline on KONTUR, cut-outs on AUSSCHNITT,
- * names and cut depths on GRAVUR. One file per layer (body / lid).
+ * Foam inlay as DXF (R12, mm, origin bottom-left of the inner space): outer contour on KONTUR, cut-outs (with corner
+ * radii and finger grips) as closed polylines on AUSSCHNITT, engravings on GRAVUR. Names and cut depths go to INFO,
+ * which is not cut. One file per layer (body / lid).
  */
 export function caseFoamDxf(c: FlightCase, layer: 'body' | 'lid' = 'body'): string {
   const W = c.inner.w;
@@ -18,8 +21,10 @@ export function caseFoamDxf(c: FlightCase, layer: 'body' | 'lid' = 'body'): stri
   dxf.rrect('KONTUR', c.inner.l / 2, W / 2, c.inner.l, W, 0);
   for (const it of c.items.filter((i) => i.layer === layer)) {
     const f = footprint(it);
-    dxf.rrect('AUSSCHNITT', it.x + f.l / 2, W - (it.y + f.w / 2), f.l, f.w, 3);
-    dxf.text('GRAVUR', it.x + f.l / 2, W - (it.y + f.w / 2), Math.min(8, f.w / 4), `${it.name} T${it.h}`, 'center');
+    const pts = cutoutOutline(it);
+    dxf.polyline('AUSSCHNITT', pts.map(([x, y]) => [x, W - y]));
+    dxf.text('INFO', it.x + f.l / 2, W - (it.y + f.w / 2), Math.min(8, f.w / 4), `${it.name} T${cutDepth(it)}`, 'center');
+    if (it.engrave) { const bb = outlineBox(pts); dxf.text('GRAVUR', it.x + f.l / 2, W - (bb.y1 + 6), 6, it.name, 'center'); }
   }
   return dxf.build({ w: c.inner.l, h: W });
 }
@@ -74,13 +79,65 @@ export async function exportCasesPdf(project: Project, cases: FlightCase[]): Pro
     if (b.panels.length) { line('Plattenzuschnitt (ohne Fräszugaben)', true); for (const p of b.panels) line(`${p.count} ×  ${p.name}: ${Math.round(p.a)} × ${Math.round(p.b)} mm`); y += 3; }
     if (b.profiles.length) { line('Profile', true); for (const p of b.profiles) line(`${p.name}: ${String(p.length).replace('.', ',')} m`); y += 3; }
     if (b.hardware.length) { line('Beschläge', true); for (const h of b.hardware) line(`${h.count} ×  ${h.label}`); y += 3; }
-    line('Schaumstoff', true); for (const f of b.foam) line(`${f.name}: ${Math.round(f.a)} × ${Math.round(f.b)} mm, ${Math.round(f.t)} mm stark`); y += 3;
+    line('Schaumstoff', true); for (const f of b.foam) line(`${f.name}: ${Math.round(f.a)} × ${Math.round(f.b)} mm, ${Math.round(f.t)} mm stark${f.stack ? ` (${f.stack})` : ''}`); y += 3;
     if (c.items.length) {
       line('Ausschnitte (x/y ab linker vorderer Innenecke)', true);
-      for (const it of c.items) line(`${it.name}: ${it.l} × ${it.w} × ${it.h} mm${it.rot ? ' (gedreht)' : ''}, Position ${Math.round(it.x)} / ${Math.round(it.y)} mm${it.layer === 'lid' ? ', Deckel' : ''}`);
+      for (const it of c.items) line(`${it.name}: ${it.l} × ${it.w} mm, Tiefe ${cutDepth(it)} mm${it.rot ? ' (gedreht)' : ''}, Position ${Math.round(it.x)} / ${Math.round(it.y)} mm${it.layer === 'lid' ? ', Deckel' : ''}`);
     }
     if (c.notes) { y += 3; line('Notizen', true); for (const t of doc.splitTextToSize(pdfSafe(c.notes), page.w - 2 * M)) line(t); }
     doc.setFontSize(7); doc.setTextColor(150); doc.text('Erstellt mit RackPlanner – Gewichte und Zuschnitte sind Schätzwerte.', M, page.h - 6);
+  }
+  return doc.output('blob');
+}
+
+/** PDF of foam inlays: cutting plan per layer (top view with dimensions and section) and a cut list */
+export async function exportInlaysPdf(project: Project, inlays: FlightCase[]): Promise<Blob> {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const page = { w: doc.internal.pageSize.getWidth(), h: doc.internal.pageSize.getHeight() };
+  const M = 12;
+  const head = (title: string) => {
+    doc.setFont('helvetica', 'bold'); doc.setFontSize(14); doc.setTextColor(20);
+    doc.text(pdfSafe(title), M, M + 4);
+    doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(90);
+    doc.text(pdfSafe([project.name, new Date().toLocaleDateString('de-DE')].join('   |   ')), page.w - M, M + 4, { align: 'right' });
+    doc.setDrawColor(200); doc.line(M, M + 7, page.w - M, M + 7);
+  };
+  let first = true;
+  for (const c of inlays) {
+    const layers: ('body' | 'lid')[] = c.items.some((it) => it.layer === 'lid') ? ['body', 'lid'] : ['body'];
+    for (const layer of layers) {
+      if (!first) doc.addPage();
+      first = false;
+      head(`${c.name} – Zuschnitt${layer === 'lid' ? ' Deckel' : ''}`);
+      const svg = prepareSvg(renderToStaticMarkup(<InlaySheetSvg c={c} layer={layer} light />));
+      const vb = svg.viewBox.baseVal;
+      const avail = { w: page.w - 2 * M, h: page.h - 2 * M - 14 };
+      const k = Math.min(avail.w / vb.width, avail.h / vb.height);
+      try { await doc.svg(svg, { x: M + (avail.w - vb.width * k) / 2, y: M + 10, width: vb.width * k, height: vb.height * k }); } finally { svg.parentElement?.remove(); }
+      doc.setFontSize(7); doc.setTextColor(150); doc.text(pdfSafe(`Maßstab ca. 1:${Math.round(1 / k)}. Für den Zuschnitt die DXF-Datei verwenden.`), M, page.h - 6);
+    }
+    doc.addPage();
+    head(`${c.name} – Zuschnittliste`);
+    const b = caseBom(c, project);
+    let y = M + 16;
+    const line = (t: string, bold = false) => {
+      if (y > page.h - 14) { doc.addPage(); head(`${c.name} – Zuschnittliste (Forts.)`); y = M + 16; }
+      doc.setFont('helvetica', bold ? 'bold' : 'normal'); doc.setFontSize(bold ? 10.5 : 9); doc.setTextColor(30);
+      doc.text(pdfSafe(t), M, y); y += bold ? 6 : 4.8;
+    };
+    line(`Einlage für ${inlayContainer(project, c)}, Innenmaß ${c.inner.l} × ${c.inner.w} × ${c.inner.h} mm`, true);
+    line(`${FOAM_MATERIALS[foamMaterial(c)].label}, Farbe ${c.foam.color}; Gewicht Schaum ca. ${b.weight.foam} kg`);
+    y += 3;
+    line('Schaumteile', true);
+    for (const f of b.foam) line(`${f.name}: ${Math.round(f.a)} × ${Math.round(f.b)} mm, ${Math.round(f.t)} mm stark${f.stack ? ` (${f.stack})` : ''}`);
+    y += 3;
+    line('Ausschnitte (Position ab linker vorderer Innenecke)', true);
+    for (const r of cutList(c)) {
+      const grips = r.it.grips?.length ? `, Griffmulden ${r.it.grips.map((g) => ({ left: 'links', right: 'rechts', front: 'vorne', back: 'hinten' })[g]).join('/')}` : '';
+      line(`${r.it.name}: ${r.it.shape === 'circle' ? 'rund ' : ''}${r.l} × ${r.w} mm, Tiefe ${r.depth} mm, Position ${Math.round(r.x)} / ${Math.round(r.y)} mm${r.it.layer === 'lid' ? ', Deckel' : ''}${grips}${r.it.engrave ? ', graviert' : ''}${r.inside ? '' : ' – passt nicht!'}`);
+    }
+    if (c.notes) { y += 3; line('Notizen', true); for (const t of doc.splitTextToSize(pdfSafe(c.notes), page.w - 2 * M)) line(t); }
+    doc.setFontSize(7); doc.setTextColor(150); doc.text('Erstellt mit RackPlanner – Maße vor dem Zuschnitt am Behälter prüfen.', M, page.h - 6);
   }
   return doc.output('blob');
 }

@@ -9,7 +9,8 @@ import { checkPlacement, findFreeSpot } from './geometry';
 import type { RfImport } from '../integration/rf';
 
 export type ViewMode = 'front' | 'rear' | 'both' | '3d';
-export type AppMode = 'racks' | 'cases';
+/** workspaces: rack loading + cabling, rack case design, flight case design, foam inlays */
+export type AppMode = 'racks' | 'rackbuild' | 'cases' | 'inlays';
 export type NavMode = 'select' | 'orbit' | 'pan' | 'zoom';
 export const ZOOM_MIN = 0.1;
 export const ZOOM_MAX = 8;
@@ -152,6 +153,9 @@ function nextCableNumber(project: Project): number {
 
 // ---------------------------------------------------------------------------
 
+const firstCase = (p: Project) => (p.cases ?? []).find((c) => !c.kind || c.kind === 'case')?.id ?? null;
+const firstInlay = (p: Project) => { const all = p.cases ?? []; return (all.find((c) => c.kind === 'drawer' || c.kind === 'inlay') ?? all[0])?.id ?? null; };
+
 interface State {
   project: Project;
   past: Project[];
@@ -162,6 +166,8 @@ interface State {
   /** racks or the case designer */
   mode: AppMode;
   activeCaseId: string | null;
+  /** inlay shown in the inlay designer (a drawer inlay, a free inlay or the foam of a flight case) */
+  activeInlayId: string | null;
   view: ViewMode;
   selection: Selection;
   hoverCableId: string | null;
@@ -208,6 +214,7 @@ interface State {
   // case designer
   setMode(m: AppMode): void;
   setActiveCase(id: string): void;
+  setActiveInlay(id: string): void;
   addCase(c: FlightCase): void;
   updateCase(id: string, patch: Partial<FlightCase>, coalesce?: string): void;
   removeCase(id: string): void;
@@ -277,7 +284,8 @@ export const useStore = create<State>((set, get) => {
     readOnly: false,
     activeRackId: initial.racks[0]?.id ?? '',
     mode: 'racks',
-    activeCaseId: initial.cases?.[0]?.id ?? null,
+    activeCaseId: firstCase(initial),
+    activeInlayId: firstInlay(initial),
     view: 'both',
     selection: null,
     hoverCableId: null,
@@ -299,7 +307,8 @@ export const useStore = create<State>((set, get) => {
         past: keepHistory ? [...s.past, s.project] : [],
         future: [],
         activeRackId: project.racks[0]?.id ?? '',
-        activeCaseId: project.cases?.[0]?.id ?? null,
+        activeCaseId: firstCase(project),
+        activeInlayId: firstInlay(project),
         selection: null,
         pendingPort: null,
       }));
@@ -356,9 +365,11 @@ export const useStore = create<State>((set, get) => {
 
     setMode: (mode) => set({ mode, selection: null, pendingPort: null }),
     setActiveCase: (activeCaseId) => set({ activeCaseId, selection: null }),
+    setActiveInlay: (activeInlayId) => set({ activeInlayId, selection: null }),
     addCase(c) {
       get().mutate((p) => { p.cases = [...(p.cases ?? []), deepClone(c)]; });
-      set({ activeCaseId: c.id, mode: 'cases', selection: null });
+      if (!c.kind || c.kind === 'case') set({ activeCaseId: c.id, mode: 'cases', selection: null });
+      else set({ activeInlayId: c.id, mode: 'inlays', selection: null });
     },
     updateCase(id, patch, coalesce) {
       get().mutate((p) => {
@@ -368,7 +379,7 @@ export const useStore = create<State>((set, get) => {
     },
     removeCase(id) {
       get().mutate((p) => { p.cases = (p.cases ?? []).filter((c) => c.id !== id); });
-      set((s) => ({ activeCaseId: s.project.cases?.[0]?.id ?? null, selection: null }));
+      set((s) => ({ activeCaseId: firstCase(s.project), activeInlayId: firstInlay(s.project), selection: null }));
     },
     duplicateCase(id) {
       const src = get().project.cases?.find((c) => c.id === id);
