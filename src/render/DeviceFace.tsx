@@ -5,6 +5,9 @@ import { ConnectorSymbol } from './ConnectorSymbol';
 import { MountingHoles, PanelArt } from './PanelArt';
 import { ArtLayer } from './DeviceArt';
 import { DrawerFront } from './DrawerFront';
+import { devicePorts, moduleChoice } from '../model/modules';
+
+export { moduleChoice };
 
 export type PortState = 'normal' | 'connected' | 'highlight' | 'pending' | 'dim';
 
@@ -35,7 +38,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
   const isFront = panel === 'front';
   const full = tpl.slots === 1;
   const EAR = tpl.earWidth ?? DEFAULT_EAR;
-  const ports = tpl.ports.filter((p) => p.side === panel);
+  const ports = devicePorts(tpl, device).filter((p) => p.side === panel);
   const name = device?.label || tpl.name;
   const isPanel = !!tpl.panel;
   const art = isFront ? tpl.art?.front : tpl.art?.rear;
@@ -97,7 +100,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
       ) : art ? (
         <>
           <ArtLayer items={art} ink={ink} device={device} />
-          {isFront ? (tpl.modules ?? []).map((m) => <ModuleSlot key={m.name} bay={m} value={moduleChoice(tpl, m, device)} />) : null}
+          {(tpl.modules ?? []).filter((m) => (m.side ?? 'front') === panel).map((m) => <ModuleSlot key={m.name} bay={m} value={moduleChoice(tpl, m, device)} />)}
           {/* placed-device label as tape strip when the template defines no label area */}
           {isFront && device?.label && !hasLabelArea ? (
             <g pointerEvents="none">
@@ -174,12 +177,6 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
 }
 
 /** Lighten (amt > 0) or darken (amt < 0) a hex colour. */
-/** module fitted in a bay of a placed device */
-export function moduleChoice(_tpl: DeviceTemplate, m: ModuleBay, device?: Pick<PlacedDevice, "fields">): string {
-  const v = device?.fields?.[m.name];
-  return v === undefined ? m.default ?? '' : v;
-}
-
 /** charging bay: empty recess, or a module with two battery pockets and its name */
 function ModuleSlot({ bay, value }: { bay: ModuleBay; value: string }) {
   const { x, y, w, h } = bay;
@@ -195,9 +192,8 @@ function ModuleSlot({ bay, value }: { bay: ModuleBay; value: string }) {
     return (
       <g>
         <rect x={x} y={y} width={w} height={h} rx={0.8} fill="#2a2d32" stroke="#4b5057" strokeWidth={0.4} />
-        <rect x={x + 2} y={y + 2} width={w - 4} height={Math.min(4, h / 4)} rx={0.5} fill="#121316" />
-        <circle cx={x + w - 4} cy={y + h - 4} r={0.8} fill="#22c55e" />
-        <text x={x + 3} y={y + h - 2.5} fontSize={Math.min(2.6, h / 6)} fill="#e5e7eb" fontWeight={700}>{value}</text>
+        <circle cx={x + w - 3} cy={y + 3} r={0.8} fill="#22c55e" />
+        <text x={x + 3} y={y + Math.min(4, h / 4) + 0.2} fontSize={Math.min(2.4, h / 7)} fill="#e5e7eb" fontWeight={700}>{value}</text>
       </g>
     );
   }

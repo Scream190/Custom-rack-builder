@@ -143,7 +143,12 @@ export interface ModuleBay {
   name: string;
   /** position on the front panel, mm */
   x: number; y: number; w: number; h: number;
-  options: { id: string; label: string }[];
+  /** choices; a module may bring connectors (positions relative to the bay's top left corner) */
+  options: { id: string; label: string; ports?: Port[] }[];
+  /** short label used in port names, e.g. "RY1" (default: name) */
+  short?: string;
+  /** panel the bay sits on (default front) */
+  side?: Face;
   /** module fitted when nothing was chosen yet (default: empty) */
   default?: string;
   /** drawing: charging bay with two battery pockets (default) or a plain plug-in card */

@@ -1,4 +1,5 @@
 import type { Face, Project, Rack } from '../model/types';
+import { devicePorts } from '../model/modules';
 import { boxAreaHeight, boxLayout, deviceTopY, deviceViewX, faceWidth, frameBottom, holeSpacing, PANEL_GAP, rackBays, rackExtent, rackSizeLabel, railOpening, U, bayOf } from '../model/geometry';
 import { BoxFace } from './BoxFace';
 import { connectorDef } from '../model/connectors';
@@ -79,7 +80,8 @@ export function RackSvg(props: RackSvgProps) {
   let pendingSignal: string | null = null;
   if (pendingPort) {
     const d = rack.devices.find((x) => x.id === pendingPort.deviceId);
-    const p = d && project.templates[d.templateId]?.ports.find((x) => x.id === pendingPort.portId);
+    const pt = d && project.templates[d.templateId];
+    const p = d && pt ? devicePorts(pt, d).find((x) => x.id === pendingPort.portId) : undefined;
     if (p) pendingSignal = connectorDef(p.connector).signal;
   }
   const selCable = rack.cables.find((c) => c.id === selectedCableId);
@@ -190,7 +192,7 @@ export function RackSvg(props: RackSvgProps) {
         const panel: Face = d.mount === view ? 'front' : 'rear';
         const w = faceWidth(bayOf(rack, d).rackStandard) / tpl.slots;
         const states: Record<string, PortState> = {};
-        for (const p of tpl.ports) states[p.id] = portState(d.id, p.id, p.connector);
+        for (const p of devicePorts(tpl, d)) states[p.id] = portState(d.id, p.id, p.connector);
         return (
           <g key={d.id} transform={`translate(${x},${yTop})`} data-device={d.id} style={{ cursor: forExport ? undefined : 'grab' }}>
             <DeviceFace tpl={tpl} panel={panel} width={w} device={d} portStates={states} showPortLabels={s.showPortLabels} selected={d.id === selectedDeviceId} behind={d.mount !== view} />

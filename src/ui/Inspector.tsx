@@ -8,7 +8,7 @@ import { RACK_KIND_LABELS } from '../library/rackTypes';
 import { cableNumberText } from '../render/cablePaths';
 import { openDrawerInlay } from './CaseWorkspace';
 import { Menu } from './Shell';
-import { moduleChoice } from '../render/DeviceFace';
+import { devicePorts, moduleChoice } from '../model/modules';
 import type { DrawerItem, PlacedDevice, Project, Rack, RfDeviceData } from '../model/types';
 import { bandLabel, channelCount, channelLabel, rfBandsFor, rfProductOf, rfProductsFor } from '../integration/rf';
 
@@ -184,7 +184,9 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
       ) : null}
       {modules.length ? (
         <Section id="device.modules" title="Schächte" defaultOpen summary={modules.map((m) => moduleChoice(tpl, m, d) || 'leer').join(', ')}>
-          <div className="muted small">Jeder Schacht nimmt ein Modul auf. Die Auswahl erscheint auf der Front.</div>
+          <div className="muted small">{modules.some((m) => m.options.some((o) => o.ports?.length))
+            ? 'Jeder Steckplatz nimmt eine Karte auf. Ihre Anschlüsse sind normale Ports für Kabel; beim Tausch der Karte werden die Kabel daran entfernt (Rückgängig möglich).'
+            : 'Jeder Schacht nimmt ein Modul auf. Die Auswahl erscheint auf der Front.'}</div>
           {modules.map((m) => (
             <Field key={m.name} label={m.name}>
               <select disabled={ro} value={moduleChoice(tpl, m, d)} onChange={(e) => st().updateDevice(rack.id, id, { fields: { ...(d.fields ?? {}), [m.name]: e.target.value } })}>
@@ -220,9 +222,9 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
       <Section id="device.notes" title="Notizen" summary={d.notes ? d.notes.slice(0, 36) : 'keine'}>
         <textarea disabled={ro} rows={3} value={d.notes ?? ''} onChange={(e) => st().updateDevice(rack.id, id, { notes: e.target.value })} aria-label="Notizen" />
       </Section>
-      <Section id="device.ports" title={`Anschlüsse (${tpl.ports.length})`} summary={`${cables.length} belegt`}>
+      <Section id="device.ports" title={`Anschlüsse (${devicePorts(tpl, d).length})`} summary={`${cables.length} belegt`}>
       <div className="port-list">
-        {tpl.ports.map((p) => {
+        {devicePorts(tpl, d).map((p) => {
           const c = cables.find((x) => (x.a.deviceId === id && x.a.portId === p.id) || (x.b.deviceId === id && x.b.portId === p.id));
           const other = c ? resolveEnd(project, rack, c.a.deviceId === id && c.a.portId === p.id ? c.b : c.a) : null;
           return (

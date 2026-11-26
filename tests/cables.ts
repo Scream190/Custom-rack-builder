@@ -1,6 +1,10 @@
 /* Cable workshop: plug list, wiring (standard, unbalanced bridge, own assignment), custom cables and their link to
    rack cables, build instructions. */
 import { sampleProject } from '../src/library/sample';
+import { BUILTIN_DEVICES } from '../src/library/devices';
+import { resolveEnd } from '../src/model/geometry';
+import { devicePorts } from '../src/model/modules';
+import { useStore } from '../src/model/store';
 import { cableAssemblies, pinoutCards } from '../src/model/assembly';
 import { buildSteps, cableWiring, customAssemblies, defaultMap, newCustomCable, partsOf, plugOptions } from '../src/model/cableBuild';
 
@@ -52,6 +56,28 @@ const steps = buildSteps(net, cableWiring('RJ45', 'RJ45').wiring);
 ok(steps.some((s) => s.includes('T568B')) && steps.some((s) => s.includes('Kabeltester')), 'network cable steps: T568B and cable tester');
 const parts = partsOf(ca[0]);
 ok(parts.some((x) => /Reserve/.test(x.label) && Math.abs(x.count - 1.2) < 0.01), `material for 2 × 0,5 m plus reserve: ${parts.map((x) => `${x.count} ${x.label}`).join('; ')}`);
+
+// module ports: the cards in a Yamaha RPio622 bring real ports; swapping a card drops the cables that ended there
+{
+  const rpio = BUILTIN_DEVICES.find((t) => t.id === 'yam-rpio622')!;
+  const pj = sampleProject();
+  pj.templates[rpio.id] = rpio;
+  const rack = pj.racks[0];
+  rack.devices.push({ id: 'd-rpio', templateId: rpio.id, u: 1, mount: 'rear', slot: 0, fields: { 'RY-Steckplatz 2': 'RY16-DA' } });
+  const ports = devicePorts(rpio, rack.devices[rack.devices.length - 1]);
+  const in1 = ports.find((q) => q.name === 'RY1 In 1'), out1 = ports.find((q) => q.name === 'RY2 Out 1');
+  ok(!!in1 && in1.connector === 'XLR3F' && !!out1 && out1.connector === 'XLR3M', 'RY cards: inputs on slot 1, outputs on slot 2');
+  ok(ports.length === rpio.ports.length + 6 * 16, `RPio622 with six 16-channel cards: ${ports.length} ports`);
+  const other = rack.devices[0], otherTpl = pj.templates[other.templateId];
+  rack.cables.push({ id: 'c-mod', a: { deviceId: 'd-rpio', portId: out1!.id }, b: { deviceId: other.id, portId: otherTpl.ports[0].id }, typeId: pj.cableTypes[0].id } as never);
+  const end = resolveEnd(pj, rack, { deviceId: 'd-rpio', portId: out1!.id });
+  ok(!!end && end.port.name === 'RY2 Out 1' && end.pos.y > 0, 'cable end on a card port resolves to a position');
+  useStore.setState({ project: pj });
+  useStore.getState().updateDevice(rack.id, 'd-rpio', { fields: { 'RY-Steckplatz 2': 'RY16-ML-SRC' } });
+  const after = useStore.getState().project.racks[0];
+  ok(!after.cables.some((c) => c.id === 'c-mod'), 'swapping the card removes its cables');
+  console.log(`module ports: RPio622 fully fitted with ${ports.length} ports, card swap drops ${rack.cables.length + 0 - after.cables.length} cable`);
+}
 
 if (failed) { console.error('cable workshop: problems found'); process.exit(1); }
 console.log(`cable workshop: ${opts.length} plugs, wiring and links ok`);

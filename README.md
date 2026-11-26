@@ -117,7 +117,11 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   Im Inspector unter *Schächte* belegen, auch *Alle Schächte gleich belegen*; die Front zeigt je Schacht das Modul mit
   zwei Akkufächern oder „leer“. Gespeichert wird die Auswahl in den Gerätefeldern, ältere Projekte bleiben ladbar.
   Dasselbe gibt es für Einschubkarten: RY-Karten im Yamaha RPio, Module im DirectOut PRODIGY, MCR54 im Wisycom MRK16.
-  Die Front zeigt dann je Steckplatz die Karte. Die Anschlüsse der Karten selbst sind noch keine eigenen Ports.
+  Die Front zeigt dann je Steckplatz die Karte mit ihren Anschlüssen. Diese sind echte Ports: Kabel lassen sich daran
+  stecken, sie erscheinen in Kabelliste, Steckerbedarf, PDF und 3D, benannt nach Steckplatz (z. B. „RY1 In 5“, „M3 Mic
+  In 1–8“). RY16-ML-SRC bringt 16 XLR-Eingänge, RY16-DA 16 XLR-Ausgänge, RY16-AE zwei D-Sub 25 (AES), die PRODIGY-Module
+  je einen D-Sub 25. Wird eine Karte getauscht, entfernt das Programm die Kabel an ihren alten Anschlüssen (Rückgängig
+  möglich). Im Projekt gespeichert wird nur die Kartenwahl, die Ports entstehen daraus (`src/model/modules.ts`).
 - **Automatische Bibliotheks-Aktualisierung:** Gespeicherte Projekte übernehmen neue Versionen der mitgelieferten Vorlagen.
   Kabel werden über den Anschlussnamen neu zugeordnet; Kabel an Anschlüssen, die es nicht mehr gibt, werden gemeldet.
 - **Blenden-Designer:** 1–8 HE, 19"/10", Neutrik-D-Size-Ausschnitte (XLR, etherCON, BNC, powerCON, speakON, USB, HDMI …),
@@ -374,7 +378,7 @@ src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auc
 src/ui/         Oberfläche, Editoren, Dialoge, ShapeEditor.tsx = Form-Editor für Ausschnitt-Konturen
 src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung, caseParts.ts = Case-Bauteile, Scene3D.tsx = Studio-Betrachter
 tests/          library.ts: Prüfung der Gerätebibliothek, cases.ts: Packen, Außenmaß, Stückliste, Einlagen, Konturen, Rack-Designer,
-                cables.ts: Kabelbau (Steckerliste, Belegungen, Zuordnung zu Rack-Kabeln, Arbeitsschritte),
+                cables.ts: Kabelbau (Steckerliste, Belegungen, Zuordnung zu Rack-Kabeln, Arbeitsschritte, Kartenports),
                 collision3d.ts: Kollisionsprüfung der 3D-Kabel
 src/export/     PDF, PNG/SVG, interaktives HTML, DXF
 ```

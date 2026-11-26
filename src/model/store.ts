@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { devicePorts } from './modules';
 import type { CustomCable, Cable, CableEnd, CableType, CaseItem, DeviceTemplate, Face, FlightCase, PlacedBox, PlacedDevice, Project, ProjectSettings, Rack, RackType } from './types';
 import { deepClone, uid } from './util';
 import { connectorDef } from './connectors';
@@ -46,7 +47,7 @@ export const DEFAULT_SETTINGS: ProjectSettings = {
 };
 
 /** Bump when built-in templates change in a way that existing projects should pick up. */
-export const LIBRARY_VERSION = 4;
+export const LIBRARY_VERSION = 5;
 
 /** Info about the last automatic library update (for a notice in the UI). */
 export const libraryUpdate = { updated: 0, droppedCables: 0 };
@@ -89,6 +90,8 @@ export function normalizeProject(p: Project): Project {
           for (const e of [c.a, c.b]) {
             const d = (r.devices || []).find((x) => x.id === e.deviceId);
             if (!d || d.templateId !== id) continue;
+            // ports of fitted modules are rebuilt from the module choice and keep their ids
+            if (/^m\d+\./.test(e.portId)) continue;
             const nid = newIdByName.get(oldNameById.get(e.portId) ?? '');
             if (!nid) { libraryUpdate.droppedCables++; return false; }
             e.portId = nid;
@@ -529,8 +532,19 @@ export const useStore = create<State>((set, get) => {
     },
     updateDevice(rackId, deviceId, patch) {
       get().mutate((p) => {
-        const d = findRack(p, rackId)?.devices.find((x) => x.id === deviceId);
-        if (d) Object.assign(d, deepClone(patch));
+        const r = findRack(p, rackId);
+        const d = r?.devices.find((x) => x.id === deviceId);
+        if (!r || !d) return;
+        Object.assign(d, deepClone(patch));
+        // a swapped module takes its connectors along: drop the cables that ended there
+        const tpl = p.templates[d.templateId];
+        if (patch.fields && tpl?.modules?.length) {
+          const ids = new Set(devicePorts(tpl, d).map((x) => x.id));
+          const gone = (e: CableEnd) => e.deviceId === deviceId && !ids.has(e.portId);
+          const before = r.cables.length;
+          r.cables = r.cables.filter((c) => !gone(c.a) && !gone(c.b));
+          if (r.cables.length !== before) tidyYGroups(r);
+        }
       }, `dev:${deviceId}:${Object.keys(patch).join()}`);
     },
     removeDevice(rackId, deviceId) {
@@ -589,7 +603,8 @@ export const useStore = create<State>((set, get) => {
       if (busy(a) || busy(b)) { get().showToast('Port ist bereits belegt', 'error'); return; }
       const portOf = (e: CableEnd) => {
         const d = rack.devices.find((x) => x.id === e.deviceId);
-        if (d) return project.templates[d.templateId]?.ports.find((p) => p.id === e.portId);
+        const dt = d && project.templates[d.templateId];
+        if (d) return dt ? devicePorts(dt, d).find((p) => p.id === e.portId) : undefined;
         const bx = rack.boxes?.find((x) => x.id === e.deviceId);
         return bx ? project.templates[bx.templateId]?.ports.find((p) => p.id === e.portId) : undefined;
       };

@@ -1,4 +1,5 @@
 import type { Bay, Cable, CableType, DeviceTemplate, Face, PlacedBox, PlacedDevice, Port, Project, ProjectSettings, Rack, RackType } from './types';
+import { devicePorts } from './modules';
 
 /** One rack unit (Höheneinheit) in mm. */
 export const U = 44.45;
@@ -171,7 +172,7 @@ export function resolveEnd(project: Project, rack: Rack, end: { deviceId: string
   }
   const tpl = project.templates[device.templateId];
   if (!tpl) return null;
-  const port = tpl.ports.find((p) => p.id === end.portId);
+  const port = devicePorts(tpl, device).find((p) => p.id === end.portId);
   if (!port) return null;
   return { device, tpl, port, pos: portPosition(rack, device, tpl, port) };
 }
