@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { DeviceTemplate, Face, Rack } from '../model/types';
 import { useStore } from '../model/store';
-import { checkPlacement, faceWidth, panelHeight, portViewPos, resolveEnd, U } from '../model/geometry';
+import { checkPlacement, deviceTopY, deviceViewX, faceWidth, panelHeight, portViewPos, rackBays, rackExtent, resolveEnd, U } from '../model/geometry';
 import { RackSvg, type Ghost } from '../render/RackSvg';
 import { toSvg } from '../render/cablePaths';
 
@@ -24,7 +24,7 @@ interface DragState {
   startX: number;
   startY: number;
   moved: boolean;
-  target?: { u: number; slot: number; ok: boolean };
+  target?: { u: number; slot: number; bay: number; ok: boolean };
 }
 
 export function RackCanvas({ rack, view }: Props) {
@@ -41,8 +41,7 @@ export function RackCanvas({ rack, view }: Props) {
   const [mouse, setMouse] = useState<{ x: number; y: number } | null>(null);
   const drag = useRef<DragState | null>(null);
 
-  const fw = faceWidth(rack.type.rackStandard);
-  const H = rack.type.heightU * U;
+  const { w: fw, h: H } = rackExtent(rack.type);
 
   const toSvgPt = (clientX: number, clientY: number) => {
     const svg = svgWrap.current?.querySelector('svg');
@@ -55,27 +54,38 @@ export function RackCanvas({ rack, view }: Props) {
     return { x: r.x, y: r.y };
   };
 
-  /** Compute a target slot for a template whose top-left would be at (x, yTop) in svg coords. */
+  /** Compute a target (bay, U, slot) for a template whose top-left would be at (x, yTop) in svg coords. */
   const computeTarget = (tpl: DeviceTemplate, mount: Face, x: number, yTop: number, ignoreId?: string) => {
     const hU = tpl.heightU;
-    const bottomFromBottom = H - (yTop + hU * U);
+    const bays = rackBays(rack.type);
+    // the bay under the device centre (or the nearest one)
+    const rects = bays.map((b, i) => {
+      const bfw = faceWidth(b.rackStandard);
+      const x0 = view === 'front' ? b.x : fw - b.x - bfw;
+      return { i, b, bfw, x0, top: H - (b.y + b.heightU * U), bottom: H - b.y };
+    });
+    const w0 = faceWidth(rects[0].b.rackStandard) / tpl.slots;
+    const cxp = x + w0 / 2, cyp = yTop + (hU * U) / 2;
+    const dist = (r: typeof rects[number]) => Math.max(r.x0 - cxp, 0, cxp - (r.x0 + r.bfw)) + Math.max(r.top - cyp, 0, cyp - r.bottom);
+    const R = rects.reduce((best, r) => (dist(r) < dist(best) ? r : best), rects[0]);
+    const bottomFromBottom = R.bottom - (yTop + hU * U);
     let u = Math.round(bottomFromBottom / U) + 1;
-    u = Math.max(1, Math.min(rack.type.heightU - hU + 1, u));
-    const w = fw / tpl.slots;
-    const cx = x + w / 2;
-    const xm = mount === view ? cx : fw - cx;
+    u = Math.max(1, Math.min(R.b.heightU - hU + 1, u));
+    const w = R.bfw / tpl.slots;
+    const cx = x + w / 2 - R.x0;
+    const xm = mount === view ? cx : R.bfw - cx;
     const slot = Math.max(0, Math.min(tpl.slots - 1, Math.floor(xm / w)));
-    const chk = checkPlacement(project, rack, tpl, u, mount, slot, ignoreId);
-    const gx = mount === view ? slot * w : fw - slot * w - w;
+    const chk = checkPlacement(project, rack, tpl, u, mount, slot, ignoreId, R.i);
+    const gx = R.x0 + (mount === view ? slot * w : R.bfw - slot * w - w);
     const g: Ghost = {
       x: gx,
-      yTop: H - (u - 1 + hU) * U + 0.4,
+      yTop: R.bottom - (u - 1 + hU) * U + 0.4,
       w,
       h: panelHeight(hU),
       ok: chk.ok,
-      label: chk.ok ? `HE ${u}${hU > 1 ? '–' + (u + hU - 1) : ''}` : chk.reason ?? '',
+      label: chk.ok ? `${bays.length > 1 ? `Feld ${R.i + 1}, ` : ''}HE ${u}${hU > 1 ? '–' + (u + hU - 1) : ''}` : chk.reason ?? '',
     };
-    return { u, slot, ok: chk.ok, ghost: g };
+    return { u, slot, bay: R.i, ok: chk.ok, ghost: g };
   };
 
   // ------------------------------------------------------------ library DnD
@@ -86,7 +96,7 @@ export function RackCanvas({ rack, view }: Props) {
     e.dataTransfer.dropEffect = 'copy';
     if (tpl.box) return; // boxes go below the rack, no placement ghost
     const p = toSvgPt(e.clientX, e.clientY);
-    const w = fw / tpl.slots;
+    const w = faceWidth(tpl.rackStandard) / tpl.slots;
     const t = computeTarget(tpl, view, p.x - w / 2, p.y - (tpl.heightU * U) / 2);
     setGhost(t.ghost);
   };
@@ -97,10 +107,10 @@ export function RackCanvas({ rack, view }: Props) {
     e.preventDefault();
     if (tpl.box) { st().setActiveRack(rack.id); st().addBox(rack.id, tpl); libraryDrag.tpl = null; return; }
     const p = toSvgPt(e.clientX, e.clientY);
-    const w = fw / tpl.slots;
+    const w = faceWidth(tpl.rackStandard) / tpl.slots;
     const t = computeTarget(tpl, view, p.x - w / 2, p.y - (tpl.heightU * U) / 2);
     st().setActiveRack(rack.id);
-    st().placeDevice(rack.id, tpl, t.u, view, t.slot);
+    st().placeDevice(rack.id, tpl, t.u, view, t.slot, t.bay);
     libraryDrag.tpl = null;
   };
 
@@ -150,10 +160,8 @@ export function RackCanvas({ rack, view }: Props) {
       const d = rack.devices.find((x) => x.id === deviceId)!;
       const tpl = project.templates[d.templateId];
       const p = toSvgPt(e.clientX, e.clientY);
-      const yTop = H - (d.u - 1 + tpl.heightU) * U;
-      const w = fw / tpl.slots;
-      const xm = d.slot * w;
-      const gx = d.mount === view ? xm : fw - xm - w;
+      const yTop = H - deviceTopY(d, tpl, rack);
+      const gx = deviceViewX(rack, d, tpl, view);
       drag.current = { deviceId, tpl, mount: d.mount, grabDy: p.y - yTop, grabDx: p.x - gx, startX: e.clientX, startY: e.clientY, moved: false };
       (e.currentTarget as Element).setPointerCapture(e.pointerId);
       return;
@@ -184,7 +192,7 @@ export function RackCanvas({ rack, view }: Props) {
     const dr = drag.current;
     drag.current = null;
     setGhost(null);
-    if (dr?.moved && dr.target) st().moveDevice(rack.id, dr.deviceId, dr.target.u, dr.mount, dr.target.slot);
+    if (dr?.moved && dr.target) st().moveDevice(rack.id, dr.deviceId, dr.target.u, dr.mount, dr.target.slot, dr.target.bay);
   };
 
   // rubber band from pending port to mouse

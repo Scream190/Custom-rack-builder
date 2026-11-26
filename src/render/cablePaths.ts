@@ -1,5 +1,5 @@
 import type { Cable, CableType, Face, Project, Rack } from '../model/types';
-import { cableLength, faceWidth, formatLength, resolveEnd, U, type ResolvedEnd } from '../model/geometry';
+import { cableLength, formatLength, rackExtent, resolveEnd, type ResolvedEnd } from '../model/geometry';
 import { connectorDef } from '../model/connectors';
 
 export interface Pt { x: number; y: number }
@@ -39,7 +39,7 @@ export function cableLabelText(project: Project, c: Cable, length: number): stri
 }
 
 /** Convert rack-space (x from left in view, y from bottom) into svg coordinates (y down, 0 = top of top U). */
-export const toSvg = (rack: Rack, x: number, y: number): Pt => ({ x, y: rack.type.heightU * U - y });
+export const toSvg = (rack: Rack, x: number, y: number): Pt => ({ x, y: rackExtent(rack.type).h - y });
 
 function bezierMid(p0: Pt, p1: Pt, p2: Pt, p3: Pt): Pt {
   return {
@@ -97,8 +97,7 @@ const LANE = 2.6; // spacing of parallel runs (mm)
  * vertical runs that overlap in height get separate lanes, so parallel cables never cover each other.
  */
 function orthogonalDrawings(project: Project, rack: Rack, view: Face, sideGap: number, LANE: number): CableDrawing[] {
-  const fw = faceWidth(rack.type.rackStandard);
-  const H = rack.type.heightU * U;
+  const { w: fw, h: H } = rackExtent(rack.type);
   const vx = (x: number) => (view === 'front' ? x : fw - x);
   const items = collect(project, rack, view);
   const pt = (e: ResolvedEnd) => toSvg(rack, e.box ? e.pos.x : vx(e.pos.x), e.pos.y);
@@ -189,7 +188,7 @@ function orthogonalDrawings(project: Project, rack: Rack, view: Face, sideGap: n
 
 /** Hanging / straight cables (the earlier, more realistic look). */
 function organicDrawings(project: Project, rack: Rack, view: Face, sideGap: number): CableDrawing[] {
-  const fw = faceWidth(rack.type.rackStandard);
+  const fw = rackExtent(rack.type).w;
   const style = project.settings.curveStyle;
   const out: CableDrawing[] = [];
   collect(project, rack, view).forEach((it, idx) => {
@@ -220,7 +219,7 @@ function organicDrawings(project: Project, rack: Rack, view: Face, sideGap: numb
     const sideInView: 'left' | 'right' = view === 'front' ? (viaLeftFront ? 'left' : 'right') : viaLeftFront ? 'right' : 'left';
     const p0 = toSvg(rack, vx(here.pos.x), here.pos.y);
     const ex = sideInView === 'left' ? -sideGap : fw + sideGap;
-    const ey = Math.min(rack.type.heightU * U, p0.y + 10 + (idx % 8) * 3.2);
+    const ey = Math.min(rackExtent(rack.type).h, p0.y + 10 + (idx % 8) * 3.2);
     const otherName = there.device.label || there.tpl.name;
     out.push({
       cable, type, color,

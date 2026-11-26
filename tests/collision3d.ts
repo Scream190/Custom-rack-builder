@@ -2,7 +2,7 @@
 // Fails (exit code 1) when a cable touches another cable or a device that it is not connected to.
 import { sampleProject } from '../src/library/sample';
 import { route3D } from '../src/three/route3d';
-import { deviceFrontX, faceWidth, panelHeight, U } from '../src/model/geometry';
+import { bayOf, deviceFrontX, deviceTopY, faceWidth, panelHeight } from '../src/model/geometry';
 import type { Project, Rack } from '../src/model/types';
 
 type V = [number, number, number];
@@ -48,13 +48,13 @@ function segBoxDist(p: V, q: V, lo: V, hi: V) {
 function check(project: Project, rack: Rack, label: string) {
   const radiusOf = (id: string) => (project.cableTypes.find((t) => t.id === id)?.width ?? 2) * 1.1;
   const { routes } = route3D(project, rack, radiusOf);
-  const fw = faceWidth(rack.type.rackStandard);
   // chassis boxes (as drawn in Rack3D)
   const boxes = rack.devices.map((d) => {
     const t = project.templates[d.templateId];
+    const fw = faceWidth(bayOf(rack, d).rackStandard);
     const w = fw / t.slots, h = panelHeight(t.heightU), depth = Math.min(t.depth, rack.type.depth);
     const bodyW = t.bodyWidth && t.bodyWidth < w ? t.bodyWidth : t.slots === 1 && !t.panel ? Math.min(w, fw - 32) : w - 4;
-    const x0 = deviceFrontX(rack, d, t) + (w - bodyW) / 2, yTop = (d.u - 1 + t.heightU) * U - 0.4;
+    const x0 = deviceFrontX(rack, d, t) + (w - bodyW) / 2, yTop = deviceTopY(d, t, rack) - 0.4;
     const z1 = d.mount === 'front' ? -depth : -rack.type.depth, z2 = d.mount === 'front' ? 0 : -rack.type.depth + depth;
     return { id: d.id, name: d.label || t.name, lo: [x0, yTop - h, z1] as V, hi: [x0 + bodyW, yTop, z2] as V };
   });
@@ -137,6 +137,18 @@ check(p, p.racks[0], 'sample rack');
   const t0 = Date.now();
   check(q, q.racks[0], '42 U cabinet');
   console.log('   time incl. check', Date.now() - t0, 'ms');
+}
+
+
+// double rack: two bays side by side, cables between the bays
+{
+  const q = sampleProject();
+  const { BUILTIN_RACK_TYPES } = await import('../src/library/rackTypes');
+  const rk = q.racks[0];
+  rk.type = structuredClone(BUILTIN_RACK_TYPES.find((t) => t.id === 'double-case-2x12')!);
+  // second half of the devices into the right bay
+  rk.devices.forEach((d, i) => { if (i % 2) d.bay = 1; });
+  check(q, rk, 'double rack 2 × 12');
 }
 
 if (failed) { console.error('3D cable routing: collisions found'); process.exit(1); }

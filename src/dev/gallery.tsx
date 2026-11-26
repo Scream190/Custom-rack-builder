@@ -5,13 +5,14 @@ import { RFSCAN_DEVICES } from '../library/devicesRfScan';
 import { PRO_DEVICES } from '../library/devicesPro';
 import { PRO2_DEVICES } from '../library/devicesPro2';
 import { IT_DEVICES } from '../library/devicesIT';
+import { VIDEO_DEVICES } from '../library/devicesVideo';
 import { DeviceFace } from '../render/DeviceFace';
 import { faceWidth, panelHeight } from '../model/geometry';
 
 const params = new URLSearchParams(location.search);
 const only = params.get('id');
 const cat = params.get('cat');
-const list = [...BRANDED_DEVICES, ...RFSCAN_DEVICES, ...PRO_DEVICES, ...PRO2_DEVICES, ...IT_DEVICES].filter((t) => (!only || t.id === only) && (!cat || t.category === cat));
+const list = [...BRANDED_DEVICES, ...RFSCAN_DEVICES, ...PRO_DEVICES, ...PRO2_DEVICES, ...IT_DEVICES, ...VIDEO_DEVICES].filter((t) => (!only || t.id === only) && (!cat || t.category === cat));
 const S = 3; // px per mm
 
 function Gallery() {

@@ -134,6 +134,19 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   M300 (NTP/PTP), Konsolenserver Opengear CM8148, Medienkonverter-Chassis, WLAN-Controller Cisco 9800-L, KVM (ATEN CL5716,
   CS1716A), Smart-PDUs (APC AP7920B, generisch C13/C19), LWL-Patchfeld 24× LC, Patchfeld 48× RJ45, Bürstenleiste.
   Neue Stecker: QSFP, LC-Duplex, VGA.
+- **Mehrfeld-Racks:** Doppel-, Triple- und Kombiracks mit beliebig vielen Einbaufeldern. Jedes Feld hat eigene Höhe,
+  eigenen Standard (19"/10") und eine Position (nebeneinander, übereinander oder frei in mm); Felder dürfen unterschiedlich
+  hoch sein. *Rack-Typen verwalten* → „Doppelrack daraus machen“, „Triple-Rack“, „Kombirack“ oder „+ Feld“, mit Vorschau und
+  „Außenmaß aus den Feldern berechnen“. Mitgeliefert: Doppelrack 2 × 8 / 2 × 12 / 10 + 6 HE, Doppel-Shockmount 2 × 10 HE,
+  Triple-Rack 3 × 10 HE, Kombirack 4 + 10 und 6 + 12 HE, 10"-Doppelrack. Geräte werden per Drag & Drop in das Feld unter
+  dem Mauszeiger gesetzt (oder im Inspector unter „Einbaufeld“), Kabel laufen über alle Felder; Längen, 3D-Ansicht,
+  3D-Kabelführung und PDF berücksichtigen die Felder.
+- **LED-Wand-Prozessoren und weitere Videotechnik** (`src/library/devicesVideo.ts`): Novastar VX1000, VX4S-N, MCTRL4K,
+  MX40 Pro, CVT10 Pro; Brompton Tessera SX40, S8, XD; Megapixel HELIOS; Barco Event Master E2 Gen 2; Analog Way
+  Aquilon RS4; Blackmagic ATEM Television Studio 4K8, Ultimatte 12; disguise vx 2; AJA FS4; Lightware MX2-8x8; Decimator
+  DMON-16S; Ross openGear-Rahmen; Riedel MediorNet MicroN UHD; generisch: LED-Prozessor, Medienserver 2 HE,
+  HDBaseT-Sender, SDI-Multiviewer, SDI-Glasfaserstrecke. Modulare Systeme sind mit typischer Bestückung angelegt
+  (in `source`/Notizen vermerkt). Neue Stecker: DisplayPort, DVI.
 - **Oberfläche:** bewusst nüchtern wie ein CAD-Werkzeug: flache Flächen ohne Leuchtverläufe, kleine Radien,
   Abschnitte durch Linien statt Kästchen getrennt, Überschriften in normaler Schreibweise, Angaben mit Kommas statt
   Mittelpunkten.

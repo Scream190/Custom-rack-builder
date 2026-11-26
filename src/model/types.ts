@@ -185,6 +185,20 @@ export interface RackType {
   weight?: number;
   notes?: string;
   custom?: boolean;
+  /**
+   * Mounting bays of double/triple/combination racks. Without bays the rack has one bay of `heightU` / `rackStandard`.
+   * With bays, `heightU` and `rackStandard` describe the overall size / first bay (for lists only).
+   */
+  bays?: Bay[];
+}
+
+/** One mounting bay: x = left edge of its 19"/10" face, y = its bottom edge, both in mm from the bottom-left of the arrangement. */
+export interface Bay {
+  heightU: number;
+  rackStandard: 19 | 10;
+  x: number;
+  y: number;
+  label?: string;
 }
 
 export interface PlacedDevice {
@@ -196,6 +210,8 @@ export interface PlacedDevice {
   mount: Face;
   /** For fractional devices: 0..slots-1, counted from the left as seen from the mounting side. */
   slot: number;
+  /** mounting bay of a double/triple rack (index into rack.type.bays, default 0) */
+  bay?: number;
   label?: string;
   /** e.g. { Frequenz: "606.500 MHz", Kanal: "Vox 1" } */
   fields?: Record<string, string>;

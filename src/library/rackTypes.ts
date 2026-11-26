@@ -1,5 +1,5 @@
-import type { RackKind, RackType } from '../model/types';
-import { U } from '../model/geometry';
+import type { Bay, RackKind, RackType } from '../model/types';
+import { arrangeBays, rackExtent, U } from '../model/geometry';
 
 function rt(id: string, name: string, kind: RackKind, heightU: number, depth: number, opts: Partial<RackType> = {}): RackType {
   const std = opts.rackStandard ?? 19;
@@ -18,6 +18,18 @@ function rt(id: string, name: string, kind: RackKind, heightU: number, depth: nu
   };
 }
 
+/** double / triple / combination rack: bays side by side ('row') or stacked ('stack') */
+function multi(id: string, name: string, kind: RackKind, bays: Omit<Bay, 'x' | 'y'>[], depth: number, mode: 'row' | 'stack', gap = 40): RackType {
+  const arranged = arrangeBays(bays, mode, gap);
+  const base = rt(id, name, kind, bays[0].heightU, depth, { rackStandard: bays[0].rackStandard });
+  const wall = kind === 'shockmount' ? 70 : kind === 'cabinet' ? 60 : 40;
+  const top = kind === 'shockmount' ? 120 : 70;
+  const t: RackType = { ...base, bays: arranged };
+  const ext = rackExtent(t);
+  return { ...t, heightU: Math.round(ext.h / U), outer: { w: Math.round(ext.w + 2 * wall), h: Math.round(ext.h + top), d: base.outer.d } };
+}
+const b19 = (heightU: number, label?: string) => ({ heightU, rackStandard: 19 as const, label });
+
 export const BUILTIN_RACK_TYPES: RackType[] = [
   ...[2, 3, 4, 6, 8, 10, 12, 14, 16].map((h) => rt(`case-${h}u-450`, `Rackcase ${h} HE (Einbautiefe 450 mm)`, 'case', h, 450)),
   ...[4, 6, 8, 10, 12, 16].map((h) => rt(`case-${h}u-600`, `Rackcase ${h} HE tief (Einbautiefe 600 mm)`, 'case', h, 600)),
@@ -34,6 +46,15 @@ export const BUILTIN_RACK_TYPES: RackType[] = [
   rt('mini10-4u', '10" Minirack 4 HE', 'case', 4, 300, { rackStandard: 10 }),
   rt('mini10-6u', '10" Minirack 6 HE', 'case', 6, 300, { rackStandard: 10 }),
   rt('mini10-9u', '10" Minirack 9 HE', 'case', 9, 300, { rackStandard: 10 }),
+  // double / triple / combination racks
+  multi('double-case-2x8', 'Doppelrack 2 × 8 HE (450 mm)', 'case', [b19(8, 'links'), b19(8, 'rechts')], 450, 'row'),
+  multi('double-case-2x12', 'Doppelrack 2 × 12 HE (450 mm)', 'case', [b19(12, 'links'), b19(12, 'rechts')], 450, 'row'),
+  multi('double-shock-2x10', 'Doppel-Shockmount 2 × 10 HE (450 mm)', 'shockmount', [b19(10, 'links'), b19(10, 'rechts')], 450, 'row'),
+  multi('double-case-10-6', 'Doppelrack 10 + 6 HE (450 mm)', 'case', [b19(10, 'links'), b19(6, 'rechts')], 450, 'row'),
+  multi('triple-case-3x10', 'Triple-Rack 3 × 10 HE (450 mm)', 'case', [b19(10, 'links'), b19(10, 'Mitte'), b19(10, 'rechts')], 450, 'row'),
+  multi('combo-4-10', 'Kombirack 4 HE oben + 10 HE unten', 'case', [b19(4, 'oben'), b19(10, 'unten')], 450, 'stack', 30),
+  multi('combo-6-12', 'Kombirack 6 HE oben + 12 HE unten', 'case', [b19(6, 'oben'), b19(12, 'unten')], 450, 'stack', 30),
+  multi('double-10inch-2x6', '10" Doppelrack 2 × 6 HE', 'case', [{ heightU: 6, rackStandard: 10, label: 'links' }, { heightU: 6, rackStandard: 10, label: 'rechts' }], 300, 'row', 30),
 ];
 
 export const RACK_KIND_LABELS: Record<RackKind, string> = {

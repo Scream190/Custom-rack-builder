@@ -3,8 +3,8 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { Project, Rack } from '../model/types';
-import { deviceFrontX, deviceTopY, faceWidth, panelHeight, railOpening, U } from '../model/geometry';
-import { route3D } from './route3d';
+import { bayOf, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, railOpening, U } from '../model/geometry';
+import { bodyWidth3D, route3D } from './route3d';
 import { DeviceFace } from '../render/DeviceFace';
 import { useStore, type NavMode } from '../model/store';
 
@@ -183,8 +183,7 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
     ctx.textures.forEach((t) => t.dispose());
     ctx.textures = [];
     const root = ctx.content;
-    const fw = faceWidth(rack.type.rackStandard);
-    const H = rack.type.heightU * U;
+    const { w: fw, h: H } = rackExtent(rack.type);
     const D = rack.type.depth;
     const wall = Math.max(18, Math.min(70, (rack.type.outer.w - fw) / 2));
     // semi-transparent case shell: cables and devices stay visible from every angle
@@ -207,10 +206,13 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
       box(fw + 2 * wall, topH, outerD, fw / 2, -topH / 2, zMid, caseMat);
     }
     const railMat = new THREE.MeshStandardMaterial({ color: '#8a9099', metalness: 0.6, roughness: 0.4 });
-    const railW = (fw - railOpening(rack.type.rackStandard)) / 2;
-    for (const z of rack.type.hasRearRails ? [0, -D] : [0]) {
-      box(railW, H, 2, railW / 2, H / 2, (z - 1) * S, railMat);
-      box(railW, H, 2, fw - railW / 2, H / 2, (z - 1) * S, railMat);
+    for (const bay of rackBays(rack.type)) {
+      const bfw = faceWidth(bay.rackStandard), bh = bay.heightU * U;
+      const railW = (bfw - railOpening(bay.rackStandard)) / 2;
+      for (const z of rack.type.hasRearRails ? [0, -D] : [0]) {
+        box(railW, bh, 2, bay.x + railW / 2, bay.y + bh / 2, (z - 1) * S, railMat);
+        box(railW, bh, 2, bay.x + bfw - railW / 2, bay.y + bh / 2, (z - 1) * S, railMat);
+      }
     }
     ctx.grid.position.y = (-topH - 1) * S;
     ctx.center.set((fw / 2) * S, (H / 2) * S, (-D / 2) * S);
@@ -222,12 +224,12 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
       for (const d of rack.devices) {
         const tpl = project.templates[d.templateId];
         if (!tpl) continue;
-        const w = fw / tpl.slots;
+        const w = faceWidth(bayOf(rack, d).rackStandard) / tpl.slots;
         const h = panelHeight(tpl.heightU);
         const depth = Math.max(PLATE + 1, Math.min(tpl.depth, D));
         const x0 = deviceFrontX(rack, d, tpl);
-        const yTop = deviceTopY(d, tpl) - 0.4;
-        const bodyW = tpl.bodyWidth && tpl.bodyWidth < w ? tpl.bodyWidth : tpl.slots === 1 && !tpl.panel ? Math.min(w, faceWidth(rack.type.rackStandard) - 32) : w - 4;
+        const yTop = deviceTopY(d, tpl, rack) - 0.4;
+        const bodyW = bodyWidth3D(rack, tpl, d);
         const front = await panelTexture(renderToStaticMarkup(<DeviceFace tpl={tpl} panel="front" width={w} device={d} showPortLabels={project.settings.showPortLabels} />), w, h);
         const rear = await panelTexture(renderToStaticMarkup(<DeviceFace tpl={tpl} panel="rear" width={w} device={d} showPortLabels={project.settings.showPortLabels} />), w, h);
         if (cancelled) { front.dispose(); rear.dispose(); return; }

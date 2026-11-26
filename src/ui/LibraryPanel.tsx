@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { allTemplates, useActiveRack, useStore } from '../model/store';
 import type { DeviceTemplate } from '../model/types';
+import { rackBays } from '../model/geometry';
 import { libraryDrag } from './RackCanvas';
 
 /** prefix of the categories holding the user's own templates (listed first) */
@@ -65,7 +66,7 @@ export function LibraryPanel() {
               items.map((t) => (
                 <div
                   key={t.id}
-                  className={'lib-item' + (t.rackStandard !== rack.type.rackStandard ? ' incompatible' : '')}
+                  className={'lib-item' + (!t.box && !rackBays(rack.type).some((b) => b.rackStandard === t.rackStandard) ? ' incompatible' : '')}
                   draggable
                   onDragStart={(e) => {
                     libraryDrag.tpl = t;

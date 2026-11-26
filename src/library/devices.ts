@@ -5,6 +5,7 @@ import { PRO_DEVICES } from './devicesPro';
 import { PRO2_DEVICES } from './devicesPro2';
 import { BOX_DEVICES } from './devicesBoxes';
 import { IT_DEVICES } from './devicesIT';
+import { VIDEO_DEVICES } from './devicesVideo';
 
 // NOTE: dimensions and connector positions are approximations meant as a useful starting point.
 // Always verify against the manufacturer's data sheet – every template can be edited in the device editor.
@@ -33,6 +34,7 @@ export const BUILTIN_DEVICES: DeviceTemplate[] = [
   ...PRO2_DEVICES,
   ...BOX_DEVICES,
   ...IT_DEVICES,
+  ...VIDEO_DEVICES,
   // ---------------------------------------------------------------- Generic
   dev({
     id: 'gen-uhf-rx2', name: 'UHF Empfänger 2-Kanal', manufacturer: 'Generisch', category: 'UHF Empfänger',

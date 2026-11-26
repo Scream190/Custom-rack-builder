@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { allRackTypes, useActiveRack, useStore } from '../model/store';
-import type { CableType, Face, RackKind, RackType, SignalType } from '../model/types';
+import type { Bay, CableType, Face, RackKind, RackType, SignalType } from '../model/types';
 import { RACK_KIND_LABELS } from '../library/rackTypes';
 import { SIGNAL_LABELS } from '../model/connectors';
-import { faceWidth, U } from '../model/geometry';
+import { arrangeBays, faceWidth, rackBays, rackExtent, U } from '../model/geometry';
 import { deepClone, downloadBlob, safeFileName, uid } from '../model/util';
 import { Field, Modal, NumberInput } from './Modal';
 import { rackSvgSize, rackSvgString, svgToPngBlob } from '../export/render';
@@ -19,11 +19,30 @@ export function RackTypeEditor() {
   const [draft, setDraft] = useState<RackType>(() => ({ ...deepClone(rack.type), id: uid('rt-'), name: rack.type.name + ' (eigen)', custom: true }));
   const set = (p: Partial<RackType>) => setDraft((d) => ({ ...d, ...p }));
   const isExisting = project.rackTypes.some((t) => t.id === draft.id);
+  const [gap, setGap] = useState(40);
+  const bays = draft.bays?.length ? draft.bays : null;
+  const ext = rackExtent(draft);
+  const setBays = (b: Bay[] | null) => setDraft((d) => {
+    if (!b) { const first = d.bays?.[0]; const { bays: _drop, ...rest } = d; void _drop; return { ...rest, heightU: first?.heightU ?? d.heightU, rackStandard: first?.rackStandard ?? d.rackStandard }; }
+    const next = { ...d, bays: b };
+    const e = rackExtent(next);
+    return { ...next, heightU: Math.round(e.h / U), rackStandard: b[0].rackStandard };
+  });
+  const setBay = (i: number, p: Partial<Bay>) => setBays(bays!.map((b, j) => (j === i ? { ...b, ...p } : b)));
+  const fitOuter = () => {
+    const wall = draft.kind === 'shockmount' ? 70 : draft.kind === 'cabinet' ? 60 : draft.kind === 'open' ? 25 : 40;
+    const top = draft.kind === 'cabinet' || draft.kind === 'shockmount' ? 120 : draft.kind === 'open' ? 40 : 70;
+    set({ outer: { ...draft.outer, w: Math.round(ext.w + 2 * wall), h: Math.round(ext.h + top) } });
+  };
   const st = useStore.getState;
 
   const save = (apply: boolean) => {
     st().upsertRackType(draft);
-    if (apply) st().updateRack(rack.id, { type: draft });
+    if (apply) {
+      // devices in bays that no longer exist move to the first bay
+      const n = rackBays(draft).length;
+      st().updateRack(rack.id, { type: draft, devices: rack.devices.map((d) => ((d.bay ?? 0) < n ? d : { ...d, bay: undefined })) });
+    }
     st().showToast(`Rack-Typ „${draft.name}“ gespeichert`);
   };
 
@@ -59,19 +78,67 @@ export function RackTypeEditor() {
                 {Object.entries(RACK_KIND_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
               </select>
             </Field>
-            <Field label="Standard">
-              <select value={draft.rackStandard} onChange={(e) => set({ rackStandard: Number(e.target.value) as 19 | 10 })}>
-                <option value={19}>19"</option><option value={10}>10"</option>
-              </select>
-            </Field>
+            {!bays ? (
+              <Field label="Standard">
+                <select value={draft.rackStandard} onChange={(e) => set({ rackStandard: Number(e.target.value) as 19 | 10 })}>
+                  <option value={19}>19"</option><option value={10}>10"</option>
+                </select>
+              </Field>
+            ) : null}
           </div>
           <div className="row gap8">
-            <Field label="Höhe (HE)"><NumberInput value={draft.heightU} min={1} max={60} onChange={(v) => set({ heightU: Math.round(v), outer: { ...draft.outer, h: Math.round(Math.round(v) * U + (draft.outer.h - draft.heightU * U)) } })} /></Field>
+            {!bays ? <Field label="Höhe (HE)"><NumberInput value={draft.heightU} min={1} max={60} onChange={(v) => set({ heightU: Math.round(v), outer: { ...draft.outer, h: Math.round(Math.round(v) * U + (draft.outer.h - draft.heightU * U)) } })} /></Field> : null}
             <Field label="Einbautiefe (mm)" hint="Schiene vorne bis Schiene hinten"><NumberInput value={draft.depth} min={50} onChange={(v) => set({ depth: v })} /></Field>
           </div>
+
+          <h4>Einbaufelder</h4>
+          {!bays ? (
+            <div className="row gap8 wrap">
+              <span className="muted small">Ein Einbaufeld ({draft.heightU} HE, {draft.rackStandard}").</span>
+              <button className="btn sm" onClick={() => setBays(arrangeBays([{ heightU: draft.heightU, rackStandard: draft.rackStandard, label: 'links' }, { heightU: draft.heightU, rackStandard: draft.rackStandard, label: 'rechts' }], 'row', gap))}>Doppelrack daraus machen</button>
+              <button className="btn sm" onClick={() => setBays(arrangeBays([{ heightU: draft.heightU, rackStandard: draft.rackStandard, label: 'links' }, { heightU: draft.heightU, rackStandard: draft.rackStandard, label: 'Mitte' }, { heightU: draft.heightU, rackStandard: draft.rackStandard, label: 'rechts' }], 'row', gap))}>Triple-Rack</button>
+              <button className="btn sm" onClick={() => setBays(arrangeBays([{ heightU: 4, rackStandard: draft.rackStandard, label: 'oben' }, { heightU: draft.heightU, rackStandard: draft.rackStandard, label: 'unten' }], 'stack', gap))}>Kombirack (oben + unten)</button>
+            </div>
+          ) : (
+            <>
+              <table className="ct-table">
+                <thead><tr><th>Name</th><th>HE</th><th>Std.</th><th>x (mm)</th><th>y (mm)</th><th /></tr></thead>
+                <tbody>
+                  {bays.map((b, i) => (
+                    <tr key={i}>
+                      <td><input value={b.label ?? ''} placeholder={`Feld ${i + 1}`} onChange={(e) => setBay(i, { label: e.target.value || undefined })} /></td>
+                      <td><NumberInput value={b.heightU} min={1} max={60} onChange={(v) => setBay(i, { heightU: Math.max(1, Math.round(v)) })} style={{ width: 60 }} /></td>
+                      <td><select value={b.rackStandard} onChange={(e) => setBay(i, { rackStandard: Number(e.target.value) as 19 | 10 })}><option value={19}>19"</option><option value={10}>10"</option></select></td>
+                      <td><NumberInput value={Math.round(b.x)} step={5} min={0} onChange={(v) => setBay(i, { x: Math.max(0, v) })} style={{ width: 70 }} /></td>
+                      <td><NumberInput value={Math.round(b.y)} step={5} min={0} onChange={(v) => setBay(i, { y: Math.max(0, v) })} style={{ width: 70 }} /></td>
+                      <td><button className="icon-btn" title="Feld entfernen" onClick={() => setBays(bays.length > 2 ? bays.filter((_, j) => j !== i) : null)}>✕</button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="row gap8 wrap align-end">
+                <button className="btn sm" onClick={() => setBays([...bays, { heightU: bays[bays.length - 1].heightU, rackStandard: bays[bays.length - 1].rackStandard, x: rackExtent({ ...draft, bays }).w + gap, y: 0 }])}>+ Feld</button>
+                <Field label="Abstand (mm)"><NumberInput value={gap} min={0} step={5} onChange={(v) => setGap(Math.max(0, v))} style={{ width: 70 }} /></Field>
+                <button className="btn sm" onClick={() => setBays(arrangeBays(bays, 'row', gap))}>Nebeneinander anordnen</button>
+                <button className="btn sm" onClick={() => setBays(arrangeBays(bays, 'stack', gap))}>Übereinander anordnen</button>
+                <button className="btn sm" onClick={() => setBays(null)}>Ein Feld</button>
+              </div>
+              <svg className="bay-preview" viewBox={`${-20} ${-20} ${ext.w + 40} ${ext.h + 40}`} style={{ width: '100%', maxHeight: 180 }}>
+                <rect x={-20} y={-20} width={ext.w + 40} height={ext.h + 40} rx={10} fill={draft.color} opacity={0.6} />
+                {bays.map((b, i) => (
+                  <g key={i}>
+                    <rect x={b.x} y={ext.h - b.y - b.heightU * U} width={faceWidth(b.rackStandard)} height={b.heightU * U} fill="#0c0d0f" stroke="#5b6068" strokeWidth={4} />
+                    <text x={b.x + faceWidth(b.rackStandard) / 2} y={ext.h - b.y - (b.heightU * U) / 2 + 12} fontSize={34} textAnchor="middle" fill="#e5e7eb">{b.label || `Feld ${i + 1}`}: {b.heightU} HE</text>
+                  </g>
+                ))}
+              </svg>
+              <div className="hint" style={{ padding: 0 }}>x/y = linke untere Ecke des Feldes in mm. Felder dürfen unterschiedlich hoch sein und auch übereinander liegen.</div>
+            </>
+          )}
+          <button className="btn sm" onClick={fitOuter}>Außenmaß aus den Feldern berechnen</button>
           <label className="check"><input type="checkbox" checked={draft.hasRearRails} onChange={(e) => set({ hasRearRails: e.target.checked })} /> Hintere Rackschienen (Rückseiten-Montage möglich)</label>
           <div className="row gap8">
-            <Field label="Außen B"><NumberInput value={draft.outer.w} min={faceWidth(draft.rackStandard)} onChange={(v) => set({ outer: { ...draft.outer, w: v } })} /></Field>
+            <Field label="Außen B"><NumberInput value={draft.outer.w} min={ext.w} onChange={(v) => set({ outer: { ...draft.outer, w: v } })} /></Field>
             <Field label="Außen H"><NumberInput value={draft.outer.h} onChange={(v) => set({ outer: { ...draft.outer, h: v } })} /></Field>
             <Field label="Außen T"><NumberInput value={draft.outer.d} onChange={(v) => set({ outer: { ...draft.outer, d: v } })} /></Field>
           </div>

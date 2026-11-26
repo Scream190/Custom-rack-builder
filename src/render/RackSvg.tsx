@@ -1,5 +1,5 @@
 import type { Face, Project, Rack } from '../model/types';
-import { boxAreaHeight, boxLayout, deviceTopY, deviceViewX, faceWidth, frameBottom, holeSpacing, PANEL_GAP, railOpening, U } from '../model/geometry';
+import { boxAreaHeight, boxLayout, deviceTopY, deviceViewX, faceWidth, frameBottom, holeSpacing, PANEL_GAP, rackBays, rackExtent, rackSizeLabel, railOpening, U, bayOf } from '../model/geometry';
 import { BoxFace } from './BoxFace';
 import { connectorDef } from '../model/connectors';
 import { DeviceFace, shade, type PortState } from './DeviceFace';
@@ -36,8 +36,8 @@ export interface RackSvgProps {
 }
 
 export function rackLayout(rack: Rack, project?: Project) {
-  const fw = faceWidth(rack.type.rackStandard);
-  const H = rack.type.heightU * U;
+  // fw / H: the whole bay arrangement (one 19" face for a plain rack)
+  const { w: fw, h: H } = rackExtent(rack.type);
   const kind = rack.type.kind;
   const wall = Math.max(18, Math.min(70, (rack.type.outer.w - fw) / 2));
   const topFrame = kind === 'cabinet' ? 60 : kind === 'open' ? 22 : 34;
@@ -104,9 +104,6 @@ export function RackSvg(props: RackSvgProps) {
   const cables = computeCableDrawings(project, rack, view, L.sideGap);
   const focusId = hoverCableId ?? selectedCableId ?? null;
   const caseColor = rt.color;
-  const holeX = (fw - holeSpacing(rt.rackStandard)) / 2;
-  const opening = railOpening(rt.rackStandard);
-  const openX = (fw - opening) / 2;
   const railVisible = view === 'front' || rt.hasRearRails;
 
   return (
@@ -140,34 +137,48 @@ export function RackSvg(props: RackSvgProps) {
       {rt.kind === 'shockmount' ? (
         <rect x={-wall + 14} y={-topFrame + 14} width={fw + 2 * wall - 28} height={H + topFrame + bottomFrame - 28} rx={6} fill="none" stroke="#000" strokeOpacity={0.5} strokeWidth={2} strokeDasharray="6 4" />
       ) : null}
-      {/* opening */}
-      <rect x={openX - 2} y={-2} width={opening + 4} height={H + 4} fill="#0c0d0f" />
-      {/* rails */}
-      {railVisible ? (
-        <g>
-          <rect x={0} y={0} width={openX} height={H} fill="#5b6068" />
-          <rect x={fw - openX} y={0} width={openX} height={H} fill="#5b6068" />
-          {Array.from({ length: rt.heightU }, (_, i) => {
-            const uTop = i * U;
-            return [6.35, 22.225, 38.1].map((o) => (
-              <g key={`${i}-${o}`}>
-                <rect x={holeX - 2.4} y={uTop + o - 2.4} width={4.8} height={4.8} fill="#111" />
-                <rect x={fw - holeX - 2.4} y={uTop + o - 2.4} width={4.8} height={4.8} fill="#111" />
-              </g>
-            ));
-          })}
-        </g>
-      ) : (
-        <rect x={0} y={0} width={fw} height={H} fill="#111" />
-      )}
-      {/* U numbering on the case walls (U1 = bottom) */}
-      {Array.from({ length: rt.heightU }, (_, i) => {
-        const u = rt.heightU - i;
-        const y = i * U + U / 2 + 1.8;
+      {/* bays: opening, rails and U numbering per bay (mirrored in the rear view) */}
+      {rackBays(rt).map((bay, bi) => {
+        const bfw = faceWidth(bay.rackStandard);
+        const bx = view === 'front' ? bay.x : fw - bay.x - bfw;
+        const bTop = H - (bay.y + bay.heightU * U);
+        const bH = bay.heightU * U;
+        const hx = (bfw - holeSpacing(bay.rackStandard)) / 2;
+        const op = railOpening(bay.rackStandard);
+        const ox = (bfw - op) / 2;
+        const multi = rackBays(rt).length > 1;
         return (
-          <g key={u} fontSize={5} fill="#d1d5db" opacity={0.75}>
-            <text x={-wall / 2} y={y} textAnchor="middle">{u}</text>
-            <text x={fw + wall / 2} y={y} textAnchor="middle">{u}</text>
+          <g key={bi} transform={`translate(${bx},${bTop})`}>
+            {multi ? <rect x={-6} y={-6} width={bfw + 12} height={bH + 12} fill={shade(caseColor, -0.25)} /> : null}
+            <rect x={ox - 2} y={-2} width={op + 4} height={bH + 4} fill="#0c0d0f" />
+            {railVisible ? (
+              <g>
+                <rect x={0} y={0} width={ox} height={bH} fill="#5b6068" />
+                <rect x={bfw - ox} y={0} width={ox} height={bH} fill="#5b6068" />
+                {Array.from({ length: bay.heightU }, (_, i) => {
+                  const uTop = i * U;
+                  return [6.35, 22.225, 38.1].map((o) => (
+                    <g key={`${i}-${o}`}>
+                      <rect x={hx - 2.4} y={uTop + o - 2.4} width={4.8} height={4.8} fill="#111" />
+                      <rect x={bfw - hx - 2.4} y={uTop + o - 2.4} width={4.8} height={4.8} fill="#111" />
+                    </g>
+                  ));
+                })}
+              </g>
+            ) : (
+              <rect x={0} y={0} width={bfw} height={bH} fill="#111" />
+            )}
+            {Array.from({ length: bay.heightU }, (_, i) => {
+              const u = bay.heightU - i;
+              const y = i * U + U / 2 + 1.8;
+              return (
+                <g key={u} fontSize={5} fill="#d1d5db" opacity={0.75}>
+                  <text x={multi ? -3 : -wall / 2} y={y} textAnchor={multi ? 'end' : 'middle'}>{u}</text>
+                  {!multi ? <text x={bfw + wall / 2} y={y} textAnchor="middle">{u}</text> : null}
+                </g>
+              );
+            })}
+            {multi && bay.label ? <text x={bfw / 2} y={-8} fontSize={4.5} textAnchor="middle" fill="#d1d5db">{bay.label}</text> : null}
           </g>
         );
       })}
@@ -175,9 +186,9 @@ export function RackSvg(props: RackSvgProps) {
       {/* devices */}
       {devices.map(({ d, tpl }) => {
         const x = deviceViewX(rack, d, tpl, view);
-        const yTop = H - deviceTopY(d, tpl) + PANEL_GAP / 2;
+        const yTop = H - deviceTopY(d, tpl, rack) + PANEL_GAP / 2;
         const panel: Face = d.mount === view ? 'front' : 'rear';
-        const w = fw / tpl.slots;
+        const w = faceWidth(bayOf(rack, d).rackStandard) / tpl.slots;
         const states: Record<string, PortState> = {};
         for (const p of tpl.ports) states[p.id] = portState(d.id, p.id, p.connector);
         return (
@@ -264,7 +275,7 @@ export function RackSvg(props: RackSvgProps) {
 
       {/* footer: rack info */}
       <text x={-wall} y={H + bottomFrame + 9 + (boxes.length ? 0 : 0)} fontSize={4.2} fill={forExport ? '#555' : 'currentColor'} opacity={0.7}>
-        {`${rt.name}, ${rt.heightU} HE, Einbautiefe ${rt.depth} mm`}
+        {`${rt.name}, ${rackSizeLabel(rt)}, Einbautiefe ${rt.depth} mm`}
       </text>
     </svg>
   );

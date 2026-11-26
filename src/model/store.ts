@@ -206,9 +206,9 @@ interface State {
   updateRack(id: string, patch: Partial<Omit<Rack, 'id'>>): void;
 
   // devices
-  placeDevice(rackId: string, tpl: DeviceTemplate, u: number, mount: Face, slot: number): string | null;
+  placeDevice(rackId: string, tpl: DeviceTemplate, u: number, mount: Face, slot: number, bay?: number): string | null;
   addDeviceAuto(rackId: string, tpl: DeviceTemplate, mount: Face): void;
-  moveDevice(rackId: string, deviceId: string, u: number, mount: Face, slot: number): boolean;
+  moveDevice(rackId: string, deviceId: string, u: number, mount: Face, slot: number, bay?: number): boolean;
   updateDevice(rackId: string, deviceId: string, patch: Partial<PlacedDevice>): void;
   removeDevice(rackId: string, deviceId: string): void;
   duplicateDevice(rackId: string, deviceId: string): void;
@@ -380,18 +380,18 @@ export const useStore = create<State>((set, get) => {
       }, `rack:${id}:${Object.keys(patch).join()}`);
     },
 
-    placeDevice(rackId, tpl, u, mount, slot) {
+    placeDevice(rackId, tpl, u, mount, slot, bay = 0) {
       const { project } = get();
       const rack = findRack(project, rackId);
       if (!rack) return null;
       const probe = { ...project, templates: { ...project.templates, [tpl.id]: tpl } };
-      const chk = checkPlacement(probe, rack, tpl, u, mount, slot);
+      const chk = checkPlacement(probe, rack, tpl, u, mount, slot, undefined, bay);
       if (!chk.ok) { get().showToast(chk.reason ?? 'Platz belegt', 'error'); return null; }
       if (chk.warning) get().showToast(chk.warning);
       const id = uid('dev-');
       get().mutate((p) => {
         if (!p.templates[tpl.id]) p.templates[tpl.id] = deepClone(tpl);
-        findRack(p, rackId)!.devices.push({ id, templateId: tpl.id, u, mount, slot });
+        findRack(p, rackId)!.devices.push({ id, templateId: tpl.id, u, mount, slot, ...(bay ? { bay } : {}) });
       });
       set({ selection: { kind: 'device', id } });
       return id;
@@ -405,20 +405,22 @@ export const useStore = create<State>((set, get) => {
       let m = mount;
       if (!spot && rack.type.hasRearRails) { m = mount === 'front' ? 'rear' : 'front'; spot = findFreeSpot(probe, rack, tpl, m); }
       if (!spot) { get().showToast('Kein freier Platz im Rack', 'error'); return; }
-      get().placeDevice(rackId, tpl, spot.u, m, spot.slot);
+      get().placeDevice(rackId, tpl, spot.u, m, spot.slot, spot.bay);
     },
-    moveDevice(rackId, deviceId, u, mount, slot) {
+    moveDevice(rackId, deviceId, u, mount, slot, bay) {
       const { project } = get();
       const rack = findRack(project, rackId);
       const d = rack?.devices.find((x) => x.id === deviceId);
       if (!rack || !d) return false;
-      if (d.u === u && d.mount === mount && d.slot === slot) return true;
+      const b = bay ?? d.bay ?? 0;
+      if (d.u === u && d.mount === mount && d.slot === slot && (d.bay ?? 0) === b) return true;
       const tpl = project.templates[d.templateId];
-      const chk = checkPlacement(project, rack, tpl, u, mount, slot, deviceId);
+      const chk = checkPlacement(project, rack, tpl, u, mount, slot, deviceId, b);
       if (!chk.ok) { get().showToast(chk.reason ?? 'Platz belegt', 'error'); return false; }
       get().mutate((p) => {
         const dd = findRack(p, rackId)!.devices.find((x) => x.id === deviceId)!;
         dd.u = u; dd.mount = mount; dd.slot = slot;
+        if (b) dd.bay = b; else delete dd.bay;
       });
       return true;
     },
@@ -448,7 +450,7 @@ export const useStore = create<State>((set, get) => {
       if (!spot) { get().showToast('Kein freier Platz im Rack', 'error'); return; }
       const id = uid('dev-');
       get().mutate((p) => {
-        findRack(p, rackId)!.devices.push({ ...deepClone(d), id, u: spot.u, slot: spot.slot, label: d.label ? d.label + ' (2)' : undefined });
+        findRack(p, rackId)!.devices.push({ ...deepClone(d), id, u: spot.u, slot: spot.slot, bay: spot.bay || undefined, label: d.label ? d.label + ' (2)' : undefined });
       });
       set({ selection: { kind: 'device', id } });
     },

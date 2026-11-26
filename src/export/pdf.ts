@@ -1,7 +1,7 @@
 import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { Face, Project, Rack } from '../model/types';
-import { cableLength, formatLength } from '../model/geometry';
+import { cableLength, formatLength, rackSizeLabel, totalUnits } from '../model/geometry';
 import { assemblySheetString, pdfSafe, pinoutSheetString, rackSvgSize, rackSvgString } from './render';
 import { cableAssemblies, panelDemand, pinoutCards, plugDemand, type Assembly, type PinoutCard } from '../model/assembly';
 import { cardHeight } from '../render/PinoutSheet';
@@ -138,7 +138,7 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
       if (lx > page.w - 60) break;
     }
     doc.setTextColor(100);
-    doc.text(pdfSafe(`${rack.type.name}, ${RACK_KIND_LABELS[rack.type.kind]}, Außenmaß ${rack.type.outer.w}×${rack.type.outer.h}×${rack.type.outer.d} mm`), MARGIN, ly + 5);
+    doc.text(pdfSafe(`${rack.type.name} (${rackSizeLabel(rack.type)}), ${RACK_KIND_LABELS[rack.type.kind]}, Außenmaß ${rack.type.outer.w}×${rack.type.outer.h}×${rack.type.outer.d} mm`), MARGIN, ly + 5);
     footer(doc, page);
 
     // ---- cable list
@@ -263,7 +263,7 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
       const stats = rackStats(project, rack);
       y += 7;
       doc.setFontSize(9); doc.setTextColor(40);
-      const sum = [`Belegt: ${stats.used} / ${rack.type.heightU} HE`, stats.weight ? `Gewicht ca. ${stats.weight.toFixed(1)} kg` : '', stats.power ? `Leistung ca. ${stats.power} W` : ''].filter(Boolean).join('   |   ');
+      const sum = [`Belegt: ${stats.used} / ${totalUnits(rack.type)} HE`, stats.weight ? `Gewicht ca. ${stats.weight.toFixed(1)} kg` : '', stats.power ? `Leistung ca. ${stats.power} W` : ''].filter(Boolean).join('   |   ');
       doc.text(pdfSafe(sum), MARGIN, y);
       if (rack.notes) { doc.text(doc.splitTextToSize(pdfSafe('Notizen: ' + rack.notes), page.w - 2 * MARGIN), MARGIN, y + 6); y += 6; }
       // full drawer contents

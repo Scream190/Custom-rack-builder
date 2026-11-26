@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { allRackTypes, useActiveRack, useStore } from '../model/store';
-import { cableLength, formatLength, resolveEnd, usedUnits } from '../model/geometry';
+import { bayOf, cableLength, formatLength, rackBays, rackSizeLabel, resolveEnd, totalUnits, usedUnits } from '../model/geometry';
 import { connectorDef, SIGNAL_LABELS } from '../model/connectors';
 import { RACK_KIND_LABELS } from '../library/rackTypes';
 import { cableNumberText } from '../render/cablePaths';
@@ -83,8 +83,9 @@ function RackInspector({ rack, project }: { rack: Rack; project: Project }) {
       {!ro ? <button className="btn sm" onClick={() => st().openModal({ kind: 'rackTypes' })}>Rack-Typen verwalten …</button> : null}
       <div className="stats">
         <div><span>Bauart</span><b>{RACK_KIND_LABELS[rack.type.kind]}</b></div>
-        <div><span>Höhe</span><b>{rack.type.heightU} HE ({rack.type.rackStandard}")</b></div>
-        <div><span>Belegt</span><b>{stats.used} / {rack.type.heightU} HE</b></div>
+        <div><span>Größe</span><b>{rackSizeLabel(rack.type)} ({Array.from(new Set(rackBays(rack.type).map((b) => `${b.rackStandard}"`))).join(' / ')})</b></div>
+        {rackBays(rack.type).length > 1 ? <div><span>Einbaufelder</span><b>{rackBays(rack.type).length}</b></div> : null}
+        <div><span>Belegt</span><b>{stats.used} / {totalUnits(rack.type)} HE</b></div>
         <div><span>Einbautiefe</span><b>{rack.type.depth} mm</b></div>
         <div><span>Außenmaß</span><b>{rack.type.outer.w} × {rack.type.outer.h} × {rack.type.outer.d} mm</b></div>
         <div><span>Hintere Schienen</span><b>{rack.type.hasRearRails ? 'ja' : 'nein'}</b></div>
@@ -140,9 +141,16 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
       <Field label="Bezeichnung">
         <input disabled={ro} placeholder={tpl.name} value={d.label ?? ''} onChange={(e) => st().updateDevice(rack.id, id, { label: e.target.value || undefined })} />
       </Field>
+      {rackBays(rack.type).length > 1 ? (
+        <Field label="Einbaufeld">
+          <select disabled={ro} value={d.bay ?? 0} onChange={(e) => st().moveDevice(rack.id, id, d.u, d.mount, d.slot, Number(e.target.value))}>
+            {rackBays(rack.type).map((b, i) => <option key={i} value={i}>{b.label || `Feld ${i + 1}`} ({b.heightU} HE, {b.rackStandard}")</option>)}
+          </select>
+        </Field>
+      ) : null}
       <div className="row gap8">
         <Field label="HE (unten)">
-          <input disabled={ro} type="number" min={1} max={rack.type.heightU} value={d.u} onChange={(e) => st().moveDevice(rack.id, id, Number(e.target.value), d.mount, d.slot)} />
+          <input disabled={ro} type="number" min={1} max={bayOf(rack, d).heightU} value={d.u} onChange={(e) => st().moveDevice(rack.id, id, Number(e.target.value), d.mount, d.slot)} />
         </Field>
         <Field label="Montage">
           <select disabled={ro} value={d.mount} onChange={(e) => st().moveDevice(rack.id, id, d.u, e.target.value as 'front' | 'rear', d.slot)}>

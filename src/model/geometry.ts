@@ -1,4 +1,4 @@
-import type { Cable, CableType, DeviceTemplate, Face, PlacedBox, PlacedDevice, Port, Project, ProjectSettings, Rack, RackType } from './types';
+import type { Bay, Cable, CableType, DeviceTemplate, Face, PlacedBox, PlacedDevice, Port, Project, ProjectSettings, Rack, RackType } from './types';
 
 /** One rack unit (Höheneinheit) in mm. */
 export const U = 44.45;
@@ -15,30 +15,66 @@ export const panelHeight = (heightU: number) => heightU * U - PANEL_GAP;
 
 export const opposite = (f: Face): Face => (f === 'front' ? 'rear' : 'front');
 
-export function deviceWidth(rack: Rack | RackType, tpl: DeviceTemplate): number {
-  const std = 'type' in rack ? rack.type.rackStandard : rack.rackStandard;
+// ---------------------------------------------------------------- bays (double / triple / combination racks)
+
+/** the rack's mounting bays (a plain rack has exactly one) */
+export function rackBays(rt: RackType): Bay[] {
+  return rt.bays?.length ? rt.bays : [{ heightU: rt.heightU, rackStandard: rt.rackStandard, x: 0, y: 0 }];
+}
+/** overall width/height (mm) of the bay arrangement – the drawing area of the rack */
+export function rackExtent(rt: RackType): { w: number; h: number } {
+  const bays = rackBays(rt);
+  return { w: Math.max(...bays.map((b) => b.x + faceWidth(b.rackStandard))), h: Math.max(...bays.map((b) => b.y + b.heightU * U)) };
+}
+export const bayOf = (rack: Rack, pd: PlacedDevice): Bay => { const b = rackBays(rack.type); return b[pd.bay ?? 0] ?? b[0]; };
+/** total rack units of all bays */
+export const totalUnits = (rt: RackType) => rackBays(rt).reduce((n, b) => n + b.heightU, 0);
+/** short size text: "12 HE" or "2 × 12 HE" / "4 + 10 HE" */
+export function rackSizeLabel(rt: RackType): string {
+  const bays = rackBays(rt);
+  if (bays.length === 1) return `${bays[0].heightU} HE`;
+  const hs = bays.map((b) => b.heightU);
+  return hs.every((h) => h === hs[0]) ? `${bays.length} × ${hs[0]} HE` : `${hs.join(' + ')} HE`;
+}
+/** lay bays out side by side (gap = divider width) or stacked, bottom aligned */
+export function arrangeBays(bays: Omit<Bay, 'x' | 'y'>[], mode: 'row' | 'stack', gap = 40): Bay[] {
+  let x = 0, y = 0;
+  const maxW = Math.max(...bays.map((b) => faceWidth(b.rackStandard)));
+  // stacked: the first bay is at the top
+  const ys = mode === 'stack' ? bays.map((_, i) => bays.slice(i + 1).reduce((s, b) => s + b.heightU * U + gap, 0)) : [];
+  return bays.map((b, i) => {
+    const out: Bay = mode === 'row' ? { ...b, x, y: 0 } : { ...b, x: (maxW - faceWidth(b.rackStandard)) / 2, y: ys[i] };
+    x += faceWidth(b.rackStandard) + gap;
+    y += b.heightU * U + gap;
+    return out;
+  });
+}
+
+export function deviceWidth(rack: Rack | RackType, tpl: DeviceTemplate, pd?: PlacedDevice): number {
+  const std = 'type' in rack ? (pd ? bayOf(rack, pd).rackStandard : rack.type.rackStandard) : rack.rackStandard;
   return faceWidth(std) / tpl.slots;
 }
 
-/** Left edge of a device in FRONT-view coordinates. */
+/** Left edge of a device in FRONT-view coordinates (whole bay arrangement). */
 export function deviceFrontX(rack: Rack, pd: PlacedDevice, tpl: DeviceTemplate): number {
-  const fw = faceWidth(rack.type.rackStandard);
+  const bay = bayOf(rack, pd);
+  const fw = faceWidth(bay.rackStandard);
   const w = fw / tpl.slots;
   const xMount = pd.slot * w; // as seen from the mounting side
-  return pd.mount === 'front' ? xMount : fw - xMount - w;
+  return bay.x + (pd.mount === 'front' ? xMount : fw - xMount - w);
 }
 
 /** Left edge of a device in coordinates of the given view. */
 export function deviceViewX(rack: Rack, pd: PlacedDevice, tpl: DeviceTemplate, view: Face): number {
-  const fw = faceWidth(rack.type.rackStandard);
-  const w = fw / tpl.slots;
+  const W = rackExtent(rack.type).w;
+  const w = faceWidth(bayOf(rack, pd).rackStandard) / tpl.slots;
   const fx = deviceFrontX(rack, pd, tpl);
-  return view === 'front' ? fx : fw - fx - w;
+  return view === 'front' ? fx : W - fx - w;
 }
 
-/** Bottom edge (mm above bottom of U1) */
-export const deviceBottomY = (pd: PlacedDevice) => (pd.u - 1) * U;
-export const deviceTopY = (pd: PlacedDevice, tpl: DeviceTemplate) => (pd.u - 1 + tpl.heightU) * U;
+/** Bottom / top edge (mm above the bottom of the bay arrangement); without `rack` relative to the bay */
+export const deviceBottomY = (pd: PlacedDevice, rack?: Rack) => (rack ? bayOf(rack, pd).y : 0) + (pd.u - 1) * U;
+export const deviceTopY = (pd: PlacedDevice, tpl: DeviceTemplate, rack?: Rack) => (rack ? bayOf(rack, pd).y : 0) + (pd.u - 1 + tpl.heightU) * U;
 
 /** Which way a device panel faces in the rack. */
 export function panelFacing(pd: PlacedDevice, panel: Face): Face {
@@ -57,12 +93,12 @@ export interface PortPos {
 }
 
 export function portPosition(rack: Rack, pd: PlacedDevice, tpl: DeviceTemplate, port: Port): PortPos {
-  const fw = faceWidth(rack.type.rackStandard);
+  const fw = rackExtent(rack.type).w;
   const facing = panelFacing(pd, port.side);
   const left = deviceViewX(rack, pd, tpl, facing);
   const xView = left + port.x;
   const x = facing === 'front' ? xView : fw - xView;
-  const y = deviceTopY(pd, tpl) - PANEL_GAP / 2 - port.y;
+  const y = deviceTopY(pd, tpl, rack) - PANEL_GAP / 2 - port.y;
   let z: number;
   if (pd.mount === 'front') z = port.side === 'front' ? 0 : tpl.depth;
   else z = port.side === 'front' ? rack.type.depth : rack.type.depth - tpl.depth;
@@ -71,7 +107,7 @@ export function portPosition(rack: Rack, pd: PlacedDevice, tpl: DeviceTemplate, 
 
 /** Port position projected into a 2D view (x from left, y from bottom). */
 export function portViewPos(rack: Rack, pos: PortPos, view: Face) {
-  const fw = faceWidth(rack.type.rackStandard);
+  const fw = rackExtent(rack.type).w;
   return { x: view === 'front' ? pos.x : fw - pos.x, y: pos.y };
 }
 
@@ -94,7 +130,7 @@ export interface BoxSlot { box: PlacedBox; tpl: DeviceTemplate; x: number; yTop:
 
 /** Boxes are drawn in rows below the rack: x in view space (identical in front and rear view), yTop in rack space (mm above U1, negative). */
 export function boxLayout(project: Project, rack: Rack): BoxSlot[] {
-  const fw = faceWidth(rack.type.rackStandard);
+  const fw = rackExtent(rack.type).w;
   const out: BoxSlot[] = [];
   let x = 0, yTop = -(frameBottom(rack.type.kind) + BOX_TOP), rowH = 0;
   for (const box of rack.boxes ?? []) {
@@ -134,7 +170,7 @@ export function resolveEnd(project: Project, rack: Rack, end: { deviceId: string
 
 /** Route length (mm) between two ports, before slack. Cables run orthogonally; front-to-rear runs go around the side. */
 export function routeLength(rack: Rack, a: PortPos, b: PortPos, s: ProjectSettings): number {
-  const fw = faceWidth(rack.type.rackStandard);
+  const fw = rackExtent(rack.type).w;
   const dy = Math.abs(a.y - b.y);
   if (a.facing === b.facing) {
     return Math.abs(a.x - b.x) + dy + 2 * s.exitLength;
@@ -174,7 +210,7 @@ export function cableLength(project: Project, rack: Rack, cable: Cable): CableLe
   else if (a.box || b.box) {
     // in the rack: down to the floor and out at the nearer side, then the distance to the box
     const r = a.box ? b : a, box = (a.box ?? b.box)!;
-    const fw = faceWidth(rack.type.rackStandard);
+    const fw = rackExtent(rack.type).w;
     route = r.pos.y + Math.min(r.pos.x, fw - r.pos.x) + s.exitLength + box.distance * 1000;
   } else route = routeLength(rack, a.pos, b.pos, s);
   const exact = (route * (1 + s.slackPercent / 100) + s.serviceLoop) / 1000;
@@ -204,28 +240,32 @@ export function checkPlacement(
   mount: Face,
   slot: number,
   ignoreId?: string,
+  bayIndex = 0,
 ): PlacementCheck {
   const rt = rack.type;
-  if (tpl.rackStandard !== rt.rackStandard) return { ok: false, reason: `${tpl.rackStandard}"-Gerät passt nicht in ${rt.rackStandard}"-Rack` };
-  if (u < 1 || u + tpl.heightU - 1 > rt.heightU) return { ok: false, reason: 'Außerhalb des Racks' };
+  const bay = rackBays(rt)[bayIndex];
+  if (!bay) return { ok: false, reason: 'Ungültiges Einbaufeld' };
+  if (tpl.box) return { ok: false, reason: 'Dosen stehen unter dem Rack' };
+  if (tpl.rackStandard !== bay.rackStandard) return { ok: false, reason: `${tpl.rackStandard}"-Gerät passt nicht in ${bay.rackStandard}"-Feld` };
+  if (u < 1 || u + tpl.heightU - 1 > bay.heightU) return { ok: false, reason: 'Außerhalb des Racks' };
   if (slot < 0 || slot >= tpl.slots) return { ok: false, reason: 'Ungültiger Einbauplatz' };
   if (mount === 'rear' && !rt.hasRearRails) return { ok: false, reason: 'Rack hat keine hinteren Schienen' };
   const lo = u;
   const hi = u + tpl.heightU - 1;
-  const fw = faceWidth(rt.rackStandard);
+  const fw = faceWidth(bay.rackStandard);
   const w = fw / tpl.slots;
-  // front-view horizontal span
+  // front-view horizontal span within the bay
   const fx = mount === 'front' ? slot * w : fw - slot * w - w;
   let warning: string | undefined;
   if (tpl.depth > rt.depth) warning = `Gerät (${tpl.depth} mm) ist tiefer als das Rack (${rt.depth} mm)`;
   for (const other of rack.devices) {
-    if (other.id === ignoreId) continue;
+    if (other.id === ignoreId || (other.bay ?? 0) !== bayIndex) continue;
     const ot = project.templates[other.templateId];
     if (!ot) continue;
     const olo = other.u;
     const ohi = other.u + ot.heightU - 1;
     if (hi < olo || lo > ohi) continue;
-    const ofx = deviceFrontX(rack, other, ot);
+    const ofx = deviceFrontX(rack, other, ot) - bay.x;
     const ow = fw / ot.slots;
     const hOverlap = Math.min(fx + w, ofx + ow) - Math.max(fx, ofx) > 0.5;
     if (!hOverlap) continue;
@@ -235,11 +275,14 @@ export function checkPlacement(
   return { ok: true, warning };
 }
 
-/** Find the first free position (from top) for a template in a rack. */
-export function findFreeSpot(project: Project, rack: Rack, tpl: DeviceTemplate, mount: Face): { u: number; slot: number } | null {
-  for (let u = rack.type.heightU - tpl.heightU + 1; u >= 1; u--) {
-    for (let slot = 0; slot < tpl.slots; slot++) {
-      if (checkPlacement(project, rack, tpl, u, mount, slot).ok) return { u, slot };
+/** Find the first free position (from the top of the first bay) for a template in a rack. */
+export function findFreeSpot(project: Project, rack: Rack, tpl: DeviceTemplate, mount: Face): { u: number; slot: number; bay: number } | null {
+  const bays = rackBays(rack.type);
+  for (let bay = 0; bay < bays.length; bay++) {
+    for (let u = bays[bay].heightU - tpl.heightU + 1; u >= 1; u--) {
+      for (let slot = 0; slot < tpl.slots; slot++) {
+        if (checkPlacement(project, rack, tpl, u, mount, slot, undefined, bay).ok) return { u, slot, bay };
+      }
     }
   }
   return null;
@@ -250,9 +293,7 @@ export function usedUnits(project: Project, rack: Rack): number {
   for (const d of rack.devices) {
     const t = project.templates[d.templateId];
     if (!t) continue;
-    for (let i = 0; i < t.heightU; i++) used.add(d.mount + ':' + (d.u + i));
+    for (let i = 0; i < t.heightU; i++) used.add(`${d.bay ?? 0}:${d.u + i}`);
   }
-  let n = 0;
-  for (let u = 1; u <= rack.type.heightU; u++) if (used.has('front:' + u) || used.has('rear:' + u)) n++;
-  return n;
+  return used.size;
 }

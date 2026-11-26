@@ -10,7 +10,7 @@
  * Coordinates: mm, x from the left of the 19" face (front view), y up from U1, z towards the viewer (front rails at 0).
  */
 import type { DeviceTemplate, PlacedDevice, Project, Rack } from '../model/types';
-import { deviceFrontX, deviceTopY, faceWidth, panelHeight, resolveEnd, U } from '../model/geometry';
+import { bayOf, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, resolveEnd, U } from '../model/geometry';
 import { cableColor } from '../render/cablePaths';
 
 export interface Route3D { cableId: string; color: string; radius: number; points: [number, number, number][]; blocked: boolean }
@@ -21,20 +21,21 @@ const TURN = 6;          // extra cost of a bend (in cells)
 const CROSS = 400;       // extra cost of entering space reserved by another cable
 
 /** chassis width as drawn in the 3D view */
-export function bodyWidth3D(rack: Rack, tpl: DeviceTemplate) {
-  const w = faceWidth(rack.type.rackStandard) / tpl.slots;
-  return tpl.bodyWidth && tpl.bodyWidth < w ? tpl.bodyWidth : tpl.slots === 1 && !tpl.panel ? Math.min(w, faceWidth(rack.type.rackStandard) - 32) : w - 4;
+export function bodyWidth3D(rack: Rack, tpl: DeviceTemplate, d?: PlacedDevice) {
+  const fw = faceWidth(d ? bayOf(rack, d).rackStandard : rack.type.rackStandard);
+  const w = fw / tpl.slots;
+  return tpl.bodyWidth && tpl.bodyWidth < w ? tpl.bodyWidth : tpl.slots === 1 && !tpl.panel ? Math.min(w, fw - 32) : w - 4;
 }
 
 /** axis-aligned boxes (plate + chassis) of a placed device */
 export function deviceBoxes(rack: Rack, d: PlacedDevice, tpl: DeviceTemplate): { lo: number[]; hi: number[] }[] {
-  const w = faceWidth(rack.type.rackStandard) / tpl.slots;
+  const w = faceWidth(bayOf(rack, d).rackStandard) / tpl.slots;
   const h = panelHeight(tpl.heightU);
   const D = rack.type.depth;
   const depth = Math.max(PLATE + 1, Math.min(tpl.depth, D));
   const x0 = deviceFrontX(rack, d, tpl);
-  const yTop = deviceTopY(d, tpl) - 0.4;
-  const bw = bodyWidth3D(rack, tpl);
+  const yTop = deviceTopY(d, tpl, rack) - 0.4;
+  const bw = bodyWidth3D(rack, tpl, d);
   const bx = x0 + (w - bw) / 2;
   if (d.mount === 'front') {
     return [{ lo: [x0, yTop - h, -PLATE], hi: [x0 + w, yTop, 0] }, { lo: [bx, yTop - h + 0.3, -depth], hi: [bx + bw, yTop - 0.3, -PLATE] }];
@@ -79,14 +80,13 @@ class Heap {
 }
 
 export function route3D(project: Project, rack: Rack, radiusOf: (typeId: string) => number): { routes: Route3D[] } {
-  const fw = faceWidth(rack.type.rackStandard);
-  const H = rack.type.heightU * U;
+  const { w: fw, h: H } = rackExtent(rack.type);
   const D = rack.type.depth;
   const wall = Math.max(18, Math.min(70, (rack.type.outer.w - fw) / 2));
   const shell = Math.min(10, wall);
   const space = Math.max(30, Math.min(80, (rack.type.outer.d - D) / 2));
   const rMax = Math.max(1.5, ...rack.cables.map((c) => radiusOf(c.typeId)));
-  const c = rack.type.heightU > 20 ? 8 : 6;
+  const c = H > 20 * U ? 8 : 6;
 
   // grid
   const X0 = -wall + shell + 0.5, X1 = fw + wall - shell - 0.5;
@@ -117,9 +117,12 @@ export function route3D(project: Project, rack: Rack, radiusOf: (typeId: string)
     if (t) for (const b of deviceBoxes(rack, d, t)) blockBox(b.lo, b.hi, grow);
   }
   const railW = 16;
-  for (const z of rack.type.hasRearRails ? [0, -D] : [0]) {
-    blockBox([0, 0, z - 2], [railW, H, z], grow);
-    blockBox([fw - railW, 0, z - 2], [fw, H, z], grow);
+  for (const bay of rackBays(rack.type)) {
+    const bfw = faceWidth(bay.rackStandard), y0 = bay.y, y1 = bay.y + bay.heightU * U;
+    for (const z of rack.type.hasRearRails ? [0, -D] : [0]) {
+      blockBox([bay.x, y0, z - 2], [bay.x + railW, y1, z], grow);
+      blockBox([bay.x + bfw - railW, y0, z - 2], [bay.x + bfw, y1, z], grow);
+    }
   }
 
   // neighbourhood offsets for reserving the space around a routed cable

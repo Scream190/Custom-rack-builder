@@ -13,6 +13,7 @@ import { DEFAULT_LAYOUT, setLayout, useLayout } from '../model/layout';
 import { DeviceEditor } from './DeviceEditor';
 import { PanelDesigner } from './PanelDesigner';
 import { BoxEditor } from './BoxEditor';
+import { rackSizeLabel } from '../model/geometry';
 import { CableTypeEditor, ExportDialog, RackTypeEditor, SettingsDialog } from './Dialogs';
 import { Rack3D } from '../three/Rack3D';
 import { sampleProject } from '../library/sample';
@@ -146,7 +147,7 @@ export function App() {
       <div className="rack-tabs">
         {project.racks.map((r) => (
           <button key={r.id} className={'tab' + (r.id === rack.id ? ' on' : '')} onClick={() => st().setActiveRack(r.id)}>
-            {r.name} <span className="muted small">{r.type.heightU} HE</span>
+            {r.name} <span className="muted small">{rackSizeLabel(r.type)}</span>
           </button>
         ))}
         <span className="spacer" />
