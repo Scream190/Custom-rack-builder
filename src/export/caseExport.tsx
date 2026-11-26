@@ -138,7 +138,7 @@ export async function exportInlaysPdf(project: Project, inlays: FlightCase[]): P
     line('Ausschnitte (Position ab linker vorderer Innenecke)', true);
     for (const r of cutList(c)) {
       const grips = r.it.grips?.length ? `, Griffmulden ${r.it.grips.map((g) => ({ left: 'links', right: 'rechts', front: 'vorne', back: 'hinten' })[g]).join('/')}` : '';
-      line(`${r.it.name}: ${r.it.shape === 'circle' ? 'rund ' : ''}${r.l} × ${r.w} mm, Tiefe ${r.depth} mm, Position ${Math.round(r.x)} / ${Math.round(r.y)} mm${r.it.layer === 'lid' ? ', Deckel' : ''}${grips}${r.it.engrave ? ', graviert' : ''}${r.inside ? '' : ' – passt nicht!'}`);
+      line(`${r.it.name}: ${r.it.outline ? 'Kontur ' : r.it.shape === 'circle' ? 'rund ' : ''}${r.l} × ${r.w} mm, Tiefe ${r.depth} mm, Position ${Math.round(r.x)} / ${Math.round(r.y)} mm${r.it.layer === 'lid' ? ', Deckel' : ''}${grips}${r.it.engrave ? ', graviert' : ''}${r.inside ? '' : ' – passt nicht!'}`);
     }
     if (c.notes) { y += 3; line('Notizen', true); for (const t of doc.splitTextToSize(pdfSafe(c.notes), page.w - 2 * M)) line(t); }
     doc.setFontSize(7); doc.setTextColor(150); doc.text('Erstellt mit RackPlanner – Maße vor dem Zuschnitt am Behälter prüfen.', M, page.h - 6);

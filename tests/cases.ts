@@ -4,7 +4,7 @@ import { sampleProject } from '../src/library/sample';
 import { uid } from '../src/model/util';
 import { applyBuild, blockClashes, blockGap, rackBom, rackDims } from '../src/model/rackBuild';
 import { portPosition, rackDepth } from '../src/model/geometry';
-import { cutoutOutline, foamStack, inlayList, caseList, newFreeInlay, outlineBox, GRIP_R } from '../src/model/inlay';
+import { cutoutOutline, filletPolygon, foamStack, inlayList, caseList, newFreeInlay, normalizeOutline, outlineBox, rectOutline, shapeOutline, SHAPE_LABELS, GRIP_R, type ShapeKind } from '../src/model/inlay';
 
 let failed = false;
 const ok = (cond: boolean, msg: string) => { if (!cond) { failed = true; console.log('  FAIL', msg); } };
@@ -13,14 +13,14 @@ const ok = (cond: boolean, msg: string) => { if (!cond) { failed = true; console
 //    what does not fit must be reported as such
 const c0 = newCase('Test');
 c0.inner = { l: 800, w: 600, h: 350 };
-c0.items = ITEM_PRESETS.slice(0, 12).map((p) => ({ ...p, id: uid('it-'), x: 0, y: 0, layer: 'body' as const }));
+c0.items = ITEM_PRESETS.slice(0, 12).map(({ shape: _s, group: _g, ...p }) => ({ ...p, id: uid('it-'), x: 0, y: 0, layer: 'body' as const }));
 const packed = packItems(c0);
 const w0 = caseWarnings(packed);
 ok(!w0.some((w) => /überlappen|ragt/.test(w.text)), `packing produced: ${w0.map((w) => w.text).join('; ')}`);
 const placed = packed.items.filter((i) => i.x < packed.inner.l).length;
 console.log(`packing: ${placed}/${packed.items.length} items placed, ${w0.filter((w) => /passt nicht/.test(w.text)).length} reported as not fitting`);
 // a set that fits easily must be placed completely
-const c1 = { ...c0, items: ITEM_PRESETS.slice(0, 6).map((p) => ({ ...p, id: uid('it-'), x: 0, y: 0, layer: 'body' as const })) };
+const c1 = { ...c0, items: ITEM_PRESETS.slice(0, 6).map(({ shape: _s, group: _g, ...p }) => ({ ...p, id: uid('it-'), x: 0, y: 0, layer: 'body' as const })) };
 const w1 = caseWarnings(packItems(c1)).filter((w) => !/hoch/.test(w.text));
 ok(w1.length === 0, `small set: ${w1.map((w) => w.text).join('; ')}`);
 
@@ -99,6 +99,26 @@ const dev0 = r2.devices[0], tpl0 = pj2.templates[dev0.templateId];
 const pfront = tpl0.ports.find((q) => q.side === 'front');
 if (pfront) ok(Math.abs(portPosition(r2, dev0, tpl0, pfront).z - 150) < 0.01, 'front port of a set-back bay lies 150 mm back');
 console.log(`rack tiers: one case with ${one.shelves.length} work surface, separate: ${dt.blocks.length} bodies, outer ${tiers.outer.w} × ${tiers.outer.h} × ${tiers.outer.d} mm, ${tiers.weight} kg`);
+
+// 7) own contours: rounding, normalising, rotation and the shape templates
+const area = (q: [number, number][]) => Math.abs(q.reduce((a, [x, y], i) => { const [x2, y2] = q[(i + 1) % q.length]; return a + x * y2 - x2 * y; }, 0) / 2);
+const sq = filletPolygon(rectOutline(100, 100, 50));
+ok(Math.abs(area(sq) - Math.PI * 50 * 50) < 60, `square with full radius is a circle (area ${Math.round(area(sq))})`);
+ok(Math.abs(area(filletPolygon(rectOutline(100, 60, 0))) - 6000) < 0.01, 'sharp rectangle keeps its area');
+const nz = normalizeOutline([{ x: 40, y: 25 }, { x: 140, y: 25 }, { x: 90, y: 105 }]);
+ok(nz.dx === 40 && nz.dy === 25 && nz.l === 100 && nz.w === 80 && nz.pts[0].x === 0, 'contour normalised to its bounding box');
+const own = { id: 'o', name: 'Kontur', l: 100, w: 80, h: 20, x: 30, y: 40, layer: 'body' as const, outline: nz.pts };
+const ob = outlineBox(cutoutOutline(own)), obr = outlineBox(cutoutOutline({ ...own, rot: true }));
+ok(ob.x0 === 30 && ob.x1 === 130 && ob.y0 === 40 && ob.y1 === 120, `contour placed at the item position (${JSON.stringify(ob)})`);
+ok(Math.abs(obr.x1 - obr.x0 - 80) < 0.01 && Math.abs(obr.y1 - obr.y0 - 100) < 0.01 && obr.x0 === 30 && obr.y0 === 40, 'rotated contour swaps length and width');
+for (const k of Object.keys(SHAPE_LABELS) as ShapeKind[]) {
+  const q = filletPolygon(shapeOutline(k, 260, 90)), b = outlineBox(q);
+  ok(b.x0 >= -0.01 && b.y0 >= -0.01 && b.x1 <= 260.01 && b.y1 <= 90.01 && area(q) > 0.15 * 260 * 90, `template ${k} stays inside its box and has a body`);
+}
+ok(ITEM_PRESETS.filter((p) => p.shape).length >= 15 && ITEM_PRESETS.every((p) => p.group), 'presets carry groups and most of them a contour');
+const mic = filletPolygon(shapeOutline('mic', 260, 55));
+ok(area(mic) < 0.75 * 260 * 55, 'microphone contour is narrower than its rectangle');
+console.log(`contours: ${Object.keys(SHAPE_LABELS).length} templates, microphone ${Math.round((area(mic) / (260 * 55)) * 100)} % of its rectangle`);
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }
 console.log('case designer: ok');

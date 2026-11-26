@@ -318,7 +318,7 @@ tr.bad-row td { color: #fca5a5; }
 .bay-row { display: flex; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid #22262d; }
 .bay-name { flex: 1; min-width: 0; }
 .toolbar .check { font-size: 12px; }
-.insp .seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); }
+.insp .seg { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); }
 .insp .seg button { padding: 5px 6px; white-space: nowrap; border-bottom: 1px solid var(--line); }
 .insp .check { white-space: normal; align-items: flex-start; }
 .insp .check input { margin-top: 2px; }
@@ -384,3 +384,45 @@ tr.bad-row td { color: #fca5a5; }
 .build-pins svg { max-width: 560px; }
 .bay-row { flex-wrap: wrap; }
 .bay-depth { flex: 1 1 100%; display: flex; gap: 12px; padding-left: 2px; }
+
+/* inlay templates as tiles with a contour preview */
+.tile-group { margin-top: 10px; }
+.tile-group-head { font-size: 11px; font-weight: 600; color: var(--muted); text-transform: none; padding: 0 0 4px; border-bottom: 1px solid var(--line); margin-bottom: 6px; }
+.tile-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 6px; }
+.tile .shape-prev { max-width: 100%; height: auto; }
+.tile { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 6px 4px 5px; background: var(--panel2); border: 1px solid var(--line); border-radius: 3px; cursor: pointer; text-align: center; min-width: 0; }
+.tile:hover { border-color: #4a525e; background: #252a31; }
+.tile-name { font-size: 11.5px; line-height: 1.25; overflow-wrap: anywhere; }
+.tile-dim { font-size: 10.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.shape-prev path { fill: #2b3a3f; stroke: var(--accent); stroke-width: 1.2; }
+.outline-box { display: flex; gap: 10px; align-items: center; padding: 6px; border: 1px solid var(--line); border-radius: 3px; }
+.outline-box .col { flex: 1; }
+
+/* shape editor */
+.modal.shape-editor { width: min(1400px, 100%); height: min(860px, 100%); }
+.se-body { flex: 1; min-height: 0; display: flex; }
+.se-tools, .se-props { width: 210px; flex: none; overflow: auto; padding: 10px 12px; display: flex; flex-direction: column; gap: 14px; border-right: 1px solid var(--line); }
+.se-props { width: 250px; border-right: 0; border-left: 1px solid var(--line); }
+.se-group { display: flex; flex-direction: column; gap: 5px; }
+.se-label { font-size: 11px; font-weight: 600; color: var(--muted); }
+.se-tool { display: flex; justify-content: space-between; align-items: center; background: var(--panel2); border: 1px solid var(--line); border-radius: 3px; padding: 5px 8px; cursor: pointer; }
+.se-tool:hover { border-color: #4a525e; }
+.se-tool.on { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+.se-tool kbd { font: 10.5px ui-monospace, monospace; color: inherit; opacity: 0.7; }
+.se-field { display: flex; flex-direction: column; gap: 3px; font-size: 12px; color: var(--muted); }
+.se-canvas { flex: 1; min-width: 0; position: relative; overflow: hidden; background: #15181c; }
+.se-canvas svg { display: block; touch-action: none; user-select: none; }
+.se-hint { position: absolute; left: 10px; top: 8px; right: 10px; font-size: 12px; color: #cbd5e1; background: rgba(15,17,20,.82); padding: 4px 8px; border-radius: 2px; pointer-events: none; width: fit-content; max-width: calc(100% - 20px); }
+.se-nav { position: absolute; left: 50%; bottom: 10px; transform: translateX(-50%); display: flex; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 3px; }
+.se-nav button { background: none; border: 0; border-right: 1px solid var(--line); padding: 5px 11px; cursor: pointer; color: var(--text); }
+.se-nav button:hover { background: var(--panel2); }
+.se-nav button.on { background: var(--accent2); color: #fff; }
+.se-coord { padding: 0 10px; min-width: 150px; font: 11.5px ui-monospace, monospace; color: var(--muted); }
+.se-size { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.se-points { flex: 1; min-height: 0; }
+.se-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.se-table th { text-align: left; font-weight: 500; color: var(--muted); padding: 2px; }
+.se-table td { padding: 1px 2px; }
+.se-table td:first-child { color: var(--muted); width: 18px; }
+.se-table input { width: 100%; padding: 2px 4px; }
+.se-table tr.sel td { background: #17343a; }

@@ -1,7 +1,7 @@
 import type { CaseFace, CaseHardware, CaseItem, DeviceTemplate, FlightCase, HardwareKind, Project } from './types';
 import { faceWidth, U } from './geometry';
 import { uid } from './util';
-import { cutDepth, FOAM_MATERIALS, foamStack, formatStack } from './inlay';
+import { cutDepth, FOAM_MATERIALS, foamStack, formatStack, type ShapeKind } from './inlay';
 
 /*
  * Flight case designer: dimensions, hardware, foam inlay packing, checks, parts list and weight estimate.
@@ -281,23 +281,29 @@ export function itemFromTemplate(t: DeviceTemplate): Omit<CaseItem, 'id' | 'x' |
 }
 
 /** common contents as starting points (outer dimensions in mm, approximate) */
-export const ITEM_PRESETS: { name: string; l: number; w: number; h: number; weight?: number }[] = [
-  { name: 'Handsender (Funkmikrofon)', l: 260, w: 55, h: 55, weight: 0.3 },
-  { name: 'Taschensender', l: 85, w: 65, h: 25, weight: 0.15 },
-  { name: 'In-Ear-Empfänger', l: 90, w: 65, h: 25, weight: 0.2 },
-  { name: 'Ladestation 2-fach', l: 200, w: 110, h: 70, weight: 0.5 },
-  { name: 'Mikrofon (Kabel, Gesang)', l: 165, w: 52, h: 52, weight: 0.3 },
-  { name: 'Headset-Mikrofon', l: 180, w: 150, h: 40, weight: 0.05 },
-  { name: 'Antenne (Stab)', l: 300, w: 30, h: 30, weight: 0.15 },
-  { name: 'Richtantenne (Paddle)', l: 330, w: 250, h: 50, weight: 0.6 },
-  { name: 'Laptop 15"', l: 360, w: 250, h: 25, weight: 2 },
-  { name: 'Tablet', l: 250, w: 175, h: 10, weight: 0.5 },
-  { name: 'Netzteil (Laptop)', l: 140, w: 65, h: 30, weight: 0.4 },
-  { name: 'Akku AA (8er-Box)', l: 75, w: 60, h: 30, weight: 0.2 },
-  { name: 'Kopfhörer', l: 200, w: 180, h: 90, weight: 0.3 },
-  { name: 'DI-Box', l: 120, w: 90, h: 50, weight: 0.6 },
-  { name: 'Kabeltrommel 25 m', l: 290, w: 290, h: 180, weight: 4 },
-  { name: 'Werkzeug-Etui', l: 300, w: 200, h: 60, weight: 1.5 },
+export const ITEM_PRESETS: { name: string; l: number; w: number; h: number; weight?: number; group: string; shape?: ShapeKind }[] = [
+  { name: 'Handsender (Funkmikrofon)', l: 260, w: 55, h: 55, weight: 0.3, group: 'Funk', shape: 'mic' },
+  { name: 'Taschensender', l: 85, w: 65, h: 25, weight: 0.15, group: 'Funk', shape: 'bodypack' },
+  { name: 'In-Ear-Empfänger', l: 90, w: 65, h: 25, weight: 0.2, group: 'Funk', shape: 'iem' },
+  { name: 'Ladestation 2-fach', l: 200, w: 110, h: 70, weight: 0.5, group: 'Funk', shape: 'charger' },
+  { name: 'Antenne (Stab)', l: 300, w: 30, h: 30, weight: 0.15, group: 'Funk', shape: 'whip' },
+  { name: 'Richtantenne (Paddle)', l: 330, w: 250, h: 50, weight: 0.6, group: 'Funk', shape: 'paddle' },
+  { name: 'Akku (Sender)', l: 60, w: 40, h: 25, weight: 0.1, group: 'Funk', shape: 'battery-box' },
+  { name: 'Mikrofon (Kabel, Gesang)', l: 165, w: 52, h: 52, weight: 0.3, group: 'Mikrofone', shape: 'mic-wired' },
+  { name: 'Headset-Mikrofon', l: 180, w: 150, h: 40, weight: 0.05, group: 'Mikrofone' },
+  { name: 'Ansteckmikrofon, aufgerollt', l: 90, w: 90, h: 25, weight: 0.05, group: 'Mikrofone', shape: 'drum' },
+  { name: 'Instrumentenmikrofon mit Klemme', l: 130, w: 60, h: 45, weight: 0.15, group: 'Mikrofone' },
+  { name: 'Laptop 15"', l: 360, w: 250, h: 25, weight: 2, group: 'IT', shape: 'laptop' },
+  { name: 'Tablet', l: 250, w: 175, h: 10, weight: 0.5, group: 'IT', shape: 'laptop' },
+  { name: 'Netzteil (Laptop)', l: 140, w: 65, h: 30, weight: 0.4, group: 'IT', shape: 'charger' },
+  { name: 'SSD / Festplatte 2,5"', l: 100, w: 70, h: 10, weight: 0.1, group: 'IT', shape: 'battery-box' },
+  { name: 'Akku AA (8er-Box)', l: 75, w: 60, h: 30, weight: 0.2, group: 'Strom und Kabel', shape: 'battery-box' },
+  { name: 'Kabeltrommel 25 m', l: 290, w: 290, h: 180, weight: 4, group: 'Strom und Kabel', shape: 'drum' },
+  { name: 'Kabel aufgerollt (5 m)', l: 200, w: 200, h: 60, weight: 0.5, group: 'Strom und Kabel', shape: 'drum' },
+  { name: 'Kopfhörer', l: 200, w: 180, h: 90, weight: 0.3, group: 'Audio', shape: 'headphones' },
+  { name: 'DI-Box', l: 120, w: 90, h: 50, weight: 0.6, group: 'Audio', shape: 'charger' },
+  { name: 'Gaffa-Rolle', l: 110, w: 110, h: 50, weight: 0.3, group: 'Werkzeug' , shape: 'drum' },
+  { name: 'Werkzeug-Etui', l: 300, w: 200, h: 60, weight: 1.5, group: 'Werkzeug' },
 ];
 
 /** first free spot for a new item (scanning the usable area in 10 mm steps), or the area origin */

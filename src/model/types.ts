@@ -402,7 +402,16 @@ export interface CaseItem {
   grips?: ('left' | 'right' | 'front' | 'back')[];
   /** engrave the name next to the cut-out */
   engrave?: boolean;
+  /**
+   * own contour drawn in the shape editor: closed polygon in item coordinates (x along l, y along w from the front edge,
+   * mm), r = corner radius at that vertex. Takes precedence over shape/radius/grips; l and w are its bounding box.
+   */
+  outline?: OutlinePt[];
+  /** photo or drawing of the product placed under the contour in the shape editor (item coordinates, mm) */
+  trace?: { src: string; x: number; y: number; w: number; h: number; opacity: number };
 }
+
+export interface OutlinePt { x: number; y: number; r?: number }
 
 export interface FlightCase {
   id: string;

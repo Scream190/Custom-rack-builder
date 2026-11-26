@@ -259,9 +259,21 @@ jedes Flightcases.
 - **Behälter:** Rackschublade (im Rack die Schublade wählen → *Schaumstoff-Einlage gestalten*, oder *+ Neue Einlage*),
   beliebiger Behälter mit eigenen Innenmaßen (gekaufter Koffer, Transportbox, Werkzeugkiste) oder ein Flightcase aus dem
   Case-Designer (Unterteil und Deckel als eigene Ebenen).
-- **Ausschnitte:** eigene Maße, 16 Vorlagen oder Geräte aus der Bibliothek. Rechteckig mit einstellbarem Eckenradius oder
-  rund/oval, Schnitttiefe getrennt von der Höhe des Inhalts, Griffmulden (halbrund) an jeder Seite, Name als Gravur.
-  Schubladen-Einlagen bekommen für jede Zeile der Inhaltsliste einen Ausschnitt (zunächst 100 × 60 mm).
+- **Ausschnitte:** eigene Maße, 22 Vorlagen oder Geräte aus der Bibliothek. Rechteckig mit einstellbarem Eckenradius,
+  rund/oval oder mit eigener Kontur. Schnitttiefe getrennt von der Höhe des Inhalts, Griffmulden (halbrund) an jeder Seite,
+  Name als Gravur. Schubladen-Einlagen bekommen für jede Zeile der Inhaltsliste einen Ausschnitt (zunächst 100 × 60 mm).
+- **Vorlagen mit Kontur:** als Kacheln nach Gruppen (Funk, Mikrofone, IT, Strom und Kabel, Audio, Werkzeug), jede mit
+  Vorschau der Form. Handsender und Kabelmikrofon mit rundem Korb und schmalem Griff, Taschensender und In-Ear-Empfänger
+  mit Antennenstummel, Stab- und Paddle-Antenne, Kopfhörer mit zwei Muscheln, Kabeltrommel und Gaffa rund.
+- **Form-Editor (kleines 2D-CAD):** *Kontur zeichnen …* beim Einfügen oder *Form: Kontur → Im Form-Editor bearbeiten*.
+  Werkzeuge Linie/Polylinie (`L`), Rechteck (`R`), Kreis (`C`), Abrunden (`F`) mit Radius, Eckpunkte ziehen, Punkt auf
+  einer Kante ziehen fügt einen ein, `Entf` löscht. Raster 0,5 bis 10 mm, `Alt` = frei, `Umschalt` = nur waagerecht oder
+  senkrecht, Fang auf vorhandene Eckpunkte, Eckpunkte auch als Zahlen (x, y, Radius), eigenes Rückgängig.
+  Steuerung wie in Fusion 360: mittlere Maustaste ziehen verschiebt, Mausrad zoomt um den Mauszeiger, Doppelklick mit
+  der mittleren Taste passt ein (`Z`). **Hintergrundbild:** Foto des Produkts von oben laden, über zwei Punkte und eine
+  bekannte Länge kalibrieren, Deckkraft einstellen und die Kontur nachzeichnen. Das Bild wird verkleinert im Projekt
+  gespeichert. Länge und Breite des Ausschnitts folgen aus der Kontur; ändert man sie im Inspector, wird die Kontur
+  mitskaliert. Konturen gehen 1:1 in DXF, PDF und 3D (der Inhalt wird als Körper mit dieser Form gezeigt).
 - **Anordnen:** ziehen mit Raster 1, 5 oder 10 mm (`Alt` = frei), *Automatisch anordnen* mit Abstand (beides unter *Einstellungen → Cases und Einlagen*)
   (MaxRects); was nicht passt, liegt rot markiert daneben. Holz-Trennwände längs und quer. Warnungen bei Überlappung,
   Ausschnitt im Randschaum oder zu wenig Höhe.
@@ -329,12 +341,12 @@ Stack: React + TypeScript + Vite, zustand (State, Undo/Redo), SVG-Rendering, thr
 src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry, cases.ts = Case-Designer,
                 cableBuild.ts = Kabelbau (eigene Kabel, Belegung, Arbeitsschritte),
                 rackBuild.ts = Rack-Designer (Maße, Stückliste, Gewicht),
-                inlay.ts = Einlagen (Umrisse, Griffmulden, Schaumarten, Plattenaufbau)
+                inlay.ts = Einlagen (Umrisse, Griffmulden, eigene Konturen und Formvorlagen, Schaumarten, Plattenaufbau)
 src/library/    Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
 src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auch für Export & 3D-Texturen
-src/ui/         Oberfläche, Editoren, Dialoge
+src/ui/         Oberfläche, Editoren, Dialoge, ShapeEditor.tsx = Form-Editor für Ausschnitt-Konturen
 src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung, caseParts.ts = Case-Bauteile, Scene3D.tsx = Studio-Betrachter
-tests/          library.ts: Prüfung der Gerätebibliothek, cases.ts: Packen, Außenmaß, Stückliste, Einlagen, Rack-Designer,
+tests/          library.ts: Prüfung der Gerätebibliothek, cases.ts: Packen, Außenmaß, Stückliste, Einlagen, Konturen, Rack-Designer,
                 cables.ts: Kabelbau (Steckerliste, Belegungen, Zuordnung zu Rack-Kabeln, Arbeitsschritte),
                 collision3d.ts: Kollisionsprüfung der 3D-Kabel
 src/export/     PDF, PNG/SVG, interaktives HTML, DXF

@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { allTemplates, useStore } from '../model/store';
-import type { CaseItem, FlightCase, FoamMaterial, Project } from '../model/types';
+import type { CaseItem, FlightCase, FoamMaterial, OutlinePt, Project } from '../model/types';
 import { caseBom, caseWarnings, depthAvailable, drawerInner, footprint, freePosition, isDrawer, ITEM_PRESETS, itemFromTemplate } from '../model/cases';
-import { arrangeItems, cutDepth, cutList, FOAM_MATERIALS, foamMaterial, inlayContainer, inlayList, inlayThickness } from '../model/inlay';
+import { arrangeItems, cutDepth, cutList, filletPolygon, FOAM_MATERIALS, foamMaterial, inlayContainer, inlayList, inlayThickness, rectOutline, shapeOutline } from '../model/inlay';
+import { ShapeEditor } from './ShapeEditor';
 import { uid } from '../model/util';
 import { InlaySheet, inlaySheetLayout, type InlayLayer } from '../render/InlayDrawing';
 import { Case3D } from '../three/Case3D';
@@ -20,6 +21,17 @@ const kg = (n: number) => String(n).replace('.', ',');
 const hasLid = (c: FlightCase) => (!c.kind || c.kind === 'case') && c.lidKind !== 'none' && c.lidH > 0;
 
 // ------------------------------------------------------------------ left: add cut-outs
+
+/** small top view of a contour, front at the bottom */
+export function ShapePreview({ pts, l, w, size = 44, width = size * 2 }: { pts: OutlinePt[]; l: number; w: number; size?: number; width?: number }) {
+  const m = 3, k = Math.min((width - 2 * m) / Math.max(l, 1), (size - 2 * m) / Math.max(w, 1));
+  const ox = (width - l * k) / 2, oy = (size - w * k) / 2;
+  const d = filletPolygon(pts).map(([x, y], i) => `${i ? 'L' : 'M'}${(ox + x * k).toFixed(1)},${(size - oy - y * k).toFixed(1)}`).join('') + 'Z';
+  return <svg className="shape-prev" width={width} height={size} viewBox={`0 0 ${width} ${size}`} aria-hidden><path d={d} /></svg>;
+}
+
+/** contour editor state shared by the add panel and the inspector */
+let openEditor: (itemId: string) => void = () => {};
 
 function AddPanel({ c, project, layer }: { c: FlightCase; project: Project; layer: InlayLayer }) {
   const selection = useStore((s) => s.selection);
@@ -56,15 +68,36 @@ function AddPanel({ c, project, layer }: { c: FlightCase; project: Project; laye
             <Field label="Tiefe"><NumberInput value={form.h} min={1} onChange={(v) => setForm({ ...form, h: v })} /></Field>
             <Field label="Anzahl"><NumberInput value={form.qty} min={1} max={50} onChange={(v) => setForm({ ...form, qty: Math.max(1, Math.round(v)) })} /></Field>
           </div>
-          <button className="btn" onClick={() => add({ name: form.name, l: form.l, w: form.w, h: form.h, shape: form.shape === 'circle' ? 'circle' : undefined }, form.qty)} title="Ausschnitt an einer freien Stelle einfügen">Ausschnitt einfügen</button>
+          <div className="row gap4 wrap">
+            <button className="btn" onClick={() => add({ name: form.name, l: form.l, w: form.w, h: form.h, shape: form.shape === 'circle' ? 'circle' : undefined }, form.qty)} title="Ausschnitt an einer freien Stelle einfügen">Ausschnitt einfügen</button>
+            <button className="btn" onClick={() => {
+              const it: CaseItem = { name: form.name, l: form.l, w: form.w, h: form.h, outline: rectOutline(form.l, form.w, 6), id: uid('it-'), x: 0, y: 0, layer };
+              Object.assign(it, freePosition(c, it));
+              st().addCaseItems(c.id, [it]);
+              st().select({ kind: 'caseItem', id: it.id });
+              openEditor(it.id);
+            }} title="Ausschnitt einfügen und die Kontur im Form-Editor selbst zeichnen, auf Wunsch über einem Foto des Produkts">Kontur zeichnen …</button>
+          </div>
           </Section>
 
-          <Section id="inlay.add.presets" title="Vorlagen" summary={`${ITEM_PRESETS.length} typische Inhalte`}>
-          <div className="muted small">Typische Außenmaße, danach anpassen.</div>
-          {ITEM_PRESETS.map((p) => (
-            <button key={p.name} className="list-btn" onClick={() => add(p)} title={`${p.name} einfügen (${p.l} × ${p.w} × ${p.h} mm)`}>
-              {p.name} <span className="muted small">{p.l} × {p.w} × {p.h}</span>
-            </button>
+          <Section id="inlay.add.presets" title="Vorlagen" summary={`${ITEM_PRESETS.length} typische Inhalte`} defaultOpen>
+          <div className="muted small">Typische Außenmaße mit passender Kontur. Danach anpassen oder im Form-Editor nachzeichnen.</div>
+          {[...new Set(ITEM_PRESETS.map((p) => p.group))].map((g) => (
+            <div key={g} className="tile-group">
+              <div className="tile-group-head">{g}</div>
+              <div className="tile-grid">
+                {ITEM_PRESETS.filter((p) => p.group === g).map((p) => {
+                  const pts = p.shape ? shapeOutline(p.shape, p.l, p.w) : rectOutline(p.l, p.w, 6);
+                  return (
+                    <button key={p.name} className="tile" onClick={() => add({ name: p.name, l: p.l, w: p.w, h: p.h, weight: p.weight, outline: p.shape ? pts : undefined })} title={`${p.name} einfügen (${p.l} × ${p.w} × ${p.h} mm)`}>
+                      <ShapePreview pts={pts} l={p.l} w={p.w} />
+                      <span className="tile-name">{p.name}</span>
+                      <span className="tile-dim">{p.l} × {p.w} × {p.h}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           ))}
           </Section>
           <Section id="inlay.add.library" title="Aus der Gerätebibliothek" summary="Gehäusemaße übernehmen">
@@ -78,7 +111,7 @@ function AddPanel({ c, project, layer }: { c: FlightCase; project: Project; laye
           <button key={it.id} className={'lib-item item-row' + (selection?.kind === 'caseItem' && selection.id === it.id ? ' sel-item' : '')} onClick={() => st().select({ kind: 'caseItem', id: it.id })} title="Ausschnitt auswählen">
             <span className="lib-text">
               <span className="lib-name">{it.name}</span>
-              <span className="muted small">{footprint(it).l} × {footprint(it).w}, Tiefe {cutDepth(it)} mm{it.shape === 'circle' ? ', rund' : ''}</span>
+              <span className="muted small">{footprint(it).l} × {footprint(it).w}, Tiefe {cutDepth(it)} mm{it.outline ? ', Kontur' : it.shape === 'circle' ? ', rund' : ''}</span>
             </span>
           </button>
         )) : <div className="hint">Noch keine Ausschnitte.</div>}
@@ -101,6 +134,9 @@ function ItemInspector({ c, it }: { c: FlightCase; it: CaseItem }) {
   const warnings = caseWarnings(c).filter((w) => w.itemId === it.id);
   const grips = new Set(it.grips ?? []);
   const round = it.shape === 'circle';
+  const own = !!(it.outline && it.outline.length >= 3);
+  // scale the contour with the length and width fields
+  const resize = (l: number, w: number) => up(own ? { l, w, outline: it.outline!.map((p) => ({ ...p, x: Math.round((p.x * l) / it.l * 10) / 10, y: Math.round((p.y * w) / it.w * 10) / 10 })) } : { l, w });
   return (
     <aside className="panel inspector">
       <div className="insp">
@@ -110,18 +146,31 @@ function ItemInspector({ c, it }: { c: FlightCase; it: CaseItem }) {
         </div>
         {warnings.length ? <div className="warn-box">{warnings.map((w, i) => <div key={i} className="warn">{w.text}</div>)}</div> : null}
         <Section id="inlay.item.size" title="Form und Maße" defaultOpen summary={`${it.l} × ${it.w}, Tiefe ${cutDepth(it)} mm`}>
-        <Seg value={round ? 'circle' : 'rect'} onChange={(v) => up({ shape: v === 'circle' ? 'circle' : undefined })} options={[
+        <Seg value={own ? 'outline' : round ? 'circle' : 'rect'} onChange={(v) => {
+          if (v === 'outline') { if (!own) up({ outline: round ? rectOutline(it.l, it.w, Math.min(it.l, it.w) / 2) : rectOutline(it.l, it.w, it.radius ?? 6), shape: undefined }); openEditor(it.id); }
+          else up({ shape: v === 'circle' ? 'circle' : undefined, outline: undefined, trace: undefined });
+        }} options={[
           { id: 'rect', label: 'Rechteck', title: 'Rechteckig mit gerundeten Ecken' },
           { id: 'circle', label: 'Rund', title: 'Rund oder oval' },
+          { id: 'outline', label: 'Kontur', title: 'Eigene Kontur, im Form-Editor gezeichnet' },
         ]} />
+        {own ? (
+          <div className="outline-box">
+            <ShapePreview pts={it.outline!} l={it.l} w={it.w} size={56} width={96} />
+            <div className="col gap4">
+              <span className="muted small">{it.outline!.length} Eckpunkte{it.trace ? ', mit Hintergrundbild' : ''}</span>
+              {!ro ? <button className="btn sm primary" onClick={() => openEditor(it.id)} title="Kontur im Form-Editor bearbeiten">Im Form-Editor bearbeiten</button> : null}
+            </div>
+          </div>
+        ) : null}
         <div className="row gap8">
-          <Field label={round ? 'Durchm. x (mm)' : 'Länge (mm)'}><NumberInput value={it.l} min={5} onChange={(v) => up({ l: v })} /></Field>
-          <Field label={round ? 'Durchm. y (mm)' : 'Breite (mm)'}><NumberInput value={it.w} min={5} onChange={(v) => up({ w: v })} /></Field>
+          <Field label={round ? 'Durchm. x (mm)' : 'Länge (mm)'}><NumberInput value={it.l} min={5} onChange={(v) => resize(v, it.w)} /></Field>
+          <Field label={round ? 'Durchm. y (mm)' : 'Breite (mm)'}><NumberInput value={it.w} min={5} onChange={(v) => resize(it.l, v)} /></Field>
         </div>
         <div className="row gap8">
           <Field label="Höhe Inhalt (mm)"><NumberInput value={it.h} min={1} onChange={(v) => up({ h: v })} /></Field>
           <Field label="Schnitttiefe (mm)"><NumberInput value={cutDepth(it)} min={1} onChange={(v) => up({ depth: v === it.h ? undefined : v })} /></Field>
-          {!round ? <Field label="Eckenradius"><NumberInput value={it.radius ?? 6} min={0} max={50} onChange={(v) => up({ radius: v === 6 ? undefined : v })} /></Field> : null}
+          {!round && !own ? <Field label="Eckenradius"><NumberInput value={it.radius ?? 6} min={0} max={50} onChange={(v) => up({ radius: v === 6 ? undefined : v })} /></Field> : null}
         </div>
         <div className="muted small">Schnitttiefe ist sonst gleich der Höhe. Platz in der Höhe: {Math.round(depthAvailable(c, it.layer))} mm.</div>
         </Section>
@@ -134,7 +183,7 @@ function ItemInspector({ c, it }: { c: FlightCase; it: CaseItem }) {
           <Field label="Ebene"><select disabled={ro} value={it.layer} onChange={(e) => up({ layer: e.target.value as CaseItem['layer'] })}><option value="body">Unterteil</option><option value="lid">Deckel</option></select></Field>
         ) : null}
         </Section>
-        {!round ? (
+        {!round && !own ? (
           <>
             <Section id="inlay.item.grips" title="Griffmulden und Gravur" summary={[it.grips?.length ? `${it.grips.length} Griffmulden` : '', it.engrave ? 'graviert' : ''].filter(Boolean).join(', ') || 'keine'}>
             <div className="muted small">Halbrunde Aussparungen, um den Inhalt greifen zu können.</div>
@@ -246,7 +295,7 @@ function CutListPanel({ c, project }: { c: FlightCase; project: Project }) {
             <tbody>
               {rows.map((r) => (
                 <tr key={r.it.id} className={(selection?.kind === 'caseItem' && selection.id === r.it.id ? 'sel' : '') + (r.inside ? '' : ' bad-row')} onClick={() => st().select({ kind: 'caseItem', id: r.it.id })}>
-                  <td>{r.it.name}</td><td>{r.it.layer === 'lid' ? 'Deckel' : 'Unterteil'}</td><td>{r.it.shape === 'circle' ? 'rund' : `R ${r.it.radius ?? 6}`}</td>
+                  <td>{r.it.name}</td><td>{r.it.layer === 'lid' ? 'Deckel' : 'Unterteil'}</td><td>{r.it.outline ? 'Kontur' : r.it.shape === 'circle' ? 'rund' : `R ${r.it.radius ?? 6}`}</td>
                   <td>{r.l} × {r.w}</td><td>{r.depth}</td><td>{Math.round(r.x)}</td><td>{Math.round(r.y)}</td>
                   <td>{r.it.grips?.length ? r.it.grips.map((g) => SIDES.find((s) => s.id === g)?.label).join(', ') : ''}</td>
                 </tr>
@@ -271,6 +320,8 @@ export function InlayWorkspace() {
   const layout = useLayout();
   const [view, setView] = useState<'plan' | '3d'>('plan');
   const [layerSel, setLayer] = useState<InlayLayer>('body');
+  const [editing, setEditing] = useState<string | null>(null);
+  openEditor = setEditing;
   const snap = layout.snap, gap = layout.packGap;
   const list = inlayList(project);
   const c = list.find((x) => x.id === activeId) ?? list[0];
@@ -335,6 +386,9 @@ export function InlayWorkspace() {
         </div>
         {layout.showCableList ? <div className="cable-list-wrap" style={{ maxHeight: 300 }}><CutListPanel c={c} project={project} /></div> : null}
       </section>
+      {editing && c.items.some((x) => x.id === editing) ? (
+        <ShapeEditor item={c.items.find((x) => x.id === editing)!} onClose={() => setEditing(null)} onSave={(patch) => { st().updateCaseItem(c.id, editing, patch); setEditing(null); }} />
+      ) : null}
       {layout.showInspector ? (
         <>
           <Splitter dir="x" sign={-1} value={layout.inspectorW} min={240} max={640} onChange={(v) => setLayout({ inspectorW: v })} onReset={() => setLayout({ inspectorW: DEFAULT_LAYOUT.inspectorW })} />

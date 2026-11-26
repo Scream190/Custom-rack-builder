@@ -1,4 +1,4 @@
-import type { CaseItem, FlightCase, FoamMaterial, Project } from './types';
+import type { CaseItem, FlightCase, FoamMaterial, OutlinePt, Project } from './types';
 import { footprint, isDrawer, packItems, usableArea } from './cases';
 import { uid } from './util';
 
@@ -57,6 +57,10 @@ export function cutoutOutline(it: CaseItem): [number, number][] {
   const arc = (cx: number, cy: number, r: number, a0: number, a1: number, n: number) => {
     for (let i = 0; i <= n; i++) { const a = a0 + ((a1 - a0) * i) / n; pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]); }
   };
+  if (it.outline && it.outline.length >= 3) {
+    // own contour: rounded corners, rotation by 90° (x, y) -> (y, l − x), placed at the item position
+    return filletPolygon(it.outline).map(([x, y]) => (it.rot ? [it.x + y, it.y + it.l - x] : [it.x + x, it.y + y]) as [number, number]);
+  }
   if (it.shape === 'circle') {
     const n = 48;
     for (let i = 0; i < n; i++) { const a = (i / n) * Math.PI * 2; pts.push([(x0 + x1) / 2 + (f.l / 2) * Math.cos(a), (y0 + y1) / 2 + (f.w / 2) * Math.sin(a)]); }
@@ -138,3 +142,97 @@ export function cutList(c: FlightCase) {
 
 /** re-pack with a gap and return the new item list */
 export const arrangeItems = (c: FlightCase, gap: number) => packItems(c, gap).items;
+
+// ---------------------------------------------------------------- own contours (shape editor) and shape templates
+
+/** polygon with rounded corners: every vertex with r > 0 becomes an arc tangent to both edges */
+export function filletPolygon(pts: OutlinePt[], seg = 8): [number, number][] {
+  const n = pts.length;
+  if (n < 3) return pts.map((p) => [p.x, p.y]);
+  const out: [number, number][] = [];
+  for (let i = 0; i < n; i++) {
+    const p = pts[i], a = pts[(i + n - 1) % n], b = pts[(i + 1) % n];
+    const r = p.r ?? 0;
+    const ax = a.x - p.x, ay = a.y - p.y, bx = b.x - p.x, by = b.y - p.y;
+    const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+    if (r <= 0.01 || la < 1e-6 || lb < 1e-6) { out.push([p.x, p.y]); continue; }
+    const ua = [ax / la, ay / la], ub = [bx / lb, by / lb];
+    const cos = Math.max(-1, Math.min(1, ua[0] * ub[0] + ua[1] * ub[1]));
+    const theta = Math.acos(cos);
+    if (theta < 1e-3 || Math.PI - theta < 1e-3) { out.push([p.x, p.y]); continue; }
+    // tangent length, limited to half of each edge
+    let t = r / Math.tan(theta / 2);
+    t = Math.min(t, la / 2, lb / 2);
+    const rr = t * Math.tan(theta / 2);
+    const p1 = [p.x + ua[0] * t, p.y + ua[1] * t], p2 = [p.x + ub[0] * t, p.y + ub[1] * t];
+    const bis = [ua[0] + ub[0], ua[1] + ub[1]], bl = Math.hypot(bis[0], bis[1]);
+    const dc = rr / Math.sin(theta / 2);
+    const c = [p.x + (bis[0] / bl) * dc, p.y + (bis[1] / bl) * dc];
+    let a0 = Math.atan2(p1[1] - c[1], p1[0] - c[0]), a1 = Math.atan2(p2[1] - c[1], p2[0] - c[0]);
+    let da = a1 - a0;
+    while (da > Math.PI) da -= 2 * Math.PI;
+    while (da < -Math.PI) da += 2 * Math.PI;
+    for (let k = 0; k <= seg; k++) { const ang = a0 + (da * k) / seg; out.push([c[0] + rr * Math.cos(ang), c[1] + rr * Math.sin(ang)]); }
+    void a1;
+  }
+  return out;
+}
+
+/** shift a contour so that its bounding box starts at 0/0; returns the contour and its size */
+export function normalizeOutline(pts: OutlinePt[]): { pts: OutlinePt[]; l: number; w: number; dx: number; dy: number } {
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y);
+  const x0 = Math.min(...xs), y0 = Math.min(...ys);
+  const r1 = (v: number) => Math.round(v * 10) / 10;
+  return { pts: pts.map((p) => ({ ...p, x: r1(p.x - x0), y: r1(p.y - y0) })), l: r1(Math.max(...xs) - x0), w: r1(Math.max(...ys) - y0), dx: x0, dy: y0 };
+}
+
+export const rectOutline = (l: number, w: number, r = 0): OutlinePt[] => [{ x: 0, y: 0, r }, { x: l, y: 0, r }, { x: l, y: w, r }, { x: 0, y: w, r }];
+
+export type ShapeKind = 'mic' | 'mic-wired' | 'bodypack' | 'iem' | 'paddle' | 'whip' | 'drum' | 'laptop' | 'charger' | 'headphones' | 'battery-box';
+
+/** contour templates for typical contents, scaled to length l and width w (mm) */
+export function shapeOutline(kind: ShapeKind, l: number, w: number): OutlinePt[] {
+  const h = w / 2;
+  switch (kind) {
+    case 'mic': case 'mic-wired': {
+      // round grille on the left, tapering handle to the right
+      const neck = kind === 'mic' ? 0.4 * w : 0.36 * w, tail = kind === 'mic' ? 0.3 * w : 0.24 * w;
+      const pts: OutlinePt[] = [];
+      const a = Math.asin(Math.min(0.95, neck / h));
+      for (let k = 0; k <= 14; k++) { const ang = a + ((2 * Math.PI - 2 * a) * k) / 14; pts.push({ x: h + h * Math.cos(ang), y: h + h * Math.sin(ang) }); }
+      return [...pts, { x: l, y: h - tail, r: tail * 0.6 }, { x: l, y: h + tail, r: tail * 0.6 }];
+    }
+    case 'bodypack': case 'iem': {
+      // housing with rounded corners and an antenna stub on top of the right end
+      const ant = kind === 'bodypack' ? Math.min(0.28 * l, 70) : Math.min(0.16 * l, 35), aw = Math.max(6, 0.14 * w), body = l - ant;
+      return [{ x: 0, y: 0, r: 6 }, { x: body, y: 0, r: 6 }, { x: body, y: w - aw - 2, r: 0 }, { x: l, y: w - aw - 2, r: aw / 2 }, { x: l, y: w, r: aw / 2 }, { x: 0, y: w, r: 6 }];
+    }
+    case 'paddle': {
+      const stem = 0.22 * l, sw = Math.max(16, 0.22 * w), board = l - stem;
+      return [{ x: 0, y: 0, r: 10 }, { x: board, y: 0, r: 10 }, { x: board, y: h - sw / 2, r: 3 }, { x: l, y: h - sw / 2, r: 2 }, { x: l, y: h + sw / 2, r: 2 }, { x: board, y: h + sw / 2, r: 3 }, { x: board, y: w, r: 10 }, { x: 0, y: w, r: 10 }];
+    }
+    case 'whip': {
+      // connector base (full width) on the left, thin rod to the right
+      const base = Math.min(0.2 * l, 60), rod = Math.max(8, 0.4 * w);
+      return [{ x: 0, y: 0, r: 4 }, { x: base, y: 0, r: 2 }, { x: base, y: h - rod / 2, r: 0 }, { x: l, y: h - rod / 2, r: rod / 2 }, { x: l, y: h + rod / 2, r: rod / 2 }, { x: base, y: h + rod / 2, r: 0 }, { x: base, y: w, r: 2 }, { x: 0, y: w, r: 4 }];
+    }
+    case 'drum': return rectOutline(l, w, Math.min(l, w) / 2);
+    case 'laptop': return rectOutline(l, w, 10);
+    case 'charger': return rectOutline(l, w, 8);
+    case 'battery-box': return rectOutline(l, w, 4);
+    case 'headphones': {
+      // two ear cups joined by the headband
+      const cup = Math.min(0.38 * l, w), bh = Math.max(14, 0.18 * w);
+      return [
+        { x: 0, y: 0, r: cup / 2 - 1 }, { x: cup, y: 0, r: 4 }, { x: cup, y: w - bh, r: 4 }, { x: l - cup, y: w - bh, r: 4 }, { x: l - cup, y: 0, r: 4 },
+        { x: l, y: 0, r: cup / 2 - 1 }, { x: l, y: w, r: 10 }, { x: 0, y: w, r: 10 },
+      ];
+    }
+    default: return rectOutline(l, w, 6);
+  }
+}
+
+export const SHAPE_LABELS: Record<ShapeKind, string> = {
+  mic: 'Handmikrofon', 'mic-wired': 'Kabelmikrofon', bodypack: 'Taschensender mit Antenne', iem: 'In-Ear-Empfänger', paddle: 'Paddle-Antenne',
+  whip: 'Stabantenne', drum: 'Kabeltrommel (rund)', laptop: 'Laptop', charger: 'Ladegerät', headphones: 'Kopfhörer', 'battery-box': 'Akku-Box',
+};

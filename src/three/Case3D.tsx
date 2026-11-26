@@ -189,7 +189,12 @@ export function addFoam(parent: THREE.Object3D, c: FlightCase, layer: CaseItem['
     const m = new THREE.MeshStandardMaterial({ color: ITEM_TONES[i % ITEM_TONES.length], roughness: 0.5, metalness: 0.1 });
     let geo: THREE.BufferGeometry;
     const mn = Math.min(f.l, f.w);
-    if (it.shape === 'circle') geo = new THREE.CylinderGeometry(mn / 2 - 0.5, mn / 2 - 0.5, it.h, 32).scale(f.l / mn, 1, f.w / mn);
+    if (it.outline && it.outline.length >= 3) {
+      // own contour: extruded upwards from 0 to h (lid items hang down, see the position below)
+      const sh = new THREE.Shape();
+      cutoutOutline(it).forEach(([x, y], k) => (k ? sh.lineTo(X(x) - X(it.x + f.l / 2), -(Z(y) - Z(it.y + f.w / 2))) : sh.moveTo(X(x) - X(it.x + f.l / 2), -(Z(y) - Z(it.y + f.w / 2)))));
+      geo = new THREE.ExtrudeGeometry(sh, { depth: it.h - 1, bevelEnabled: true, bevelThickness: 0.5, bevelSize: 0.5, bevelSegments: 1 }).scale(0.985, 0.985, 1).rotateX(-Math.PI / 2).translate(0, -it.h / 2 + 0.5, 0);
+    } else if (it.shape === 'circle') geo = new THREE.CylinderGeometry(mn / 2 - 0.5, mn / 2 - 0.5, it.h, 32).scale(f.l / mn, 1, f.w / mn);
     else geo = new RoundedBoxGeometry(Math.max(1, f.l - 1), it.h, Math.max(1, f.w - 1), 2, Math.max(0.5, Math.min(it.radius ?? 4, f.l / 6, f.w / 6, it.h / 6)));
     const y = outside ? (lidMode ? surf - it.h / 2 : it.h / 2 - parent.position.y) : surf + dir * it.h / 2;
     B.add(parent, geo, m, X(it.x + f.l / 2), y, Z(it.y + f.w / 2));
