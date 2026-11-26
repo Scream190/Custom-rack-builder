@@ -149,7 +149,11 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   (in `source`/Notizen vermerkt). Neue Stecker: DisplayPort, DVI.
 - **Oberfläche:** bewusst nüchtern wie ein CAD-Werkzeug: flache Flächen ohne Leuchtverläufe, kleine Radien,
   Abschnitte durch Linien statt Kästchen getrennt, Überschriften in normaler Schreibweise, Angaben mit Kommas statt
-  Mittelpunkten.
+  Mittelpunkten. Überall die gleichen Regeln: zusammengehörige Knöpfe stehen als verbundene Gruppe, jeder Knopf hat
+  einen Tooltip mit dem, was er tut, pro Ansicht gibt es genau einen farbigen Hauptknopf, Löschen steht rot und rechts
+  bzw. links im Dialog, Anlegen ist türkis beschriftet. In den Eigenschaften steht oben der Name groß und editierbar,
+  darunter die wichtigsten Werte (Außenmaß, Gewicht, Belegung, Länge) fett; Dialoge haben unten Abbrechen und eine
+  eindeutige Hauptaktion.
 
 ### Arbeitsbereiche
 Oben in der Kopfleiste wählst du den Arbeitsbereich: **Racks bestücken** (Geräte, Kabel, Kabelliste), **Rackgehäuse**

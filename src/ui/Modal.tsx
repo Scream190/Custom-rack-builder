@@ -13,7 +13,7 @@ export function Modal({ title, children, footer, wide, onClose }: { title: strin
       <div className={'modal' + (wide ? ' wide' : '')} role="dialog" aria-label={title}>
         <div className="modal-head">
           <h2>{title}</h2>
-          <button className="icon-btn" onClick={close} aria-label="Schließen">✕</button>
+          <button className="icon-btn" onClick={close} aria-label="Schließen" title="Schließen (Esc)">✕</button>
         </div>
         <div className="modal-body">{children}</div>
         {footer ? <div className="modal-foot">{footer}</div> : null}

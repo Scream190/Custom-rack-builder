@@ -116,7 +116,7 @@ export function RfExportCard({ scope }: { scope: 'current' | 'all' }) {
         <option value="rack">Rackname als Zone (eine Datei je Rack)</option>
         <option value="none">ohne Zone (eine Datei)</option>
       </select>
-      <button className="btn primary" onClick={run}>.rfreq herunterladen</button>
+      <button className="btn" onClick={run}>.rfreq herunterladen</button>
       {result ? <div className="small muted">{result}</div> : null}
     </div>
   );

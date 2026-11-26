@@ -148,10 +148,14 @@ export function PanelDesigner({ templateId }: { templateId?: string }) {
       title={source ? `Blende bearbeiten: ${source.name}` : 'Blenden-Designer'}
       footer={
         <>
-          <button className="btn" onClick={() => downloadBlob(new Blob([panelToDxf(pd)], { type: 'application/dxf' }), `${fname}.dxf`)}>DXF</button>
-          <button className="btn" onClick={() => downloadBlob(new Blob([panelToSvg(pd)], { type: 'image/svg+xml' }), `${fname}.svg`)}>SVG</button>
-          <button className="btn" onClick={async () => downloadBlob(await panelToPdf(pd, name), `${fname}_Zeichnung.pdf`)}>PDF-Zeichnung</button>
+          <span className="tool-label">Herunterladen</span>
+          <div className="btn-group">
+            <button className="btn" onClick={() => downloadBlob(new Blob([panelToDxf(pd)], { type: 'application/dxf' }), `${fname}.dxf`)} title="DXF 1:1 für den Frontplattenhersteller">DXF</button>
+            <button className="btn" onClick={() => downloadBlob(new Blob([panelToSvg(pd)], { type: 'image/svg+xml' }), `${fname}.svg`)} title="SVG-Grafik">SVG</button>
+            <button className="btn" onClick={async () => downloadBlob(await panelToPdf(pd, name), `${fname}_Zeichnung.pdf`)} title="Maßzeichnung als PDF">PDF-Zeichnung</button>
+          </div>
           <span className="spacer" />
+          <button className="btn" onClick={() => useStore.getState().openModal(null)} title="Änderungen verwerfen">Abbrechen</button>
           <button className="btn primary" onClick={saveToLibrary}>{source ? 'Speichern' : 'In Bibliothek speichern'}</button>
         </>
       }
@@ -196,12 +200,22 @@ export function PanelDesigner({ templateId }: { templateId?: string }) {
               {D_CONNECTORS.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
           </Field>
-          <button className="btn" onClick={() => add('dseries')}>+ D-Size Buchse</button>
-          <button className="btn" onClick={() => add('hole')}>+ Bohrung</button>
-          <button className="btn" onClick={() => add('rect')}>+ Ausschnitt</button>
-          <button className="btn" onClick={() => add('text')}>+ Text</button>
-          <button className="btn" onClick={() => add('engraveRect')}>+ Rahmen</button>
-          <button className="btn" onClick={() => add('engraveLine')}>+ Linie</button>
+          <div className="field" style={{ flex: '0 0 auto' }}>
+            <span>Einfügen: Durchbrüche</span>
+            <div className="btn-group">
+              <button className="btn" onClick={() => add('dseries')} title="D-Size-Durchbruch mit dem gewählten Einsatz (wird ein verkabelbarer Anschluss)">D-Size Buchse</button>
+              <button className="btn" onClick={() => add('hole')} title="Runde Bohrung">Bohrung</button>
+              <button className="btn" onClick={() => add('rect')} title="Rechteckiger Ausschnitt">Ausschnitt</button>
+            </div>
+          </div>
+          <div className="field" style={{ flex: '0 0 auto' }}>
+            <span>Einfügen: Gravur</span>
+            <div className="btn-group">
+              <button className="btn" onClick={() => add('text')} title="Gravierter Text">Text</button>
+              <button className="btn" onClick={() => add('engraveRect')} title="Gravierter Rahmen">Rahmen</button>
+              <button className="btn" onClick={() => add('engraveLine')} title="Gravierte Linie">Linie</button>
+            </div>
+          </div>
           <Field label="Raster">
             <select value={snap} onChange={(e) => setSnap(Number(e.target.value))}>
               {[0.1, 0.5, 1, 2.5, 5].map((s) => <option key={s} value={s}>{String(s).replace('.', ',')} mm</option>)}
@@ -210,15 +224,16 @@ export function PanelDesigner({ templateId }: { templateId?: string }) {
         </div>
 
         <div className="row gap8 wrap align-end toolbar-row">
-          <strong className="small">Reihe verteilen:</strong>
+          <span className="tool-label" style={{ alignSelf: 'center' }}>Reihe von D-Size Buchsen</span>
           <Field label="Anzahl"><NumberInput value={dist.count} min={1} max={48} onChange={(v) => setDist({ ...dist, count: v })} style={{ width: 56 }} /></Field>
           <Field label="X von"><NumberInput value={dist.x0} step={0.5} onChange={(v) => setDist({ ...dist, x0: v })} style={{ width: 70 }} /></Field>
           <Field label="X bis"><NumberInput value={dist.x1} step={0.5} onChange={(v) => setDist({ ...dist, x1: v })} style={{ width: 70 }} /></Field>
           <Field label="Y (0 = auto)"><NumberInput value={dist.y} step={0.5} onChange={(v) => setDist({ ...dist, y: v })} style={{ width: 70 }} /></Field>
           <Field label="Präfix"><input value={dist.prefix} onChange={(e) => setDist({ ...dist, prefix: e.target.value })} style={{ width: 60 }} /></Field>
           <label className="check"><input type="checkbox" checked={dist.labels} onChange={(e) => setDist({ ...dist, labels: e.target.checked })} /> Beschriftung</label>
-          <button className="btn" onClick={distribute}>Einfügen</button>
-          <button className="btn danger" onClick={() => { if (confirm('Alle Elemente entfernen?')) { setPd({ ...pd, elements: [] }); setSelId(null); } }}>Leeren</button>
+          <button className="btn" onClick={distribute} title="Buchsen gleichmäßig zwischen X von und X bis verteilen">Reihe einfügen</button>
+          <span className="spacer" />
+          <button className="btn danger" onClick={() => { if (confirm('Alle Elemente entfernen?')) { setPd({ ...pd, elements: [] }); setSelId(null); } }} title="Alle Elemente von der Blende entfernen">Blende leeren</button>
         </div>
 
         <div className="panel-canvas">

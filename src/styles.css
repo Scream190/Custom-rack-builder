@@ -322,3 +322,5 @@ tr.bad-row td { color: #fca5a5; }
 .insp .seg button { padding: 5px 6px; white-space: nowrap; border-bottom: 1px solid var(--line); }
 .insp .check { white-space: normal; align-items: flex-start; }
 .insp .check input { margin-top: 2px; }
+.lib-tools { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 8px 10px 0; flex-wrap: wrap; }
+.link-btn { background: none; border: 0; padding: 0; color: var(--accent); cursor: pointer; text-decoration: underline; font-size: inherit; }

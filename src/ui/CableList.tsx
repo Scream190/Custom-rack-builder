@@ -58,12 +58,12 @@ export function CableList() {
   return (
     <div className={'cable-list' + (open ? '' : ' closed')}>
       <div className="cable-list-head">
-        <button className="cable-list-title" onClick={() => setOpen(!open)}>{open ? '▾' : '▸'} Kabelliste – {rack.name} ({rows.length})</button>
+        <button className="cable-list-title" onClick={() => setOpen(!open)} aria-expanded={open} title={open ? 'Kabelliste einklappen' : 'Kabelliste ausklappen'}>{open ? '▾' : '▸'} Kabelliste, {rack.name} ({rows.length})</button>
         <span className="row gap8">
           {open ? (
             <span className="seg small-seg">
-              <button className={mode === 'list' ? 'on' : ''} onClick={() => setMode('list')}>Liste</button>
-              <button className={mode === 'build' ? 'on' : ''} onClick={() => setMode('build')}>Konfektion</button>
+              <button className={mode === 'list' ? 'on' : ''} onClick={() => setMode('list')} title="Alle Kabel mit Von, Nach und Länge">Liste</button>
+              <button className={mode === 'build' ? 'on' : ''} onClick={() => setMode('build')} title="Was gebaut werden muss: Stecker, Pinbelegung, Stückzahlen">Konfektion</button>
             </span>
           ) : null}
           <span className="muted small">Gesamt: {formatLength(rows.reduce((s, r) => s + r.length, 0))}</span>

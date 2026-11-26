@@ -50,15 +50,16 @@ export function RackTypeEditor() {
   return (
     <Modal wide title="Rack-Typen" footer={
       <>
-        {isExisting ? <button className="btn danger" onClick={() => { st().deleteRackType(draft.id); setDraft({ ...draft, id: uid('rt-') }); }}>Löschen</button> : null}
+        {isExisting ? <button className="btn danger" onClick={() => { st().deleteRackType(draft.id); setDraft({ ...draft, id: uid('rt-') }); }} title="Diesen eigenen Rack-Typ aus dem Projekt löschen">Rack-Typ löschen</button> : null}
         <span className="spacer" />
-        <button className="btn" onClick={() => save(false)}>Speichern</button>
-        <button className="btn primary" onClick={() => { save(true); st().openModal(null); }}>Speichern & auf „{rack.name}“ anwenden</button>
+        <button className="btn" onClick={() => st().openModal(null)} title="Schließen ohne zu speichern">Abbrechen</button>
+        <button className="btn" onClick={() => save(false)} title="Als Rack-Typ speichern, ohne ihn auf das aktuelle Rack anzuwenden">Speichern</button>
+        <button className="btn primary" onClick={() => { save(true); st().openModal(null); }}>Speichern und auf „{rack.name}“ anwenden</button>
       </>
     }>
       <div className="editor-grid">
         <div className="type-list">
-          <div className="muted small">Vorlage wählen (wird als eigener Typ kopiert):</div>
+          <div className="muted small">Vorlage wählen, sie wird als eigener Typ kopiert. Frei konstruieren mit Bildern und 3D: <button className="link-btn" onClick={() => { st().setMode('rackbuild'); st().openModal(null); }}>Arbeitsbereich Rackgehäuse</button></div>
           {Object.entries(RACK_KIND_LABELS).map(([kind, label]) => (
             <div key={kind}>
               <div className="lib-cat static">{label}</div>
@@ -168,7 +169,7 @@ export function CableTypeEditor() {
   return (
     <Modal wide title="Kabeltypen & Farben" footer={
       <>
-        <button className="btn" onClick={() => st().upsertCableType({ id: uid('ct-'), name: 'Neuer Kabeltyp', signal: 'other', color: '#14b8a6', width: 2, stockLengths: [0.5, 1, 2, 3, 5], custom: true })}>+ Kabeltyp</button>
+        <button className="btn accent" onClick={() => st().upsertCableType({ id: uid('ct-'), name: 'Neuer Kabeltyp', signal: 'other', color: '#14b8a6', width: 2, stockLengths: [0.5, 1, 2, 3, 5], custom: true })} title="Eigenen Kabeltyp mit Farbe und Lagerlängen anlegen">+ Neuer Kabeltyp</button>
         <span className="spacer" />
         <button className="btn primary" onClick={() => st().openModal(null)}>Fertig</button>
       </>
@@ -487,7 +488,7 @@ function RackExportDialog() {
             Eine einzelne HTML-Datei, die in jedem Browser öffnet – ohne Installation, auch offline. Mit Vorder-/Rückansicht, 3D, Kabel-Hervorhebung,
             Kabelliste und Zoom. Lässt sich per Mail oder Cloud verschicken.
           </p>
-          <button className="btn primary" disabled={!!busy} onClick={() => run('html', async () => {
+          <button className="btn" disabled={!!busy} onClick={() => run('html', async () => {
             const html = buildInteractiveHtml(project);
             downloadBlob(new Blob([html], { type: 'text/html' }), `${base}_interaktiv.html`);
           })}>HTML herunterladen</button>

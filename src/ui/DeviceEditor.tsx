@@ -94,10 +94,11 @@ export function DeviceEditor({ templateId }: { templateId?: string }) {
       footer={
         <>
           {source?.custom && usedCount === 0 ? (
-            <button className="btn danger" onClick={() => { useStore.getState().deleteTemplate(draft.id); useStore.getState().openModal(null); }}>Löschen</button>
+            <button className="btn danger" onClick={() => { useStore.getState().deleteTemplate(draft.id); useStore.getState().openModal(null); }} title="Diese eigene Vorlage löschen (wird im Projekt nicht verwendet)">Vorlage löschen</button>
           ) : null}
           <span className="spacer" />
-          {source ? <button className="btn" onClick={() => save(true)}>Als neue Vorlage speichern</button> : null}
+          <button className="btn" onClick={() => useStore.getState().openModal(null)} title="Änderungen verwerfen">Abbrechen</button>
+          {source ? <button className="btn" onClick={() => save(true)} title="Eine Kopie mit den Änderungen anlegen, das Original bleibt">Als neue Vorlage speichern</button> : null}
           <button className="btn primary" onClick={() => save(false)}>
             {source ? (usedCount ? `Speichern (${usedCount} Geräte im Projekt aktualisieren)` : 'Speichern') : 'Gerät anlegen'}
           </button>

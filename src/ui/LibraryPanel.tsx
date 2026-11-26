@@ -35,15 +35,15 @@ export function LibraryPanel() {
     <aside className="panel library">
       <div className="panel-head">
         <strong>Bibliothek</strong>
-        <div className="row gap4">
-          <button className="btn sm" title="Neues Gerät anlegen" onClick={() => useStore.getState().openModal({ kind: 'device' })}>+ Gerät</button>
-          <button className="btn sm" title="Neue Rackblende entwerfen" onClick={() => useStore.getState().openModal({ kind: 'panel' })}>+ Blende</button>
-          <button className="btn sm" title="Neue Split- oder Kombidose anlegen" onClick={() => useStore.getState().openModal({ kind: 'box' })}>+ Dose</button>
-        </div>
+        <span className="muted small">{templates.length} Vorlagen</span>
       </div>
-      <input className="search" placeholder="Suchen (z. B. Shure, BNC, Splitter) …" value={q} onChange={(e) => setQ(e.target.value)} />
-      <div className="hint row" style={{ justifyContent: 'space-between' }}>
-        <span>In das Rack ziehen oder doppelklicken.</span>
+      <input className="search" placeholder="Suchen, z. B. Shure, BNC, Splitter" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Bibliothek durchsuchen" />
+      <div className="lib-tools">
+        <div className="btn-group" aria-label="Eigene Vorlage anlegen">
+          <button className="btn sm" title="Eigenes Gerät mit Anschlüssen anlegen" onClick={() => useStore.getState().openModal({ kind: 'device' })}>+ Gerät</button>
+          <button className="btn sm" title="Eigene Rackblende mit Bohrungen und D-Size-Buchsen entwerfen" onClick={() => useStore.getState().openModal({ kind: 'panel' })}>+ Rackblende</button>
+          <button className="btn sm" title="Eigene Split- oder Kombidose anlegen" onClick={() => useStore.getState().openModal({ kind: 'box' })}>+ Dose</button>
+        </div>
         <button
           className="btn sm"
           title="Alle Kategorien auf- bzw. zuklappen"
@@ -52,13 +52,14 @@ export function LibraryPanel() {
             setCollapsed(Object.fromEntries(groups.map(([c]) => [c, !allClosed])));
           }}
         >
-          {groups.length && groups.every(([c]) => collapsed[c]) ? 'Alle auf' : 'Alle zu'}
+          {groups.length && groups.every(([c]) => collapsed[c]) ? 'Alle aufklappen' : 'Alle einklappen'}
         </button>
       </div>
+      <div className="hint">Zum Einbauen in das Rack ziehen oder doppelklicken.</div>
       <div className="lib-list">
         {groups.map(([cat, items]) => (
           <div key={cat} className="lib-group">
-            <button className="lib-cat" onClick={() => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }))}>
+            <button className="lib-cat" aria-expanded={!collapsed[cat]} onClick={() => setCollapsed((c) => ({ ...c, [cat]: !c[cat] }))} title={collapsed[cat] ? 'Kategorie aufklappen' : 'Kategorie einklappen'}>
               <span>{collapsed[cat] ? '▸' : '▾'} {cat}</span>
               <span className="muted">{items.length}</span>
             </button>
@@ -86,7 +87,8 @@ export function LibraryPanel() {
                   </div>
                   <button
                     className="icon-btn"
-                    title={t.panel ? 'Blende bearbeiten' : t.custom ? 'Bearbeiten' : 'Als eigene Vorlage kopieren und bearbeiten'}
+                    title={t.panel ? 'Blende bearbeiten' : t.custom ? 'Vorlage bearbeiten' : 'Als eigene Vorlage kopieren und bearbeiten'}
+                    aria-label="Vorlage bearbeiten"
                     onClick={() => useStore.getState().openModal(t.box ? { kind: 'box', templateId: t.id } : t.panel ? { kind: 'panel', templateId: t.id } : { kind: 'device', templateId: t.id })}
                   >✎</button>
                 </div>
