@@ -220,6 +220,8 @@ export interface RackBuild {
   castorSize: 75 | 100 | 125;
   /** shockmount: the inner rack floats on dampers inside the outer case */
   shock?: { travel: number; damper: 'rubber' | 'foam' };
+  /** bays in different planes get separate bodies (stacked cases) instead of one case with work surfaces */
+  separate?: boolean;
 }
 
 /** One mounting bay: x = left edge of its 19"/10" face, y = its bottom edge, both in mm from the bottom-left of the arrangement. */
@@ -229,6 +231,10 @@ export interface Bay {
   x: number;
   y: number;
   label?: string;
+  /** setback of this bay's front rail behind the frontmost rail, mm (default 0) */
+  z?: number;
+  /** mounting depth of this bay (front to rear rail), mm (default: the rack type's depth) */
+  depth?: number;
 }
 
 export interface PlacedDevice {

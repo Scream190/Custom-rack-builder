@@ -10,7 +10,7 @@
  * Coordinates: mm, x from the left of the 19" face (front view), y up from U1, z towards the viewer (front rails at 0).
  */
 import type { DeviceTemplate, PlacedDevice, Project, Rack } from '../model/types';
-import { bayOf, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, resolveEnd, U } from '../model/geometry';
+import { bayDepth, bayOf, bayZ, rackDepth, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, resolveEnd, U } from '../model/geometry';
 import { cableColor } from '../render/cablePaths';
 
 export interface Route3D { cableId: string; color: string; radius: number; points: [number, number, number][]; blocked: boolean }
@@ -31,16 +31,18 @@ export function bodyWidth3D(rack: Rack, tpl: DeviceTemplate, d?: PlacedDevice) {
 export function deviceBoxes(rack: Rack, d: PlacedDevice, tpl: DeviceTemplate): { lo: number[]; hi: number[] }[] {
   const w = faceWidth(bayOf(rack, d).rackStandard) / tpl.slots;
   const h = panelHeight(tpl.heightU);
-  const D = rack.type.depth;
-  const depth = Math.max(PLATE + 1, Math.min(tpl.depth, D));
+  const bay = bayOf(rack, d);
+  const bz = bayZ(bay), bd = bayDepth(rack.type, bay);
+  const depth = Math.max(PLATE + 1, Math.min(tpl.depth, bd));
   const x0 = deviceFrontX(rack, d, tpl);
   const yTop = deviceTopY(d, tpl, rack) - 0.4;
   const bw = bodyWidth3D(rack, tpl, d);
   const bx = x0 + (w - bw) / 2;
   if (d.mount === 'front') {
-    return [{ lo: [x0, yTop - h, -PLATE], hi: [x0 + w, yTop, 0] }, { lo: [bx, yTop - h + 0.3, -depth], hi: [bx + bw, yTop - 0.3, -PLATE] }];
+    return [{ lo: [x0, yTop - h, -bz - PLATE], hi: [x0 + w, yTop, -bz] }, { lo: [bx, yTop - h + 0.3, -bz - depth], hi: [bx + bw, yTop - 0.3, -bz - PLATE] }];
   }
-  return [{ lo: [x0, yTop - h, -D], hi: [x0 + w, yTop, -D + PLATE] }, { lo: [bx, yTop - h + 0.3, -D + PLATE], hi: [bx + bw, yTop - 0.3, -D + depth] }];
+  const R = bz + bd;
+  return [{ lo: [x0, yTop - h, -R], hi: [x0 + w, yTop, -R + PLATE] }, { lo: [bx, yTop - h + 0.3, -R + PLATE], hi: [bx + bw, yTop - 0.3, -R + depth] }];
 }
 
 /** binary min-heap on (priority, value) */
@@ -81,7 +83,7 @@ class Heap {
 
 export function route3D(project: Project, rack: Rack, radiusOf: (typeId: string) => number): { routes: Route3D[] } {
   const { w: fw, h: H } = rackExtent(rack.type);
-  const D = rack.type.depth;
+  const D = rackDepth(rack.type);
   const wall = Math.max(18, Math.min(70, (rack.type.outer.w - fw) / 2));
   const shell = Math.min(10, wall);
   const space = Math.max(30, Math.min(80, (rack.type.outer.d - D) / 2));

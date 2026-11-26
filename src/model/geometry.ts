@@ -27,6 +27,12 @@ export function rackExtent(rt: RackType): { w: number; h: number } {
   return { w: Math.max(...bays.map((b) => b.x + faceWidth(b.rackStandard))), h: Math.max(...bays.map((b) => b.y + b.heightU * U)) };
 }
 export const bayOf = (rack: Rack, pd: PlacedDevice): Bay => { const b = rackBays(rack.type); return b[pd.bay ?? 0] ?? b[0]; };
+/** setback of a bay's front rail (mm behind the frontmost rail) */
+export const bayZ = (bay: Bay) => bay.z ?? 0;
+/** mounting depth of a bay */
+export const bayDepth = (rt: RackType, bay: Bay) => bay.depth ?? rt.depth;
+/** overall depth from the frontmost front rail to the rearmost rear rail */
+export const rackDepth = (rt: RackType) => Math.max(...rackBays(rt).map((b) => bayZ(b) + bayDepth(rt, b)));
 /** total rack units of all bays */
 export const totalUnits = (rt: RackType) => rackBays(rt).reduce((n, b) => n + b.heightU, 0);
 /** short size text: "12 HE" or "2 × 12 HE" / "4 + 10 HE" */
@@ -100,8 +106,10 @@ export function portPosition(rack: Rack, pd: PlacedDevice, tpl: DeviceTemplate, 
   const x = facing === 'front' ? xView : fw - xView;
   const y = deviceTopY(pd, tpl, rack) - PANEL_GAP / 2 - port.y;
   let z: number;
-  if (pd.mount === 'front') z = port.side === 'front' ? 0 : tpl.depth;
-  else z = port.side === 'front' ? rack.type.depth : rack.type.depth - tpl.depth;
+  const bay = bayOf(rack, pd);
+  const bz = bayZ(bay), bd = bayDepth(rack.type, bay);
+  if (pd.mount === 'front') z = bz + (port.side === 'front' ? 0 : tpl.depth);
+  else z = bz + (port.side === 'front' ? bd : bd - tpl.depth);
   return { x, y, z, facing };
 }
 
@@ -257,7 +265,8 @@ export function checkPlacement(
   // front-view horizontal span within the bay
   const fx = mount === 'front' ? slot * w : fw - slot * w - w;
   let warning: string | undefined;
-  if (tpl.depth > rt.depth) warning = `Gerät (${tpl.depth} mm) ist tiefer als das Rack (${rt.depth} mm)`;
+  const bd = bayDepth(rt, bay);
+  if (tpl.depth > bd) warning = `Gerät (${tpl.depth} mm) ist tiefer als das Einbaufeld (${bd} mm)`;
   for (const other of rack.devices) {
     if (other.id === ignoreId || (other.bay ?? 0) !== bayIndex) continue;
     const ot = project.templates[other.templateId];
@@ -270,7 +279,7 @@ export function checkPlacement(
     const hOverlap = Math.min(fx + w, ofx + ow) - Math.max(fx, ofx) > 0.5;
     if (!hOverlap) continue;
     if (other.mount === mount) return { ok: false, reason: `Belegt durch ${other.label || ot.name}` };
-    if (tpl.depth + ot.depth > rt.depth) return { ok: false, reason: `Zu tief: kollidiert mit ${other.label || ot.name} (${mount === 'front' ? 'hinten' : 'vorne'})` };
+    if (tpl.depth + ot.depth > bd) return { ok: false, reason: `Zu tief: kollidiert mit ${other.label || ot.name} (${mount === 'front' ? 'hinten' : 'vorne'})` };
   }
   return { ok: true, warning };
 }

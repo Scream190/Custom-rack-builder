@@ -215,7 +215,12 @@ als Startpunkt (*Werte aus einem Rack-Typ übernehmen*), die eingebauten Geräte
 - **Bauart:** Rackcase, Shockmount (Innenrack auf Gummi-Schwingmetall oder Dämpfungsschaum, Federweg einstellbar),
   Stahlschrank mit Glastür und Sockel, Open Frame.
 - **Einbaufelder:** beliebig viele Felder mit HE und 19"/10", nebeneinander oder übereinander (Doppel-, Triple-,
-  Kombirack), Abstand der Mittelwand.
+  Kombirack), Abstand der Mittelwand. Jedes Feld kann **zurückgesetzt** sein und eine **eigene Einbautiefe** haben:
+  So entsteht ein Case mit Arbeitsfläche, auf der hinten ein zweites, flacheres Rack steht (z. B. 12 HE unten, darüber
+  zurückgesetzt 12 HE mit 250 mm Tiefe). Unter jedem zurückgesetzten Feld liegt automatisch eine Arbeitsplatte
+  (Multiplex 15 mm mit Alu-Kantenschutz); Zeichnung, 3D und Stückliste zeigen sie. Wahlweise bekommt jede Ebene einen
+  eigenen Korpus mit Deckeln (gestapelte Cases). *Aufbau-Beispiele* enthält fertige Anordnungen, Überschneidungen werden
+  gemeldet. Im Rackplaner sitzen Geräte, Anschlüsse, Kabelwege und Tiefenprüfung des zurückgesetzten Feldes in dessen Tiefe.
 - **Tiefe und Freiräume:** Einbautiefe (Schiene zu Schiene), Platz vor und hinter den Schienen, seitlich (Kabelkanal)
   sowie oben und unten, hintere Schienen ja/nein.
 - **Deckel und Bauweise:** Innentiefe von Front- und Rückdeckel (0 = ohne), 4, 6 oder 8 Butterflyverschlüsse je Deckel,

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { allRackTypes, useActiveRack, useStore } from '../model/store';
 import type { Bay, Project, Rack, RackBuild, RackKind, RackType } from '../model/types';
-import { applyBuild, BUILD_KINDS, buildOf, isFlightRack, rackBom, rackDims } from '../model/rackBuild';
+import { applyBuild, blockClashes, blockGap, BUILD_KINDS, buildOf, isFlightRack, rackBom, rackDims } from '../model/rackBuild';
 import { arrangeBays, rackBays, rackExtent, totalUnits, U, formatLength } from '../model/geometry';
 import { deepClone, uid } from '../model/util';
 import { RackSheet, rackSheetLayout } from '../render/RackBuildDrawing';
@@ -13,6 +13,27 @@ import { Field, NumberInput } from './Modal';
 import { Section } from './Section';
 import { SheetCanvas } from './SheetCanvas';
 import { Menu, MenuCheck, Seg, ShowMenu, ToolGroup, Toolbar } from './Shell';
+
+/** ready-made arrangements of bays (x/y in the front elevation, z = setback) */
+const LAYOUTS: { label: string; make: (t: RackType, g: number) => { bays: Bay[]; patch: Partial<RackType> } }[] = [
+  { label: 'Doppelrack 2 × 12 HE nebeneinander', make: () => ({ bays: arrangeBays([{ heightU: 12, rackStandard: 19, label: 'links' }, { heightU: 12, rackStandard: 19, label: 'rechts' }], 'row', 40), patch: {} }) },
+  { label: 'Kombirack: 4 HE über 12 HE', make: () => ({ bays: arrangeBays([{ heightU: 4, rackStandard: 19, label: 'oben' }, { heightU: 12, rackStandard: 19, label: 'unten' }], 'stack', 40), patch: {} }) },
+  { label: 'Arbeitsplatz: 12 HE unten, Arbeitsfläche, darüber 12 HE zurückgesetzt und flach', make: (t, g) => ({ bays: [
+    { heightU: 12, rackStandard: 19, label: 'unten', x: 0, y: 0 },
+    { heightU: 12, rackStandard: 19, label: 'oben', x: 0, y: 12 * U + g, z: Math.round(t.depth * 0.45 / 10) * 10, depth: 250 },
+  ], patch: {} }) },
+  { label: '2 × 12 HE übereinander, oben Arbeitsfläche mit 3 HE zurückgesetzt', make: (t, g) => ({ bays: [
+    { heightU: 12, rackStandard: 19, label: 'unten', x: 0, y: 0 },
+    { heightU: 12, rackStandard: 19, label: 'Mitte', x: 0, y: 12 * U + 40 },
+    { heightU: 3, rackStandard: 19, label: 'oben', x: 0, y: 24 * U + 40 + g, z: Math.round(t.depth * 0.45 / 10) * 10, depth: 250 },
+  ], patch: {} }) },
+  { label: '2 × 12 HE nebeneinander, oben Arbeitsfläche, links und rechts je 3 HE zurückgesetzt', make: (t, g) => ({ bays: [
+    { heightU: 12, rackStandard: 19, label: 'links', x: 0, y: 0 },
+    { heightU: 12, rackStandard: 19, label: 'rechts', x: 522.6, y: 0 },
+    { heightU: 3, rackStandard: 19, label: 'oben links', x: 0, y: 12 * U + g, z: Math.round(t.depth * 0.45 / 10) * 10, depth: 250 },
+    { heightU: 3, rackStandard: 19, label: 'oben rechts', x: 522.6, y: 12 * U + g, z: Math.round(t.depth * 0.45 / 10) * 10, depth: 250 },
+  ], patch: {} }) },
+];
 
 const st = useStore.getState;
 const kg = (n: number) => String(n).replace('.', ',');
@@ -31,7 +52,8 @@ function depthProblems(project: Project, rack: Rack) {
   for (const dev of rack.devices) {
     const tpl = project.templates[dev.templateId];
     if (!tpl) continue;
-    const room = dev.mount === 'front' ? t.depth + b.rearGap : t.depth + d.railZ;
+    const bay = rackBays(t)[Math.min(dev.bay ?? 0, rackBays(t).length - 1)];
+    const room = (bay.depth ?? t.depth) + (dev.mount === 'front' ? b.rearGap : d.railZ);
     if (tpl.depth > room) out.push(`${dev.label || tpl.name}: ${tpl.depth} mm tief, Platz ${Math.round(room)} mm`);
   }
   return out;
@@ -64,6 +86,7 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
     setBays(bays.map((x, j) => (j === i ? { ...x, ...p } : x)));
   };
   const problems = depthProblems(project, rack);
+  const clashes = blockClashes(d);
   return (
     <aside className="panel inspector">
       <div className="insp">
@@ -78,6 +101,9 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
         </dl>
         {d.castorH ? <div className="muted small">Höhe inklusive {d.castorH} mm Rollen.</div> : null}
         {problems.length ? <div className="warn-box">{problems.map((p, i) => <div key={i} className="warn">Zu tief: {p}</div>)}</div> : null}
+        {clashes.length ? <div className="warn-box">{clashes.map(([a, c], i) => <div key={i} className="warn">Block {a + 1} und Block {c + 1} überschneiden sich. Felder weiter auseinander setzen (mindestens {blockGap(t)} mm zwischen Feldern verschiedener Blöcke).</div>)}</div> : null}
+        {d.blocks.length > 1 ? <div className="muted small">{d.blocks.length} getrennte Korpusse: Felder mit gleichem Versatz und gleicher Tiefe teilen sich einen Korpus mit eigenen Deckeln.</div> : null}
+        {d.shelves.length ? <div className="muted small">Ein Case mit {d.shelves.length === 1 ? 'einer Arbeitsfläche' : `${d.shelves.length} Arbeitsflächen`}; die zurückgesetzten Felder stehen darauf.</div> : null}
 
         <div className="sect-lead">
         <Seg value={(BUILD_KINDS.some((k) => k.id === t.kind) ? t.kind : 'cabinet') as RackKind} onChange={(k) => setT({ kind: k })} options={BUILD_KINDS} />
@@ -93,6 +119,12 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
                 <option value={19}>19"</option><option value={10}>10"</option>
               </select>
               {multi && !ro ? <button className="icon-btn" title={`Feld ${bay.label ?? i + 1} entfernen`} aria-label="Feld entfernen" onClick={() => setBays(bays.filter((_, j) => j !== i))}>✕</button> : null}
+              {multi ? (
+                <div className="bay-depth">
+                  <label className="inline-field" title="Wie weit die Frontschiene dieses Feldes hinter der vordersten Frontschiene liegt">zurück <NumberInput value={bay.z ?? 0} min={0} step={10} onChange={(v) => setBay(i, { z: v > 0 ? Math.round(v) : undefined })} style={{ width: 60 }} /> mm</label>
+                  <label className="inline-field" title="Einbautiefe dieses Feldes (Schiene vorne bis hinten)">Tiefe <NumberInput value={bay.depth ?? t.depth} min={50} step={10} onChange={(v) => setBay(i, { depth: Math.round(v) === t.depth ? undefined : Math.round(v) })} style={{ width: 64 }} /> mm</label>
+                </div>
+              ) : null}
             </div>
           ))}
         </div>
@@ -101,13 +133,17 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
             <div className="row gap8 wrap">
               <button className="btn sm" onClick={() => setBays(arrangeBays([...bays.map(({ x: _x, y: _y, ...r }) => r), { heightU: bays[bays.length - 1].heightU, rackStandard: bays[bays.length - 1].rackStandard }], 'row', gap))} title="Weiteres Einbaufeld daneben anlegen (Doppel-, Triple-Rack)">+ Feld daneben</button>
               <button className="btn sm" onClick={() => setBays(arrangeBays([{ heightU: 4, rackStandard: bays[0].rackStandard, label: 'oben' }, ...bays.map(({ x: _x, y: _y, ...r }) => r)], 'stack', gap))} title="Weiteres Einbaufeld darüber anlegen (Kombirack)">+ Feld darüber</button>
+              <button className="btn sm" onClick={() => setBays([...bays, { heightU: 3, rackStandard: bays[0].rackStandard, label: 'oben hinten', x: 0, y: rackExtent(t).h + blockGap(t), z: Math.round(t.depth / 2 / 10) * 10, depth: Math.max(150, Math.round(t.depth / 2 / 10) * 10) }])} title="Feld auf einer Arbeitsfläche oben, nach hinten versetzt und weniger tief">+ Feld zurückgesetzt</button>
+              <Menu label="Aufbau-Beispiele" className="sm" title="Fertige Anordnungen als Startpunkt">
+                {LAYOUTS.map((lay) => <button key={lay.label} onClick={() => { const r = lay.make(t, blockGap(t)); setT({ ...r.patch, bays: r.bays, heightU: Math.round(rackExtent({ ...t, bays: r.bays }).h / U), rackStandard: 19 }); }}>{lay.label}</button>)}
+              </Menu>
             </div>
             {multi ? (
               <div className="row gap8 wrap">
                 <label className="inline-field" title="Abstand zwischen den Feldern (Mittelwand)">Abstand <NumberInput value={gap} min={0} step={5} onChange={(v) => setGap(Math.max(0, v))} style={{ width: 56 }} /> mm</label>
                 <div className="btn-group">
                   <button className="btn sm" onClick={() => setBays(arrangeBays(bays.map(({ x: _x, y: _y, ...r }) => r), 'row', gap))} title="Felder nebeneinander anordnen">nebeneinander</button>
-                  <button className="btn sm" onClick={() => setBays(arrangeBays(bays.map(({ x: _x, y: _y, ...r }) => r), 'stack', gap))} title="Felder übereinander anordnen">übereinander</button>
+                  <button className="btn sm" onClick={() => setBays(arrangeBays(bays.map(({ x: _x, y: _y, ...r }) => r), 'stack', new Set(bays.map((x) => `${x.z ?? 0}|${x.depth ?? t.depth}`)).size > 1 ? Math.max(gap, blockGap(t)) : gap))} title="Felder übereinander anordnen">übereinander</button>
                 </div>
               </div>
             ) : null}
@@ -126,6 +162,7 @@ function BuildInspector({ project, rack }: { project: Project; rack: Rack }) {
           <Field label="Platz oben/unten" title="Abstand der Einbaufelder zu Deckel und Boden (mm)"><NumberInput value={b.topGap} min={0} step={2} onChange={(v) => setB({ topGap: v })} /></Field>
         </div>
         <label className="check"><input disabled={ro} type="checkbox" checked={t.hasRearRails} onChange={(e) => setT({ hasRearRails: e.target.checked })} /> Hintere Rackschienen (Montage auch von hinten)</label>
+        {flight && bays.some((x) => (x.z ?? 0) > 0) ? <label className="check" title="Statt eines Cases mit Arbeitsfläche bekommt jede Ebene einen eigenen Korpus mit Deckeln (gestapelte Cases)"><input disabled={ro} type="checkbox" checked={!!b.separate} onChange={(e) => setB({ separate: e.target.checked || undefined })} /> Getrennte Korpusse je Ebene (gestapelte Cases)</label> : null}
 
         </Section>
         {flight ? (

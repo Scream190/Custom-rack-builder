@@ -2,7 +2,8 @@
 import { caseBom, caseDims, caseWarnings, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
 import { sampleProject } from '../src/library/sample';
 import { uid } from '../src/model/util';
-import { applyBuild, rackBom, rackDims } from '../src/model/rackBuild';
+import { applyBuild, blockClashes, blockGap, rackBom, rackDims } from '../src/model/rackBuild';
+import { portPosition, rackDepth } from '../src/model/geometry';
 import { cutoutOutline, foamStack, inlayList, caseList, newFreeInlay, outlineBox, GRIP_R } from '../src/model/inlay';
 
 let failed = false;
@@ -74,6 +75,30 @@ ok(rackDims(withCastors).H === dCase.H + 125, 'castors add their height');
 const rails = rackBom({ ...caseT, hasRearRails: true }).hardware.find((h) => /Rackschiene/.test(h.label));
 ok(rails?.count === 4, 'four rails with rear rails');
 console.log(`rack designer: case ${caseT.outer.w} × ${caseT.outer.h} × ${caseT.outer.d} mm, ${caseT.weight} kg; shockmount ${shockT.outer.w} × ${shockT.outer.h} × ${shockT.outer.d} mm`);
+
+// 6) rack housing with several planes: two 12 U bays stacked, a 3 U bay on top set back and shallower
+const tiers = applyBuild({ ...caseT, bays: [
+  { heightU: 12, rackStandard: 19, x: 0, y: 0 },
+  { heightU: 12, rackStandard: 19, x: 0, y: 12 * 44.45 + 40 },
+  { heightU: 3, rackStandard: 19, x: 0, y: 24 * 44.45 + 40 + blockGap(applyBuild(caseT, { separate: true })), z: 150, depth: 250 },
+] });
+const one = rackDims(tiers);
+ok(one.blocks.length === 1 && one.shelves.length === 1 && rackBom(tiers).panels.some((x) => x.name.startsWith('Arbeitsplatte')), 'default: one case with a work surface under the set-back bay');
+const dt = rackDims(applyBuild(tiers, { separate: true }));
+ok(dt.blocks.length === 2 && blockClashes(dt).length === 0, `tiers: ${dt.blocks.length} blocks, clashes ${blockClashes(dt).length}`);
+const top = dt.blocks.find((k) => k.bays.includes(2))!, main = dt.blocks.find((k) => k.bays.includes(0))!;
+ok(Math.abs(top.z - main.z - 150) < 0.01 && top.y >= main.y + main.caseH - 0.5, `top block set back by 150 mm and above the main block (z ${top.z} vs ${main.z})`);
+ok(dt.D === Math.max(main.z + main.D, top.z + top.D) && rackDepth(tiers) === 450, 'overall depth from the blocks, rack depth from the bays');
+const tooClose = applyBuild({ ...applyBuild(tiers, { separate: true }), bays: tiers.bays!.map((x, i) => (i === 2 ? { ...x, y: 24 * 44.45 + 45 } : x)) });
+ok(blockClashes(rackDims(tooClose)).length > 0, 'a set-back bay placed too close is reported');
+ok(rackBom(applyBuild(tiers, { separate: true })).panels.some((x) => x.name.startsWith('Block 2')), 'parts list per body when separate');
+// devices in the set-back bay sit at its depth
+const pj2 = sampleProject();
+const r2 = { ...pj2.racks[0], type: tiers, devices: pj2.racks[0].devices.map((x, i) => (i === 0 ? { ...x, bay: 2, u: 1 } : x)) };
+const dev0 = r2.devices[0], tpl0 = pj2.templates[dev0.templateId];
+const pfront = tpl0.ports.find((q) => q.side === 'front');
+if (pfront) ok(Math.abs(portPosition(r2, dev0, tpl0, pfront).z - 150) < 0.01, 'front port of a set-back bay lies 150 mm back');
+console.log(`rack tiers: one case with ${one.shelves.length} work surface, separate: ${dt.blocks.length} bodies, outer ${tiers.outer.w} × ${tiers.outer.h} × ${tiers.outer.d} mm, ${tiers.weight} kg`);
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }
 console.log('case designer: ok');

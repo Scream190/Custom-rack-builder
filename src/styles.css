@@ -382,3 +382,5 @@ tr.bad-row td { color: #fca5a5; }
 .build-sheet h3.spaced { margin-top: 18px; }
 .build-pins { display: flex; flex-direction: column; gap: 12px; }
 .build-pins svg { max-width: 560px; }
+.bay-row { flex-wrap: wrap; }
+.bay-depth { flex: 1 1 100%; display: flex; gap: 12px; padding-left: 2px; }

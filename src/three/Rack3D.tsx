@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { renderToStaticMarkup } from 'react-dom/server';
 import type { Project, Rack } from '../model/types';
-import { bayOf, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, railOpening, U } from '../model/geometry';
+import { bayDepth, bayOf, bayZ, rackDepth, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, railOpening, U } from '../model/geometry';
 import { bodyWidth3D, route3D } from './route3d';
 import { DeviceFace } from '../render/DeviceFace';
 import { useStore, type NavMode } from '../model/store';
@@ -184,7 +184,7 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
     ctx.textures = [];
     const root = ctx.content;
     const { w: fw, h: H } = rackExtent(rack.type);
-    const D = rack.type.depth;
+    const D = rackDepth(rack.type);
     const wall = Math.max(18, Math.min(70, (rack.type.outer.w - fw) / 2));
     // semi-transparent case shell: cables and devices stay visible from every angle
     const caseMat = new THREE.MeshStandardMaterial({ color: rack.type.color, roughness: 0.7, metalness: 0.2, transparent: true, opacity: 0.28, depthWrite: false });
@@ -209,7 +209,8 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
     for (const bay of rackBays(rack.type)) {
       const bfw = faceWidth(bay.rackStandard), bh = bay.heightU * U;
       const railW = (bfw - railOpening(bay.rackStandard)) / 2;
-      for (const z of rack.type.hasRearRails ? [0, -D] : [0]) {
+      const bz = bayZ(bay), bd = bayDepth(rack.type, bay);
+      for (const z of rack.type.hasRearRails ? [-bz, -bz - bd] : [-bz]) {
         box(railW, bh, 2, bay.x + railW / 2, bay.y + bh / 2, (z - 1) * S, railMat);
         box(railW, bh, 2, bay.x + bfw - railW / 2, bay.y + bh / 2, (z - 1) * S, railMat);
       }
@@ -226,7 +227,7 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
         if (!tpl) continue;
         const w = faceWidth(bayOf(rack, d).rackStandard) / tpl.slots;
         const h = panelHeight(tpl.heightU);
-        const depth = Math.max(PLATE + 1, Math.min(tpl.depth, D));
+        const depth = Math.max(PLATE + 1, Math.min(tpl.depth, bayDepth(rack.type, bayOf(rack, d))));
         const x0 = deviceFrontX(rack, d, tpl);
         const yTop = deviceTopY(d, tpl, rack) - 0.4;
         const bodyW = bodyWidth3D(rack, tpl, d);
@@ -242,7 +243,8 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
         const rearMat = new THREE.MeshStandardMaterial({ map: rear, roughness: 0.6 });
         const facingFront = d.mount === 'front';
         const dirZ = facingFront ? -1 : 1;          // from the mounting plane into the rack
-        const z0 = facingFront ? 0 : -D;
+        const dbay = bayOf(rack, d);
+        const z0 = facingFront ? -bayZ(dbay) : -bayZ(dbay) - bayDepth(rack.type, dbay);
         // box faces: +x, -x, +y, -y, +z, -z (rear textures are drawn as seen from behind = the -z face)
         const plate = new THREE.Mesh(new THREE.BoxGeometry(w * S, h * S, PLATE * S), facingFront ? [side, side, side, side, frontMat, side] : [side, side, side, side, side, frontMat]);
         plate.position.set((x0 + w / 2) * S, (yTop - h / 2) * S, (z0 + (dirZ * PLATE) / 2) * S);
