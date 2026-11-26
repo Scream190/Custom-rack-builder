@@ -38,6 +38,18 @@ for (const t of BUILTIN_DEVICES) {
     }
   }
 }
+// module bays (chargers): inside the front panel, not overlapping, with choices
+for (const t of BUILTIN_DEVICES) {
+  const bays = t.modules ?? [];
+  const W = (t.rackStandard === 10 ? 254 : 482.6) / t.slots, H = t.heightU * U - 0.8;
+  bays.forEach((m, i) => {
+    if (m.x < 0 || m.y < 0 || m.x + m.w > W || m.y + m.h > H) errors.push(`${t.id}: bay "${m.name}" outside the panel`);
+    if (!m.options.length) errors.push(`${t.id}: bay "${m.name}" has no modules`);
+    if (bays.some((o, j) => j > i && m.x < o.x + o.w && o.x < m.x + m.w && m.y < o.y + o.h && o.y < m.y + m.h)) errors.push(`${t.id}: bay "${m.name}" overlaps another bay`);
+  });
+}
+const bayed = BUILTIN_DEVICES.filter((t) => t.modules?.length);
+console.log(`module bays: ${bayed.map((t) => `${t.name} (${t.modules!.length} × ${t.modules![0].options.length} Module)`).join(', ')}`);
 errors.forEach((e) => console.log('  ', e));
 console.log(`${BUILTIN_DEVICES.length} device templates checked, ${errors.length} problems`);
 if (errors.length) process.exit(1);

@@ -7,6 +7,8 @@ import { cablePlug, connectorDef, SIGNAL_LABELS } from '../model/connectors';
 import { RACK_KIND_LABELS } from '../library/rackTypes';
 import { cableNumberText } from '../render/cablePaths';
 import { openDrawerInlay } from './CaseWorkspace';
+import { Menu } from './Shell';
+import { moduleChoice } from '../render/DeviceFace';
 import type { DrawerItem, PlacedDevice, Project, Rack, RfDeviceData } from '../model/types';
 import { bandLabel, channelCount, channelLabel, rfBandsFor, rfProductOf, rfProductsFor } from '../integration/rf';
 
@@ -137,7 +139,8 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
   const tpl = project.templates[d.templateId];
   // wireless devices keep frequency / channel / group in the RF section; the old free-text fields only when filled
   const legacy = rfProductsFor(tpl).length ? new Set(['Frequenz', 'Kanal / Name', 'Gruppe']) : new Set<string>();
-  const fieldNames = Array.from(new Set([...(tpl.fields ?? []), ...Object.keys(d.fields ?? {})])).filter((f) => !legacy.has(f) || d.fields?.[f]);
+  const modules = tpl.modules ?? [];
+  const fieldNames = Array.from(new Set([...(tpl.fields ?? []), ...Object.keys(d.fields ?? {})])).filter((f) => (!legacy.has(f) || d.fields?.[f]) && !modules.some((m) => m.name === f));
   const cables = rack.cables.filter((c) => c.a.deviceId === id || c.b.deviceId === id);
   return (
     <div className="insp">
@@ -178,6 +181,26 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
           </div>
           <button className="btn sm danger" onClick={() => st().removeDevice(rack.id, id)} title="Gerät aus dem Rack nehmen, seine Kabel werden mit entfernt (Entf)">Entfernen</button>
         </div>
+      ) : null}
+      {modules.length ? (
+        <Section id="device.modules" title="Schächte" defaultOpen summary={modules.map((m) => moduleChoice(tpl, m, d) || 'leer').join(', ')}>
+          <div className="muted small">Jeder Schacht nimmt ein Modul auf. Die Auswahl erscheint auf der Front.</div>
+          {modules.map((m) => (
+            <Field key={m.name} label={m.name}>
+              <select disabled={ro} value={moduleChoice(tpl, m, d)} onChange={(e) => st().updateDevice(rack.id, id, { fields: { ...(d.fields ?? {}), [m.name]: e.target.value } })}>
+                <option value="">leer</option>
+                {m.options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </select>
+            </Field>
+          ))}
+          {!ro ? (
+            <Menu label="Alle Schächte gleich belegen" className="sm" title="Ein Modul in alle Schächte setzen">
+              {[{ id: '', label: 'leer' }, ...modules[0].options].map((o) => (
+                <button key={o.id || 'empty'} onClick={() => st().updateDevice(rack.id, id, { fields: { ...(d.fields ?? {}), ...Object.fromEntries(modules.map((m) => [m.name, o.id])) } })}>{o.label}</button>
+              ))}
+            </Menu>
+          ) : null}
+        </Section>
       ) : null}
       <Section id="device.fields" title="Eigene Felder" summary={fieldNames.length ? fieldNames.join(', ') : 'z. B. IP-Adresse'}>
       {fieldNames.map((f) => (

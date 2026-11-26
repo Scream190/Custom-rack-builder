@@ -93,6 +93,16 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   Bauhöhe oder Anschlüsse nur aus Produktfotos abgeleitet sind, steht in `source` „Schätzung“. Beides bitte vor dem
   Einsatz am Gerät selbst prüfen und im Geräte-Editor korrigieren. Neue Stecker: speakON NL8, CA-COM, Phoenix/Euroblock,
   D-Sub 25 (AES59), MIDI, SDI/MADI-BNC, powerCON 32 A, IEC C19/C20, CEE 16/32 A.
+- **Vervollständigung 19"** (`src/library/devicesComplete.ts`): Shure AXT400, AXT630/AXT631, AXT620, AXT900, SBRC, UR4D+,
+  UR4S+, SLX4, ULXS4, ULXP4, BLX4R, GLXD4R+, UA845UWB, PA421B, SCM820, SCM800, SCM268, SCM262, SCM410, IntelliMix P300,
+  ANIUSB-MATRIX, ANI4IN, ANI4OUT, DFR22; Sennheiser EM 3732-II, ASA 3000, ASA 1, EW-D ASA, AC 3, AC 3200-II, L 6000;
+  Audio-Technica ATW-DA49; Lectrosonics Venue 2; Sony DWR-R03D; Yamaha MRX7-D, MTX5-D, Ri8-D, Ro8-D; Q-SYS Core 8 Flex,
+  Core Nano; Allen & Heath AHM-64, AHM-16; d&b DS10; L-Acoustics LA7.16, P1. Genauigkeit je Vorlage in `source`
+  (Datenblatt oder Schätzung).
+- **Ladegeräte mit wählbaren Schächten:** Shure SBRC (4 Schächte, je Schacht SBC-AX, SBM910, SBM910M, SBM920, AXT901
+  oder AXT902, frei gemischt), Shure AXT900 (AXT901/AXT902) und Sennheiser L 6000 (LM 6060, LM 6061, LM 6062, LM 6070).
+  Im Inspector unter *Schächte* belegen, auch *Alle Schächte gleich belegen*; die Front zeigt je Schacht das Modul mit
+  zwei Akkufächern oder „leer“. Gespeichert wird die Auswahl in den Gerätefeldern, ältere Projekte bleiben ladbar.
 - **Automatische Bibliotheks-Aktualisierung:** Gespeicherte Projekte übernehmen neue Versionen der mitgelieferten Vorlagen.
   Kabel werden über den Anschlussnamen neu zugeordnet; Kabel an Anschlüssen, die es nicht mehr gibt, werden gemeldet.
 - **Blenden-Designer:** 1–8 HE, 19"/10", Neutrik-D-Size-Ausschnitte (XLR, etherCON, BNC, powerCON, speakON, USB, HDMI …),

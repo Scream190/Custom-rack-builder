@@ -1,4 +1,4 @@
-import type { DeviceTemplate, Face, PlacedDevice } from '../model/types';
+import type { DeviceTemplate, Face, ModuleBay, PlacedDevice } from '../model/types';
 import { panelHeight } from '../model/geometry';
 import { connectorDef } from '../model/connectors';
 import { ConnectorSymbol } from './ConnectorSymbol';
@@ -48,7 +48,8 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
   const chassisW = kit ? bodyW : width - 2 * chassisX;
   const faceCol = isFront ? tpl.frontColor ?? tpl.color : shade(tpl.color, -0.2);
   const ink = luminance(faceCol) > 0.55 ? '#1f2328' : luminance(tpl.textColor || '#000') > 0.5 ? tpl.textColor : '#e5e7eb';
-  const fieldText = device?.fields ? Object.values(device.fields).filter(Boolean).join(', ') : '';
+  const moduleNames = new Set((tpl.modules ?? []).map((m) => m.name));
+  const fieldText = device?.fields ? Object.entries(device.fields).filter(([k, v]) => v && !moduleNames.has(k)).map(([, v]) => v).join(', ') : '';
   const blank = tpl.ports.length === 0 && !isPanel;
   const vent = tpl.id === 'gen-vent1';
   const hasLabelArea = !!art?.some((a) => a.t === 'labelArea');
@@ -96,6 +97,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
       ) : art ? (
         <>
           <ArtLayer items={art} ink={ink} device={device} />
+          {isFront ? (tpl.modules ?? []).map((m) => <ModuleSlot key={m.name} bay={m} value={moduleChoice(tpl, m, device)} />) : null}
           {/* placed-device label as tape strip when the template defines no label area */}
           {isFront && device?.label && !hasLabelArea ? (
             <g pointerEvents="none">
@@ -172,6 +174,34 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
 }
 
 /** Lighten (amt > 0) or darken (amt < 0) a hex colour. */
+/** module fitted in a bay of a placed device */
+export function moduleChoice(_tpl: DeviceTemplate, m: ModuleBay, device?: Pick<PlacedDevice, "fields">): string {
+  const v = device?.fields?.[m.name];
+  return v === undefined ? m.default ?? '' : v;
+}
+
+/** charging bay: empty recess, or a module with two battery pockets and its name */
+function ModuleSlot({ bay, value }: { bay: ModuleBay; value: string }) {
+  const { x, y, w, h } = bay;
+  if (!value) {
+    return (
+      <g>
+        <rect x={x} y={y} width={w} height={h} rx={1} fill="#0c0d0f" stroke="#3a3d42" strokeWidth={0.4} />
+        <text x={x + w / 2} y={y + h / 2 + 0.7} fontSize={2} textAnchor="middle" fill="#6b7280">leer</text>
+      </g>
+    );
+  }
+  const pw = (w - 9) / 2, ph = h - 9;
+  return (
+    <g>
+      <rect x={x} y={y} width={w} height={h} rx={1} fill="#2a2d32" stroke="#4b5057" strokeWidth={0.4} />
+      {[0, 1].map((i) => <rect key={i} x={x + 3 + i * (pw + 3)} y={y + 2} width={pw} height={ph} rx={1.2} fill="#121316" stroke="#55595f" strokeWidth={0.3} />)}
+      {[0, 1].map((i) => <circle key={'l' + i} cx={x + 3 + i * (pw + 3) + pw / 2} cy={y + h - 4.5} r={0.7} fill="#22c55e" />)}
+      <text x={x + w / 2} y={y + h - 1.2} fontSize={1.9} textAnchor="middle" fill="#e5e7eb" fontWeight={700}>{value}</text>
+    </g>
+  );
+}
+
 export function shade(hex: string, amt: number): string {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex);
   if (!m) return hex;

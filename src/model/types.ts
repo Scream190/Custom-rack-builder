@@ -133,6 +133,19 @@ export interface DeviceTemplate {
   power?: number;
   /** split or combi box: not rack-mounted, placed below the rack (rack.boxes) */
   box?: BoxSpec;
+  /** front bays for exchangeable modules (e.g. one charging module per battery type); the choice of a placed device
+   *  is stored in PlacedDevice.fields under the bay name ('' = empty) */
+  modules?: ModuleBay[];
+}
+
+/** a bay on the front panel that takes one of several modules */
+export interface ModuleBay {
+  name: string;
+  /** position on the front panel, mm */
+  x: number; y: number; w: number; h: number;
+  options: { id: string; label: string }[];
+  /** module fitted when nothing was chosen yet (default: empty) */
+  default?: string;
 }
 
 /** Split box (one multi connector fans out to single connectors) or combi box (singles combined into a multi). */
