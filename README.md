@@ -99,6 +99,14 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   Audio-Technica ATW-DA49; Lectrosonics Venue 2; Sony DWR-R03D; Yamaha MRX7-D, MTX5-D, Ri8-D, Ro8-D; Q-SYS Core 8 Flex,
   Core Nano; Allen & Heath AHM-64, AHM-16; d&b DS10; L-Acoustics LA7.16, P1. Genauigkeit je Vorlage in `source`
   (Datenblatt oder Schätzung).
+  Zweiter Durchgang (`src/library/devicesComplete2.ts`): Sennheiser EM 100 G3, EM 300-500 G3, SR 300 IEM G3 (Gehäuse
+  vom G4 abgeleitet), EM 3731-II; AKG SR4500, DSR700 V2; Wisycom MTK982; RF Venue DISTRO4 HDR, COMBINE4, COMBINE8;
+  Allen & Heath dLive CDM32/48/64 (5/7/8 HE laut Datenblatt), DM0, DM32/48/64; Behringer WING RACK; DiGiCo SD-Rack,
+  SD-Nano Rack; Avid VENUE Stage 64/48/16; Riedel Artist-1024, Artist 32; Clear-Com Eclipse HX-Median, HX-Delta;
+  L-Acoustics LA8; d&b D90, 5D; Powersoft Ottocanali 12K4, T904; Yamaha XMV4280, PC412-D, SWP2-10MMF; BSS BLU-806DA;
+  RME M-32 DA Pro II, M-16 AD, M-16 DA, 12Mic, Fireface 802 FS, ADI-648; Focusrite RedNet A8R, HD32R, D64R; DirectOut
+  EXBOX.MD, ANDIAMO; MA grandMA3 processing unit M/XL (gleiche Front wie L), grandMA2 NPU. Bei Stageracks und Mixracks
+  steht eine typische Bestückung drin; Karten und Kanalzahl im Geräte-Editor anpassen.
 - **Ladegeräte mit wählbaren Schächten:** Shure SBRC (4 Schächte, je Schacht SBC-AX, SBM910, SBM910M, SBM920, AXT901
   oder AXT902, frei gemischt), Shure AXT900 (AXT901/AXT902) und Sennheiser L 6000 (LM 6060, LM 6061, LM 6062, LM 6070).
   Im Inspector unter *Schächte* belegen, auch *Alle Schächte gleich belegen*; die Front zeigt je Schacht das Modul mit
