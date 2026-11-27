@@ -48,7 +48,7 @@ export const DEFAULT_SETTINGS: ProjectSettings = {
 };
 
 /** Bump when built-in templates change in a way that existing projects should pick up. */
-export const LIBRARY_VERSION = 5;
+export const LIBRARY_VERSION = 6;
 
 /** Info about the last automatic library update (for a notice in the UI). */
 export const libraryUpdate = { updated: 0, droppedCables: 0 };

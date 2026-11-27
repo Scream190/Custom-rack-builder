@@ -16,7 +16,6 @@ const ds = (what: string) => `Datenblatt – ${what}; Anschlüsse laut Herstelle
 const est = (what: string) => `Schätzung – ${what}; vor dem Einsatz am Gerät prüfen`;
 
 const IEC = B.one('Power In', 'IEC_C14', 'in');
-const IEC_THRU = B.one('Power Thru', 'IEC_C13', 'out', { gap: 4 });
 const DCIN = B.one('DC In', 'DC', 'in');
 const bnc = (names: string[], dir: Blk['dir'], o: Partial<Blk> = {}): Blk => B.list(names, 'BNC', dir, o);
 const seq = (pre: string, n: number, start = 1) => Array.from({ length: n }, (_, i) => `${pre}${start + i}`);
@@ -45,43 +44,12 @@ function charger(s: Spec, bays: ModuleBay[]): DeviceTemplate {
 }
 
 const SHURE = '#222428';
-const SHURE_MODULES: ModuleBay['options'] = [
-  { id: 'SBC-AX', label: 'SBC-AX: 2 × SB900A/B/C (Axient Digital, ULX-D, QLX-D, PSM 1000)' },
-  { id: 'SBM910', label: 'SBM910: 2 × SB910 (ADX1)' },
-  { id: 'SBM910M', label: 'SBM910M: 2 × SB910M (ADX1M)' },
-  { id: 'SBM920', label: 'SBM920: 2 × SB920/SB920A (ADX2, ADX2FD)' },
-  { id: 'AXT901', label: 'AXT901: 2 × AXT910 (Axient Taschensender)' },
-  { id: 'AXT902', label: 'AXT902: 2 × AXT920 (Axient Handsender)' },
-];
-
 // ================================================================== Shure
-const axt63x = (id: string, name: string, range: string) => mk({
-  id, name, man: 'Shure', cat: DIST, u: 1, depth: 366, color: SHURE, weight: 4.6, logo: 'SHURE', model: `${name} Antenna Distribution`, fa: distFront,
-  rear: [G([IEC, IEC_THRU, B.list(['Network 1', 'Network 2'], 'RJ45', 'io', { gap: 8 })]), G([bnc(ab(4), 'out', { rows: 2, order: 'col' }), bnc(['Cascade A', 'Cascade B'], 'out', { rows: 2, gap: 8 }), bnc(['Ant A In', 'Ant B In'], 'in', { rows: 2, gap: 8 })], 'right')],
-  src: ds(`Shure AXT630/631 Spezifikation: 1 HE, 44 × 483 × 366 mm, 4,6 kg, ${range}`),
-  notes: `Aktiver Antennenverteiler für Axient: 2 Antennen auf 4 Empfänger (A/B), Kaskade mit 3 dB Ausgleich, bis 15 dB Dämpfung, Steuerung über Wireless Workbench (Ethernet). ${range}.`,
-});
-
 const shure: DeviceTemplate[] = [
-  mk({ id: 'shure-axt400', name: 'AXT400', man: 'Shure', cat: RX, u: 1, depth: 366, color: SHURE, weight: 5.4, logo: 'SHURE', model: 'AXT400 Dual Receiver', fields: UHF_FIELDS,
-    front: [G([B.one('Phones', 'JACK', 'out')], 'left', { x0: 410 })], fa: dualRxFront(70, 150),
-    rear: [G([IEC, IEC_THRU, B.list(['Network 1', 'Network 2'], 'RJ45', 'io', { gap: 8 })]), G([B.xout(2, 'Out '), B.list(['Out 1 (Klinke)', 'Out 2 (Klinke)'], 'JACK', 'out', { gap: 5 }), bnc(['Ant B In', 'Ant A In'], 'in', { gap: 10 }), bnc(['Cascade B', 'Cascade A'], 'out', { gap: 5 })], 'right')],
-    src: ds('Shure AXT400 User Guide: 1 HE, 483 × 366 mm'), notes: 'Axient Doppelempfänger mit Frequency Diversity und ShowLink. Vorgänger von Axient Digital, im Verleih noch verbreitet.' }),
-  axt63x('shure-axt630', 'AXT630', '470–698 MHz'),
-  axt63x('shure-axt631', 'AXT631', '606–814 MHz'),
   mk({ id: 'shure-axt620', name: 'AXT620 Ethernet-Switch', man: 'Shure', cat: NET, u: 1, depth: 280, color: SHURE, weight: 3.6, logo: 'SHURE', model: 'AXT620 Ethernet Switch',
     front: [G([B.one('Port 9 (vorne)', 'RJ45', 'io')], 'left', { x0: 400 })], fa: [A.leds(380, 12, 3, ['#22c55e', '#f59e0b', '#3a3d42'], 0, 6)],
     rear: [G([IEC]), G([B.rj(4, 'Port '), B.rj(4, 'Port ', { start: 5, gap: 8, names: ['Port 5 (PoE)', 'Port 6 (PoE)', 'Port 7 (PoE)', 'Port 8 (PoE)'] })], 'right')],
     src: ds('Shure AXT620 User Guide: 1 HE, 440 × 44 × 280 mm, 3,6 kg, 8 Ports hinten (5–8 mit PoE) + 1 vorne'), notes: 'Ethernet-Switch mit DHCP-Server für Axient-Systeme. Nicht mehr lieferbar.' }),
-  charger({ id: 'shure-axt900', name: 'AXT900 Ladestation', man: 'Shure', cat: CHG, u: 1, depth: 366, color: SHURE, weight: 4.4, logo: 'SHURE', model: 'AXT900',
-    fa: [A.sw(440, 14.8)], rear: [G([IEC]), G([B.list(['Network 1', 'Network 2'], 'RJ45', 'io')], 'right')],
-    src: ds('Shure AXT900 Spezifikation: 1 HE, 44 × 483 × 366 mm, 4,4 kg ohne Module, 4 Schächte'), notes: 'Netzwerkfähige Rack-Ladestation für Axient, 4 Schächte für Lademodule AXT901 (Taschensender-Akku AXT910) und AXT902 (Handsender-Akku AXT920). Schächte im Inspector belegen.' },
-    chargerBays(SHURE_MODULES.filter((o) => o.id.startsWith('AXT')))),
-  charger({ id: 'shure-sbrc', name: 'SBRC Rack-Ladegerät', man: 'Shure', cat: CHG, u: 1, depth: 300, color: SHURE, weight: 4, logo: 'SHURE', model: 'SBRC',
-    fa: [A.sw(440, 14.8)], rear: [G([IEC]), G([B.list(['Network 1', 'Network 2'], 'RJ45', 'io')], 'right')],
-    src: ds('Shure SBRC Produktseite und User Guide: 1 HE, 4 frei belegbare Schächte, bis 8 Akkus; Tiefe geschätzt'),
-    notes: 'Rack-Ladegerät für bis zu 8 Shure-Akkus. Jeder der 4 Schächte nimmt ein Lademodul für 2 Akkus auf, Typen frei mischbar: SBC-AX (SB900A/B/C), SBM910, SBM910M, SBM920, AXT901, AXT902. Schächte im Inspector belegen.' },
-    chargerBays(SHURE_MODULES)),
   mk({ id: 'shure-ur4dplus', name: 'UR4D+', man: 'Shure', cat: RX, u: 1, depth: 330, color: '#2a2c30', weight: 4.5, logo: 'SHURE', model: 'UR4D+ (UHF-R)', fields: UHF_FIELDS,
     front: [G([B.one('Phones', 'JACK', 'out')], 'left', { x0: 410 })], fa: dualRxFront(70, 150),
     rear: [G([IEC, B.one('Network', 'RJ45', 'io', { gap: 8 })]), G([B.xout(2, 'Out '), B.list(['Out 1 (Klinke)', 'Out 2 (Klinke)'], 'JACK', 'out', { gap: 5 }), bnc(['Ant B In', 'Ant A In'], 'in', { gap: 10 }), bnc(['Cascade B', 'Cascade A'], 'out', { gap: 5 })], 'right')],
@@ -150,10 +118,10 @@ const sennCharger = charger({ id: 'senn-l6000', name: 'L 6000 Ladegerät', man: 
   src: ds('Sennheiser L 6000 Produktspezifikation: 19", 1 HE, 4 Lademodule; Tiefe geschätzt'),
   notes: 'Rack-Ladegerät mit 4 Schächten für Lademodule, frei mischbar: LM 6060 (BA 60), LM 6061 (BA 61), LM 6062 (BA 62), LM 6070 (BA 70). Schächte im Inspector belegen.' },
 chargerBays([
-  { id: 'LM 6060', label: 'LM 6060: 2 × BA 60 (SK 6000, SK 6212)' },
-  { id: 'LM 6061', label: 'LM 6061: 2 × BA 61 (SKM 6000)' },
-  { id: 'LM 6062', label: 'LM 6062: 2 × BA 62 (SK 9000, SKM 9000)' },
-  { id: 'LM 6070', label: 'LM 6070: 2 × BA 70 (EW-D, EW-DX)' },
+  { id: 'LM 6060', label: 'LM 6060: 2 × BA 60 (SK 6000, SK 6212)', look: 'flat-small' },
+  { id: 'LM 6061', label: 'LM 6061: 2 × BA 61 (SKM 6000)', look: 'round' },
+  { id: 'LM 6062', label: 'LM 6062: 2 × BA 62 (SK 9000, SKM 9000)', look: 'flat' },
+  { id: 'LM 6070', label: 'LM 6070: 2 × BA 70 (EW-D, EW-DX)', look: 'flat-small' },
 ]));
 const sennheiser: DeviceTemplate[] = [
   mk({ id: 'senn-em3732', name: 'EM 3732-II', man: 'Sennheiser', cat: RX, u: 1, depth: 330, color: SENN, weight: 4.4, logo: 'SENNHEISER', model: 'EM 3732-II', fields: UHF_FIELDS,

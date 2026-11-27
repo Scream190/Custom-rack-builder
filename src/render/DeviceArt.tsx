@@ -53,6 +53,7 @@ function Art({ a, ink, device, starts }: { a: ArtElement; ink: string; device?: 
         <g>
           <rect x={a.x} y={a.y} width={a.w} height={a.h} rx={0.8} fill="#0a0c10" stroke="#000" strokeWidth={0.4} />
           <rect x={a.x + 1} y={a.y + 1} width={a.w - 2} height={a.h - 2} rx={0.5} fill={tint} opacity={0.16} />
+          <rect x={a.x + 0.4} y={a.y + 0.4} width={a.w - 0.8} height={a.h - 0.8} rx={0.6} fill="url(#df-glass)" />
           {shown.map((l, i) => (
             <text key={i} x={a.x + 2.2} y={a.y + 1.8 + fs * (i + 1)} fontSize={fs} fill={tint} fontFamily="'Courier New', monospace" fontWeight={700}>
               {l.length > a.w / (fs * 0.62) ? l.slice(0, Math.floor(a.w / (fs * 0.62))) : l}
@@ -66,7 +67,10 @@ function Art({ a, ink, device, starts }: { a: ArtElement; ink: string; device?: 
         <g>
           <circle cx={a.x} cy={a.y} r={a.r + 0.8} fill="#0b0b0c" />
           <circle cx={a.x} cy={a.y} r={a.r} fill={a.fill ?? '#2b2d31'} stroke="#555" strokeWidth={0.4} />
+          {/* knurled rim and domed cap */}
+          <circle cx={a.x} cy={a.y} r={a.r * 0.92} fill="none" stroke="#000" strokeOpacity={0.45} strokeWidth={a.r * 0.14} strokeDasharray={`${a.r * 0.12} ${a.r * 0.12}`} />
           <circle cx={a.x} cy={a.y} r={a.r * 0.72} fill="none" stroke="#000" strokeOpacity={0.35} strokeWidth={0.5} />
+          <circle cx={a.x} cy={a.y} r={a.r} fill="url(#df-knob)" />
           <line x1={a.x} y1={a.y - a.r * 0.9} x2={a.x} y2={a.y - a.r * 0.45} stroke="#ddd" strokeWidth={0.6} />
         </g>
       );
@@ -77,6 +81,9 @@ function Art({ a, ink, device, starts }: { a: ArtElement; ink: string; device?: 
           {a.round
             ? <circle cx={a.x + a.w / 2} cy={a.y + a.h / 2} r={Math.min(a.w, a.h) / 2} fill={fill} stroke="#000" strokeWidth={0.4} />
             : <rect x={a.x} y={a.y} width={a.w} height={a.h} rx={0.8} fill={fill} stroke="#000" strokeWidth={0.4} />}
+          {a.round
+            ? <circle cx={a.x + a.w / 2} cy={a.y + a.h / 2} r={Math.min(a.w, a.h) / 2 - 0.3} fill="url(#df-btn)" />
+            : <rect x={a.x + 0.3} y={a.y + 0.3} width={a.w - 0.6} height={a.h - 0.6} rx={0.6} fill="url(#df-btn)" />}
           {a.label ? (
             <text x={a.x + a.w / 2} y={a.y + a.h / 2 + Math.min(a.h * 0.32, 1.3)} fontSize={Math.min(a.h * 0.5, 2.6)} textAnchor="middle" fill={a.text ?? '#e5e7eb'} fontFamily={FONT} fontWeight={600}>
               {a.label}
@@ -91,7 +98,14 @@ function Art({ a, ink, device, starts }: { a: ArtElement; ink: string; device?: 
         <g>
           {Array.from({ length: a.n }, (_, i) => {
             const col = a.colors?.[i] ?? a.colors?.[a.colors.length - 1] ?? '#3a3d42';
-            return <circle key={i} cx={a.x + (a.dx ?? 0) * i} cy={a.y + (a.dy ?? 0) * i} r={r} fill={col} stroke="#000" strokeWidth={0.25} />;
+            const cx = a.x + (a.dx ?? 0) * i, cy = a.y + (a.dy ?? 0) * i;
+            const lit = col.toLowerCase() !== '#3a3d42';
+            return (
+              <g key={i}>
+                <circle cx={cx} cy={cy} r={r} fill={col} stroke="#000" strokeWidth={0.25} opacity={lit ? 1 : 0.9} />
+                {lit ? <circle cx={cx - r * 0.3} cy={cy - r * 0.3} r={r * 0.35} fill="#fff" opacity={0.55} /> : null}
+              </g>
+            );
           })}
         </g>
       );

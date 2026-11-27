@@ -238,7 +238,7 @@ export function ConnectorSymbol({ connector, x, y, ring = true, state = 'normal'
   const ringOpacity = state === 'highlight' || state === 'pending' ? 1 : state === 'connected' ? 0.95 : 0.55;
   return (
     <g transform={`translate(${x},${y})`} opacity={state === 'dim' ? 0.35 : 1}>
-      {ring || state === 'highlight' || state === 'pending' ? (
+      {(ring && state === 'connected') || state === 'highlight' || state === 'pending' ? (
         // wide connectors (D-Sub, Harting, SFP …) get a rounded rectangle instead of a huge circle
         w > h * 1.6 ? (
           <rect x={-w / 2 - 1.6} y={-h / 2 - 1.6} width={w + 3.2} height={h + 3.2} rx={2.5} fill="none" stroke={ringColor} strokeWidth={state === 'highlight' || state === 'pending' ? 1.6 : 0.9} opacity={ringOpacity} />

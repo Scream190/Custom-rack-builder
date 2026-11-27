@@ -123,10 +123,20 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   4 M/E Constellation 4K Plus (4 HE); Lawo A__mic 8 und A__madi 6; Luminex GigaCore 20t; Swisson XND-4. Nach Datenblatt
   korrigiert: Q-SYS Core 8 Flex (halbe Breite statt voller), Core Nano (Kaltgeräteanschluss statt DC), Luminex GigaCore
   16i (Tiefe 296 mm, 2,4 kg, USB-C), Swisson XND-8 (powerCON Ein/Aus, 136 mm, 1,8 kg).
+- **Nach Herstellerzeichnung vermessen (`src/library/devicesMeasured.ts`):** Shure SBRC, AXT900, AXT630/AXT631 und AXT400,
+  Front und Rückseite aus den Panelzeichnungen der Shure-Anleitungen (Display, Tasten, LEDs, Ohren mit Griffbügel,
+  Lüftungsgitter, Gruppenrahmen und Beschriftungen, Stecker auf ±2 mm). Dabei korrigiert: der SBRC hat den Netzschalter
+  hinten und nur eine Ethernet-Buchse, AXT630 und AXT900 haben Netzschalter, Netz-Durchschleifung und zwei
+  Netzwerkbuchsen hinten, die Antenneneingänge sitzen oben, die Kaskadenausgänge unten.
+- **Realistischere Darstellung aller Geräte:** gebürstete Fronten mit Lichtkante oben und Schatten unten, abgekantete
+  Rackwinkel, Drehregler mit Rändelung und Lichtreflex, plastische Taster, Displays mit Glasreflex, leuchtende LEDs.
+  Die farbigen Signalringe um Buchsen erscheinen nur noch an belegten oder gerade gewählten Anschlüssen.
 - **Ladegeräte mit wählbaren Schächten:** Shure SBRC (4 Schächte, je Schacht SBC-AX, SBM910, SBM910M, SBM920, AXT901
   oder AXT902, frei gemischt), Shure AXT900 (AXT901/AXT902) und Sennheiser L 6000 (LM 6060, LM 6061, LM 6062, LM 6070).
-  Im Inspector unter *Schächte* belegen, auch *Alle Schächte gleich belegen*; die Front zeigt je Schacht das Modul mit
-  zwei Akkufächern oder „leer“. Gespeichert wird die Auswahl in den Gerätefeldern, ältere Projekte bleiben ladbar.
+  Im Inspector unter *Schächte* belegen, auch *Alle Schächte gleich belegen*. Die Front zeigt das Modul so, wie es aussieht:
+  verschraubte Modulplatte, zwei liegende Flachakkus (SB900, SB910, AXT910, BA 60/62/70) oder zwei runde Schächte mit
+  Auswurftaste für Handsender-Akkus (SB920, AXT920, BA 61), Lade-LEDs; leere Schächte als Blindplatte. Einschubkarten
+  haben eine verschraubte Frontplatte mit Typ und Status-LED. Gespeichert wird die Auswahl in den Gerätefeldern, ältere Projekte bleiben ladbar.
   Dasselbe gibt es für Einschubkarten: RY-Karten im Yamaha RPio, Module im DirectOut PRODIGY, Karten im A&H DX32 und
   in der Biamp Tesira SERVER-IO und im Q-SYS Core 510i (Steckplätze auf der Rückseite), MCR54 im Wisycom MRK16.
   Die Front zeigt dann je Steckplatz die Karte mit ihren Anschlüssen. Diese sind echte Ports: Kabel lassen sich daran

@@ -9,6 +9,7 @@ import { COMPLETE3_DEVICES } from './devicesComplete3';
 import { COMPLETE4_DEVICES } from './devicesComplete4';
 import { COMPLETE5_DEVICES } from './devicesComplete5';
 import { DRAWER_DEVICES } from './drawers';
+import { MEASURED_DEVICES } from './devicesMeasured';
 import { BOX_DEVICES } from './devicesBoxes';
 import { IT_DEVICES } from './devicesIT';
 import { VIDEO_DEVICES } from './devicesVideo';
@@ -38,6 +39,7 @@ export const BUILTIN_DEVICES: DeviceTemplate[] = [
   ...RFSCAN_DEVICES,
   ...PRO_DEVICES,
   ...PRO2_DEVICES,
+  ...MEASURED_DEVICES,
   ...COMPLETE_DEVICES,
   ...COMPLETE2_DEVICES,
   ...COMPLETE3_DEVICES,

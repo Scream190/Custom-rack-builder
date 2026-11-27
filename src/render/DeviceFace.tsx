@@ -32,6 +32,52 @@ function luminance(hex: string) {
   return (0.299 * ((n >> 16) & 255) + 0.587 * ((n >> 8) & 255) + 0.114 * (n & 255)) / 255;
 }
 
+/** gradients shared by all panels (ids repeat per panel, identical content, so the first one wins) */
+export function FaceDefs() {
+  return (
+    <defs>
+      <linearGradient id="df-sheen" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#fff" stopOpacity={0.16} />
+        <stop offset="0.08" stopColor="#fff" stopOpacity={0.05} />
+        <stop offset="0.55" stopColor="#fff" stopOpacity={0} />
+        <stop offset="0.94" stopColor="#000" stopOpacity={0.12} />
+        <stop offset="1" stopColor="#000" stopOpacity={0.3} />
+      </linearGradient>
+      <linearGradient id="df-ear" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stopColor="#000" stopOpacity={0.18} />
+        <stop offset="0.85" stopColor="#000" stopOpacity={0} />
+        <stop offset="1" stopColor="#000" stopOpacity={0.35} />
+      </linearGradient>
+      <linearGradient id="df-ear-r" x1="1" y1="0" x2="0" y2="0">
+        <stop offset="0" stopColor="#000" stopOpacity={0.18} />
+        <stop offset="0.85" stopColor="#000" stopOpacity={0} />
+        <stop offset="1" stopColor="#000" stopOpacity={0.35} />
+      </linearGradient>
+      <radialGradient id="df-knob" cx="0.38" cy="0.32" r="0.75">
+        <stop offset="0" stopColor="#fff" stopOpacity={0.32} />
+        <stop offset="0.45" stopColor="#fff" stopOpacity={0.06} />
+        <stop offset="1" stopColor="#000" stopOpacity={0.35} />
+      </radialGradient>
+      <linearGradient id="df-btn" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#fff" stopOpacity={0.22} />
+        <stop offset="0.5" stopColor="#fff" stopOpacity={0.04} />
+        <stop offset="1" stopColor="#000" stopOpacity={0.3} />
+      </linearGradient>
+      <linearGradient id="df-glass" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stopColor="#fff" stopOpacity={0.14} />
+        <stop offset="0.35" stopColor="#fff" stopOpacity={0.03} />
+        <stop offset="0.36" stopColor="#fff" stopOpacity={0} />
+        <stop offset="1" stopColor="#fff" stopOpacity={0} />
+      </linearGradient>
+      <linearGradient id="df-batt" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stopColor="#fff" stopOpacity={0.2} />
+        <stop offset="0.5" stopColor="#fff" stopOpacity={0} />
+        <stop offset="1" stopColor="#000" stopOpacity={0.4} />
+      </linearGradient>
+    </defs>
+  );
+}
+
 /** Draws one device panel at (0,0) with size width × panelHeight. All units mm. */
 export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabels = true, selected, behind }: Props) {
   const h = panelHeight(tpl.heightU);
@@ -59,6 +105,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
 
   return (
     <g opacity={behind ? 0.8 : 1}>
+      <FaceDefs />
       {/* rack kit (tray / filler plate) for half- and third-width devices */}
       {kit && isFront ? (
         <g>
@@ -70,10 +117,16 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
       ) : null}
       {/* chassis */}
       <rect x={chassisX} y={0} width={chassisW} height={h} rx={1.2} fill={faceCol} stroke={selected ? '#22d3ee' : shade(faceCol, luminance(faceCol) > 0.55 ? -0.3 : 0.35)} strokeWidth={selected ? 1.4 : 0.5} />
+      {/* brushed sheet: light top edge, darker bottom edge */}
+      <rect x={chassisX + 0.3} y={0.3} width={chassisW - 0.6} height={h - 0.6} rx={1} fill="url(#df-sheen)" pointerEvents="none" />
       {isFront && full && !isPanel && !kit ? (
         <>
           <rect x={0} y={0} width={EAR} height={h} fill={shade(faceCol, luminance(faceCol) > 0.55 ? -0.08 : 0.1)} />
           <rect x={width - EAR} y={0} width={EAR} height={h} fill={shade(faceCol, luminance(faceCol) > 0.55 ? -0.08 : 0.1)} />
+          <rect x={0} y={0} width={EAR} height={h} fill="url(#df-ear)" pointerEvents="none" />
+          <rect x={width - EAR} y={0} width={EAR} height={h} fill="url(#df-ear-r)" pointerEvents="none" />
+          <line x1={EAR} y1={0.4} x2={EAR} y2={h - 0.4} stroke="#000" strokeOpacity={0.55} strokeWidth={0.35} />
+          <line x1={width - EAR} y1={0.4} x2={width - EAR} y2={h - 0.4} stroke="#000" strokeOpacity={0.55} strokeWidth={0.35} />
           {[5.95, h - 5.95].map((y) => (
             <g key={y}>
               <rect x={8.75 - 5} y={y - 3.25} width={10} height={6.5} rx={3.25} fill="#0a0a0a" />
@@ -177,33 +230,112 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
 }
 
 /** Lighten (amt > 0) or darken (amt < 0) a hex colour. */
-/** charging bay: empty recess, or a module with two battery pockets and its name */
-function ModuleSlot({ bay, value }: { bay: ModuleBay; value: string }) {
-  const { x, y, w, h } = bay;
-  if (!value) {
-    return (
-      <g>
-        <rect x={x} y={y} width={w} height={h} rx={1} fill="#0c0d0f" stroke="#3a3d42" strokeWidth={0.4} />
-        <text x={x + w / 2} y={y + h / 2 + 0.7} fontSize={2} textAnchor="middle" fill="#6b7280">leer</text>
-      </g>
-    );
-  }
-  if (bay.style === 'card') {
-    return (
-      <g>
-        <rect x={x} y={y} width={w} height={h} rx={0.8} fill="#2a2d32" stroke="#4b5057" strokeWidth={0.4} />
-        <circle cx={x + w - 3} cy={y + 3} r={0.8} fill="#22c55e" />
-        <text x={x + 3} y={y + Math.min(4, h / 4) + 0.2} fontSize={Math.min(2.4, h / 7)} fill="#e5e7eb" fontWeight={700}>{value}</text>
-      </g>
-    );
-  }
-  const pw = (w - 9) / 2, ph = h - 9;
+/** screw head with slot */
+const Screw = ({ x, y, r = 1.2 }: { x: number; y: number; r?: number }) => (
+  <g>
+    <circle cx={x} cy={y} r={r} fill="#8d9197" stroke="#2a2c30" strokeWidth={0.25} />
+    <line x1={x - r * 0.7} y1={y + r * 0.35} x2={x + r * 0.7} y2={y - r * 0.35} stroke="#3a3c40" strokeWidth={0.35} />
+  </g>
+);
+const Led = ({ x, y, c = '#22c55e', r = 0.75 }: { x: number; y: number; c?: string; r?: number }) => (
+  <g><circle cx={x} cy={y} r={r} fill={c} stroke="#000" strokeWidth={0.2} /><circle cx={x - r * 0.3} cy={y - r * 0.3} r={r * 0.35} fill="#fff" opacity={0.5} /></g>
+);
+
+/** flat bodypack battery lying in its pocket, ends chamfered (SB900, AXT910, BA 70 …) */
+function FlatBattery({ x, y, w, h }: { x: number; y: number; w: number; h: number }) {
+  const c = Math.min(4.5, h * 0.3);
+  const d = `M${x + c},${y} H${x + w - c} L${x + w},${y + c} V${y + h - c} L${x + w - c},${y + h} H${x + c} L${x},${y + h - c} V${y + c} Z`;
   return (
     <g>
-      <rect x={x} y={y} width={w} height={h} rx={1} fill="#2a2d32" stroke="#4b5057" strokeWidth={0.4} />
-      {[0, 1].map((i) => <rect key={i} x={x + 3 + i * (pw + 3)} y={y + 2} width={pw} height={ph} rx={1.2} fill="#121316" stroke="#55595f" strokeWidth={0.3} />)}
-      {[0, 1].map((i) => <circle key={'l' + i} cx={x + 3 + i * (pw + 3) + pw / 2} cy={y + h - 4.5} r={0.7} fill="#22c55e" />)}
-      <text x={x + w / 2} y={y + h - 1.2} fontSize={1.9} textAnchor="middle" fill="#e5e7eb" fontWeight={700}>{value}</text>
+      <path d={d} fill="#2a2d32" stroke="#6b7078" strokeWidth={0.35} />
+      <path d={d} fill="url(#df-batt)" />
+      <line x1={x + c + 1} y1={y + h * 0.28} x2={x + w - c - 1} y2={y + h * 0.28} stroke="#000" strokeOpacity={0.35} strokeWidth={0.3} />
+      <line x1={x + c} y1={y + 0.6} x2={x + c} y2={y + h - 0.6} stroke="#000" strokeOpacity={0.3} strokeWidth={0.3} />
+      <line x1={x + w - c} y1={y + 0.6} x2={x + w - c} y2={y + h - 0.6} stroke="#000" strokeOpacity={0.3} strokeWidth={0.3} />
+    </g>
+  );
+}
+
+/** pocket for a handheld battery seen from the front (SB920, AXT920, BA 61): bezel, battery end, eject tab */
+function RoundPocket({ cx, y0, h }: { cx: number; y0: number; h: number }) {
+  const w = Math.min(30, h * 0.75), top = y0 + h * 0.14, bot = y0 + h * 0.8;
+  return (
+    <g>
+      <path d={`M${cx - w / 2},${bot} V${top + w * 0.3} Q${cx - w / 2},${top} ${cx - w * 0.2},${top} H${cx + w * 0.2} Q${cx + w / 2},${top} ${cx + w / 2},${top + w * 0.3} V${bot} Z`} fill="#16171a" stroke="#6b7078" strokeWidth={0.4} />
+      <rect x={cx - w * 0.34} y={top + 2.2} width={w * 0.68} height={(bot - top) * 0.72} rx={w * 0.1} fill="#2a2d32" stroke="#4b5057" strokeWidth={0.3} />
+      <rect x={cx - w * 0.34} y={top + 2.2} width={w * 0.68} height={(bot - top) * 0.72} rx={w * 0.1} fill="url(#df-batt)" />
+      <circle cx={cx} cy={top + 2.2 + (bot - top) * 0.28} r={0.8} fill="#0b0c0e" />
+      <rect x={cx - w * 0.22} y={bot - 1.2} width={w * 0.44} height={h * 0.13} rx={0.6} fill="#3a3d42" stroke="#6b7078" strokeWidth={0.3} />
+      <path d={`M${cx - 1.4},${bot + h * 0.08} L${cx + 1.4},${bot + h * 0.08} L${cx},${bot + h * 0.08 - 1.6} Z`} fill="#c9ccd1" />
+    </g>
+  );
+}
+
+/** exchangeable module in a bay: charger module with battery pockets, plug-in card, or blank plate */
+function ModuleSlot({ bay, value }: { bay: ModuleBay; value: string }) {
+  const { x, y, w, h } = bay;
+  const opt = bay.options.find((o) => o.id === value);
+  const card = bay.style === 'card';
+  const plate = (fill: string) => (
+    <>
+      <rect x={x} y={y} width={w} height={h} rx={0.6} fill={fill} stroke="#0a0a0b" strokeWidth={0.5} />
+      <rect x={x + 0.3} y={y + 0.3} width={w - 0.6} height={h - 0.6} rx={0.5} fill="url(#df-sheen)" />
+    </>
+  );
+  const corners = card
+    ? (w >= h ? [[x + 3, y + h / 2], [x + w - 3, y + h / 2]] : [[x + w / 2, y + 3], [x + w / 2, y + h - 3]])
+    : [[x + 4.5, y + 4.5], [x + w - 4.5, y + 4.5], [x + 4.5, y + h - 4.5], [x + w - 4.5, y + h - 4.5]];
+  if (!value) {
+    // blank plate with the module opening outline
+    return (
+      <g>
+        {plate('#1d1f22')}
+        {!card ? <rect x={x + w * 0.16} y={y + h * 0.22} width={w * 0.68} height={h * 0.56} rx={1} fill="none" stroke="#000" strokeOpacity={0.6} strokeWidth={0.4} /> : null}
+        {corners.map(([cx, cy], i) => <Screw key={i} x={cx} y={cy} />)}
+        <text x={x + w / 2} y={y + h / 2 + 0.7} fontSize={1.9} textAnchor="middle" fill="#8b9097">leer</text>
+      </g>
+    );
+  }
+  if (card) {
+    return (
+      <g>
+        {plate('#2a2d32')}
+        {corners.map(([cx, cy], i) => <Screw key={i} x={cx} y={cy} r={1.1} />)}
+        <text x={x + (w >= h ? 6.5 : 3)} y={y + (w >= h ? 4.2 : 9)} fontSize={Math.min(2.4, h / 7, w / 12)} fill="#e5e7eb" fontWeight={700}>{value}</text>
+        <Led x={x + w - (w >= h ? 6.5 : 3.5)} y={y + (w >= h ? 3.5 : 9)} />
+      </g>
+    );
+  }
+  const look = opt?.look ?? 'flat';
+  const pad = 7;
+  return (
+    <g>
+      {plate('#232529')}
+      {corners.map(([cx, cy], i) => <Screw key={i} x={cx} y={cy} />)}
+      {look === 'round' ? (
+        <>
+          <RoundPocket cx={x + w * 0.29} y0={y} h={h} />
+          <RoundPocket cx={x + w * 0.71} y0={y} h={h} />
+          <Led x={x + 3} y={y + h * 0.36} /><Led x={x + 3} y={y + h * 0.36 + 2.6} c="#f59e0b" />
+          <Led x={x + w - 3} y={y + h * 0.62} /><Led x={x + w - 3} y={y + h * 0.62 + 2.6} c="#f59e0b" />
+        </>
+      ) : (
+        <>
+          {(() => {
+            const bw = look === 'flat-small' ? (w - 2 * pad) * 0.66 : w - 2 * pad - 1;
+            const bx = x + (w - bw) / 2, bh = (h - 9) / 2;
+            return (
+              <>
+                <FlatBattery x={bx} y={y + 3.2} w={bw} h={bh} />
+                <FlatBattery x={bx + 0.6} y={y + 3.2 + bh + 2.4} w={bw - 1.2} h={bh} />
+                <Led x={bx - 2.6} y={y + 3.2 + bh * 0.35} /><Led x={bx - 2.6} y={y + 3.2 + bh * 0.35 + 2.4} c="#f59e0b" />
+                <Led x={bx + bw + 2.6} y={y + h - 3.2 - bh * 0.65} /><Led x={bx + bw + 2.6} y={y + h - 3.2 - bh * 0.65 + 2.4} c="#f59e0b" />
+              </>
+            );
+          })()}
+        </>
+      )}
+      <text x={x + w / 2} y={y + h - 0.9} fontSize={1.5} textAnchor="middle" fill="#9aa0a8" opacity={0.85}>{value}</text>
     </g>
   );
 }
