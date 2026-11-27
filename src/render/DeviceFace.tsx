@@ -82,6 +82,8 @@ export function FaceDefs() {
 export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabels = true, selected, behind }: Props) {
   const h = panelHeight(tpl.heightU);
   const isFront = panel === 'front';
+  // the panel at the rails carries the rack ears (the rear one when the device is mounted turned around)
+  const outer = device?.reversed ? !isFront : isFront;
   const full = tpl.slots === 1;
   const EAR = tpl.earWidth ?? DEFAULT_EAR;
   const ports = devicePorts(tpl, device).filter((p) => p.side === panel);
@@ -93,7 +95,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
   const bodyW = kit ? tpl.bodyWidth! : width;
   const bodyX = kit ? (width - bodyW) / 2 : 0;
   // the rear chassis width does not depend on the (decorative) front ear width
-  const chassisX = kit ? bodyX : !isFront && full && !isPanel ? DEFAULT_EAR : !isFront ? 3 : 0;
+  const chassisX = kit ? bodyX : !outer && full && !isPanel ? DEFAULT_EAR : !outer ? 3 : 0;
   const chassisW = kit ? bodyW : width - 2 * chassisX;
   const faceCol = isFront ? tpl.frontColor ?? tpl.color : shade(tpl.color, -0.2);
   const ink = luminance(faceCol) > 0.55 ? '#1f2328' : luminance(tpl.textColor || '#000') > 0.5 ? tpl.textColor : '#e5e7eb';
@@ -107,7 +109,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
     <g opacity={behind ? 0.8 : 1}>
       <FaceDefs />
       {/* rack kit (tray / filler plate) for half- and third-width devices */}
-      {kit && isFront ? (
+      {kit && outer ? (
         <g>
           <rect x={0} y={0} width={width} height={h} rx={1} fill="#1b1c1f" stroke="#2c2e33" strokeWidth={0.4} />
           {full
@@ -119,7 +121,7 @@ export function DeviceFace({ tpl, panel, width, device, portStates, showPortLabe
       <rect x={chassisX} y={0} width={chassisW} height={h} rx={1.2} fill={faceCol} stroke={selected ? '#22d3ee' : shade(faceCol, luminance(faceCol) > 0.55 ? -0.3 : 0.35)} strokeWidth={selected ? 1.4 : 0.5} />
       {/* brushed sheet: light top edge, darker bottom edge */}
       <rect x={chassisX + 0.3} y={0.3} width={chassisW - 0.6} height={h - 0.6} rx={1} fill="url(#df-sheen)" pointerEvents="none" />
-      {isFront && full && !isPanel && !kit ? (
+      {outer && full && !isPanel && !kit ? (
         <>
           <rect x={0} y={0} width={EAR} height={h} fill={shade(faceCol, luminance(faceCol) > 0.55 ? -0.08 : 0.1)} />
           <rect x={width - EAR} y={0} width={EAR} height={h} fill={shade(faceCol, luminance(faceCol) > 0.55 ? -0.08 : 0.1)} />

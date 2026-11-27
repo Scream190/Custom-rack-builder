@@ -26,6 +26,16 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
 | 3D-Standardansichten | ViewCube oben rechts (Seite anklicken), ⌂ = Startansicht |
 | Bereiche anpassen | Trennlinien zwischen Bibliothek / Ansicht / Eigenschaften / Kabelliste ziehen (Doppelklick = Standard); ein-/ausblenden über *Anzeigen* rechts in der Werkzeugleiste |
 
+### Geräte vorne und hinten, gedrehte Geräte
+- **Gedreht einbauen:** Im Inspektor *Gedreht eingebaut (Rückseite nach außen)* anhaken. Das Gerät sitzt dann umgekehrt
+  in den Schienen, z. B. ein Stromverteiler 8× Schuko, dessen Steckdosen nach außen zeigen sollen. Rackwinkel, Zeichnung,
+  3D-Ansicht, Kabelwege und Montageliste im PDF folgen der Drehung.
+- **Verdeckte Anschlüsse:** Sind in derselben Höhe vorne und hinten Geräte eingebaut, verdecken sie sich gegenseitig.
+  Die 2D-Ansichten zeigen die verdeckte Ebene dann in einer eigenen Spalte rechts neben dem Rack (*Dahinter*), auf
+  gleicher Höhe und mit allen Anschlüssen zum Anklicken; die Kabel enden dort. In der 3D-Ansicht blendet
+  *Hintere ausblenden* bzw. *Vordere ausblenden* (unten links) die Geräte einer Seite aus, damit man an die
+  Anschlüsse dahinter kommt; die Kabel bleiben sichtbar.
+
 ### Bearbeiten in der 3D-Ansicht
 In der 3D-Ansicht des Rackplaners lässt sich genauso arbeiten wie in 2D (Werkzeug *Auswählen* in der Navigationsleiste):
 

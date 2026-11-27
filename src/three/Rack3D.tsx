@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { renderMarkup as renderToStaticMarkup } from '../i18n/render';
 import type { DeviceTemplate, Face, Project, Rack } from '../model/types';
-import { bayDepth, bayOf, bayZ, rackDepth, deviceBottomY, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, railOpening, U } from '../model/geometry';
+import { bayDepth, bayOf, bayZ, outerPanel, rackDepth, deviceBottomY, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, railOpening, U } from '../model/geometry';
 import { bodyWidth3D, deviceBoxes, route3D } from './route3d';
 import { facingSide, hitMountPlane, pickPort, portTargets, targetAt, type PortTarget, type Target3D, type V3 } from './pick3d';
 import { DeviceFace } from '../render/DeviceFace';
@@ -47,6 +47,8 @@ interface Ctx {
   texInUse: Map<number, Set<string>>;
   buildId: number;
   ports: PortTarget[];
+  /** devices mounted on this side are hidden, so the panels behind them can be reached */
+  hide: Face | null;
   /** bounding sphere of the current rack */
   center: THREE.Vector3;
   radius: number;
@@ -112,6 +114,7 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
   const fitTick = useStore((s) => s.fitTick);
   const homeTick = useStore((s) => s.homeTick);
   const [failed, setFailed] = useState<string | null>(null);
+  const [hide, setHide] = useState<Face | null>(null);
 
   // ------------------------------------------------------------------ mount: renderer, camera, controls, editing
   useEffect(() => {
@@ -148,7 +151,7 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
     const overlay = makeOverlay();
     scene.add(overlay.group);
     const ctx: Ctx = {
-      renderer, scene, camera, controls, content, overlay, grid, texCache: new Map(), texInUse: new Map(), buildId: 0, ports: [],
+      renderer, scene, camera, controls, content, overlay, grid, texCache: new Map(), texInUse: new Map(), buildId: 0, ports: [], hide: null,
       center: new THREE.Vector3(), radius: 0.5, anim: null, navMode: 'select',
     };
     ctxRef.current = ctx;
@@ -166,9 +169,9 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
     /** what is under the pointer: ports win over cables and devices, as in the 2D view */
     const pick = (clientX: number, clientY: number): Hit => {
       const { o, d } = ray(clientX, clientY);
-      const hits = raycaster.intersectObjects(ctx.content.children, false).filter((h) => h.object.userData.deviceId || h.object.userData.cableId);
+      const hits = raycaster.intersectObjects(ctx.content.children, false).filter((h) => h.object.visible && (h.object.userData.deviceId || h.object.userData.cableId));
       const devHit = hits.find((h) => h.object.userData.deviceId);
-      const pp = pickPort(ctx.ports, o, d);
+      const pp = pickPort(ctx.hide ? ctx.ports.filter((q) => q.mount !== ctx.hide) : ctx.ports, o, d);
       const at = (t: number): V3 => [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t];
       if (pp && (!devHit || pp.t <= devHit.distance / S + 3)) return { port: pp.port, point: at(pp.t) };
       const first = hits[0];
@@ -542,8 +545,10 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
         const x0 = deviceFrontX(rack, d, tpl);
         const yTop = deviceTopY(d, tpl, rack) - 0.4;
         const bodyW = bodyWidth3D(rack, tpl, d);
-        const fm = renderToStaticMarkup(<DeviceFace tpl={tpl} panel="front" width={w} device={d} showPortLabels={project.settings.showPortLabels} />);
-        const rm = renderToStaticMarkup(<DeviceFace tpl={tpl} panel="rear" width={w} device={d} showPortLabels={project.settings.showPortLabels} />);
+        // plate = the panel at the rails (rear panel when the device is turned around), chassis end = the other one
+        const outer = outerPanel(d);
+        const fm = renderToStaticMarkup(<DeviceFace tpl={tpl} panel={outer} width={w} device={d} showPortLabels={project.settings.showPortLabels} />);
+        const rm = renderToStaticMarkup(<DeviceFace tpl={tpl} panel={outer === 'front' ? 'rear' : 'front'} width={w} device={d} showPortLabels={project.settings.showPortLabels} />);
         const front = await texture(`${w}x${h}|${fm}`, () => panelTexture(fm, w, h));
         const rear = await texture(`${w}x${h}|${bodyW}|${rm}`, async () => {
           const t = await panelTexture(rm, w, h);
@@ -566,6 +571,7 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
         const body = new THREE.Mesh(new THREE.BoxGeometry(bodyW * S, (h - 0.6) * S, bodyLen * S), facingFront ? [side, side, side, side, side, rearMat] : [side, side, side, side, rearMat, side]);
         body.position.set((x0 + w / 2) * S, (yTop - h / 2) * S, (z0 + dirZ * (PLATE + bodyLen / 2)) * S);
         plate.userData.deviceId = body.userData.deviceId = d.id;
+        plate.userData.mount = body.userData.mount = d.mount;
         root.add(plate, body);
       });
       await Promise.all(jobs);
@@ -583,6 +589,7 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
         p.then((t) => t.dispose());
       }
       applyHighlight(ctx, useStore.getState().hoverCableId ?? highlightCableId ?? null);
+      applyHide(ctx);
       updateMarks(ctx, project, rack);
     })();
 
@@ -601,6 +608,8 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
   useEffect(() => { if (ctxRef.current) { ctxRef.current.navMode = navMode; applyLeft(ctxRef.current); } }, [navMode]);
   useEffect(() => { if (fitTick && ctxRef.current) fitView(ctxRef.current, true); }, [fitTick]);
   useEffect(() => { if (homeTick && ctxRef.current) setView(ctxRef.current, 'home', true); }, [homeTick]);
+  useEffect(() => { if (ctxRef.current) { ctxRef.current.hide = hide; applyHide(ctxRef.current); } }, [hide]);
+  const bothSides = rack.devices.some((d) => d.mount === 'rear') && rack.devices.some((d) => d.mount === 'front');
 
   const face = (key: string, label: string, cls: string) => (
     <div className={'vc-face ' + cls} onClick={() => ctxRef.current && setView(ctxRef.current, key, true)}>{label}</div>
@@ -610,6 +619,13 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
     <div className="view3d" ref={host}>
       {failed ? <div className="view3d-fail">{failed}</div> : null}
       <div className="view3d-tip" ref={tipRef} />
+      {bothSides ? (
+        <div className="view3d-layers seg" title="Geräte einer Seite ausblenden, um an die Anschlüsse dahinter zu kommen">
+          <button className={hide === null ? 'on' : ''} onClick={() => setHide(null)}>Alle Geräte</button>
+          <button className={hide === 'rear' ? 'on' : ''} onClick={() => setHide('rear')}>Hintere ausblenden</button>
+          <button className={hide === 'front' ? 'on' : ''} onClick={() => setHide('front')}>Vordere ausblenden</button>
+        </div>
+      ) : null}
       <div className="viewcube-wrap" title="ViewCube: Seite anklicken">
         <div className="viewcube" ref={cubeRef}>
           {face('front', 'VORNE', 'vc-front')}
@@ -654,6 +670,12 @@ function makeOverlay(): Overlay {
   sel.visible = false;
   group.add(band, ghost, ghostEdges, sel);
   return { group, hover, pending, band, ghost, ghostEdges, sel };
+}
+
+/** hide the devices of one mounting side (their cables stay visible) */
+function applyHide(ctx: Ctx) {
+  for (const o of ctx.content.children) if (o.userData.mount) o.visible = o.userData.mount !== ctx.hide;
+  ctx.overlay.hover.visible = false;
 }
 
 /** a ring around a connector, slightly in front of its panel */

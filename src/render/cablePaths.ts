@@ -1,5 +1,5 @@
 import type { Cable, CableType, Face, Project, Rack } from '../model/types';
-import { cableLength, formatLength, rackExtent, resolveEnd, type ResolvedEnd } from '../model/geometry';
+import { behindDx, cableLength, coveredInView, formatLength, rackExtent, resolveEnd, type ResolvedEnd } from '../model/geometry';
 import { connectorDef } from '../model/connectors';
 
 export interface Pt { x: number; y: number }
@@ -100,7 +100,12 @@ function orthogonalDrawings(project: Project, rack: Rack, view: Face, sideGap: n
   const { w: fw, h: H } = rackExtent(rack.type);
   const vx = (x: number) => (view === 'front' ? x : fw - x);
   const items = collect(project, rack, view);
-  const pt = (e: ResolvedEnd) => toSvg(rack, e.box ? e.pos.x : vx(e.pos.x), e.pos.y);
+  // devices hidden behind those of this side are drawn in a column beside the rack (see RackSvg)
+  const covered = coveredInView(project, rack, view);
+  const bdx = behindDx(rack);
+  const inCol = (e: ResolvedEnd) => !e.box && covered.has(e.device.id);
+  const pt = (e: ResolvedEnd) => toSvg(rack, e.box ? e.pos.x : vx(e.pos.x) + (inCol(e) ? bdx : 0), e.pos.y);
+  const xMax = fw + sideGap - 4 + (covered.size ? bdx : 0);
   const rad = (e: ResolvedEnd) => { const d = connectorDef(e.port.connector); return Math.max(d.w, d.h) / 2; };
 
   // 1) stubs: each end leaves its connector towards the other end (up when the target is higher, else down),
@@ -144,7 +149,7 @@ function orthogonalDrawings(project: Project, rack: Rack, view: Face, sideGap: n
       if (!hit) break;
       x = x0 + Math.ceil(n / 2) * LANE * (n % 2 ? 1 : -1);
     }
-    x = Math.max(-sideGap + 4, Math.min(fw + sideGap - 4, x));
+    x = Math.max(-sideGap + 4, Math.min(xMax, x));
     placed.push({ x, y1, y2 });
     laneX.set(it.cable.id, x);
   }
@@ -169,15 +174,16 @@ function orthogonalDrawings(project: Project, rack: Rack, view: Face, sideGap: n
     const here = it.onA ? it.a : it.b;
     const there = it.onA ? it.b : it.a;
     const viaLeftFront = it.a.pos.x + it.b.pos.x <= 2 * fw - it.a.pos.x - it.b.pos.x;
-    const side: 'left' | 'right' = view === 'front' ? (viaLeftFront ? 'left' : 'right') : viaLeftFront ? 'right' : 'left';
+    // ends in the column always leave to its right edge
+    const side: 'left' | 'right' = inCol(here) ? 'right' : view === 'front' ? (viaLeftFront ? 'left' : 'right') : viaLeftFront ? 'right' : 'left';
     const p0 = pt(here);
     const y = stubY.get(`${it.cable.id}:${it.onA ? 'a' : 'b'}`)!;
-    const ex = side === 'left' ? -sideGap : fw + sideGap;
+    const ex = side === 'left' ? -sideGap : fw + sideGap + (inCol(here) ? bdx : 0);
     const otherName = there.device.label || there.tpl.name;
     out.push({
       cable: it.cable, type: it.type, color: it.color,
       d: `M${p0.x},${p0.y} V${y} H${ex}`,
-      label: { x: side === 'left' ? -sideGap / 2 - 6 : fw + sideGap / 2 + 6, y },
+      label: { x: side === 'left' ? -sideGap / 2 - 6 : ex - sideGap / 2 + 6, y },
       labelText: it.labelText,
       stub: { side, end: { x: ex, y }, text: `${view === 'front' ? 'hinten' : 'vorne'}: ${otherName}, ${there.port.name}` },
       a: it.a, b: it.b, length: it.length,
@@ -191,12 +197,15 @@ function organicDrawings(project: Project, rack: Rack, view: Face, sideGap: numb
   const fw = rackExtent(rack.type).w;
   const style = project.settings.curveStyle;
   const out: CableDrawing[] = [];
+  const covered = coveredInView(project, rack, view);
+  const bdx = behindDx(rack);
   collect(project, rack, view).forEach((it, idx) => {
     const { cable, a, b, type, color, labelText, length, onA, onB } = it;
-    const vx = (x: number) => (view === 'front' ? x : fw - x);
+    const col = (e: ResolvedEnd) => (!e.box && covered.has(e.device.id) ? bdx : 0);
+    const vx0 = (x: number) => (view === 'front' ? x : fw - x);
     if (onA && onB) {
-      const p0 = toSvg(rack, a.box ? a.pos.x : vx(a.pos.x), a.pos.y);
-      const p3 = toSvg(rack, b.box ? b.pos.x : vx(b.pos.x), b.pos.y);
+      const p0 = toSvg(rack, a.box ? a.pos.x : vx0(a.pos.x) + col(a), a.pos.y);
+      const p3 = toSvg(rack, b.box ? b.pos.x : vx0(b.pos.x) + col(b), b.pos.y);
       const dist = Math.hypot(p3.x - p0.x, p3.y - p0.y);
       let d: string;
       let label: Pt;
@@ -216,9 +225,9 @@ function organicDrawings(project: Project, rack: Rack, view: Face, sideGap: numb
     const here = onA ? a : b;
     const there = onA ? b : a;
     const viaLeftFront = a.pos.x + b.pos.x <= 2 * fw - a.pos.x - b.pos.x;
-    const sideInView: 'left' | 'right' = view === 'front' ? (viaLeftFront ? 'left' : 'right') : viaLeftFront ? 'right' : 'left';
-    const p0 = toSvg(rack, vx(here.pos.x), here.pos.y);
-    const ex = sideInView === 'left' ? -sideGap : fw + sideGap;
+    const sideInView: 'left' | 'right' = col(here) ? 'right' : view === 'front' ? (viaLeftFront ? 'left' : 'right') : viaLeftFront ? 'right' : 'left';
+    const p0 = toSvg(rack, vx0(here.pos.x) + col(here), here.pos.y);
+    const ex = sideInView === 'left' ? -sideGap : fw + sideGap + col(here);
     const ey = Math.min(rackExtent(rack.type).h, p0.y + 10 + (idx % 8) * 3.2);
     const otherName = there.device.label || there.tpl.name;
     out.push({

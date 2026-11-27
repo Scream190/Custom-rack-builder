@@ -173,6 +173,9 @@ function DeviceInspector({ rack, id, project }: { rack: Rack; id: string; projec
           </Field>
         ) : null}
       </div>
+      <label className="check" title="Das Gerät sitzt umgekehrt in den Schienen: die Rückseite mit ihren Anschlüssen zeigt nach außen, die Rackwinkel sind nach hinten versetzt.">
+        <input disabled={ro} type="checkbox" checked={!!d.reversed} onChange={(e) => st().updateDevice(rack.id, id, { reversed: e.target.checked })} /> Gedreht eingebaut (Rückseite nach außen)
+      </label>
       {!ro ? (
         <div className="action-row">
           <div className="btn-group">

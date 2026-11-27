@@ -270,6 +270,8 @@ export interface PlacedDevice {
   slot: number;
   /** mounting bay of a double/triple rack (index into rack.type.bays, default 0) */
   bay?: number;
+  /** turned around: the rear panel faces the mounting rails (e.g. a PDU whose outlets should point outwards) */
+  reversed?: boolean;
   label?: string;
   /** e.g. { Frequenz: "606.500 MHz", Kanal: "Vox 1" } */
   fields?: Record<string, string>;

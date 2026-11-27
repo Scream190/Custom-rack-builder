@@ -94,6 +94,8 @@ export interface PortTarget {
   portId: string;
   name: string;
   device: string;
+  /** mounting side of the device (the 3D view can hide all devices of one side) */
+  mount: Face;
   /** centre on the panel surface */
   pos: V3;
   /** outward normal in z (+1 front-facing, -1 rear-facing) */
@@ -114,7 +116,7 @@ export function portTargets(project: Project, rack: Rack): PortTarget[] {
       if (!end) continue;
       const def = connectorDef(p.connector);
       out.push({
-        deviceId: d.id, portId: p.id, name: p.name, device: d.label || tpl.name,
+        deviceId: d.id, portId: p.id, name: p.name, device: d.label || tpl.name, mount: d.mount,
         pos: [end.pos.x, end.pos.y, -end.pos.z], n: end.pos.facing === 'front' ? 1 : -1,
         hw: Math.max(4, (def?.w ?? 10) / 2), hh: Math.max(4, (def?.h ?? 10) / 2),
       });

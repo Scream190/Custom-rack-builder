@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { DeviceTemplate, Face, Rack } from '../model/types';
 import { useStore } from '../model/store';
-import { checkPlacement, deviceTopY, deviceViewX, faceWidth, panelHeight, portViewPos, rackBays, rackExtent, resolveEnd, U } from '../model/geometry';
+import { checkPlacement, coveredInView, deviceTopY, deviceViewX, endInView, faceWidth, panelHeight, rackBays, rackExtent, resolveEnd, U } from '../model/geometry';
 import { RackSvg, type Ghost } from '../render/RackSvg';
 import { clickPort } from '../model/cabling';
 import { toSvg } from '../render/cablePaths';
@@ -148,7 +148,8 @@ export function RackCanvas({ rack, view }: Props) {
       const deviceId = devEl.getAttribute('data-device')!;
       s.select({ kind: 'device', id: deviceId });
       s.setPendingPort(null);
-      if (readOnly) return;
+      // the column of covered devices only shows them; they are moved in the other view or in the inspector
+      if (readOnly || devEl.getAttribute('data-behind')) return;
       const d = rack.devices.find((x) => x.id === deviceId)!;
       const tpl = project.templates[d.templateId];
       const p = toSvgPt(e.clientX, e.clientY);
@@ -191,8 +192,8 @@ export function RackCanvas({ rack, view }: Props) {
   let rubberBand = null;
   if (pendingPort && pendingPort.rackId === rack.id && mouse) {
     const end = resolveEnd(project, rack, pendingPort);
-    if (end && (end.box || end.pos.facing === view)) {
-      const vp = end.box ? end.pos : portViewPos(rack, end.pos, view);
+    const vp = end ? endInView(rack, end, view, coveredInView(project, rack, view)) : null;
+    if (vp) {
       const sp = toSvg(rack, vp.x, vp.y);
       rubberBand = { x1: sp.x, y1: sp.y, x2: mouse.x, y2: mouse.y };
     }

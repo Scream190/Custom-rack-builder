@@ -4,7 +4,7 @@ import { sampleProject } from '../src/library/sample';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { useStore } from '../src/model/store';
 import { clickPort } from '../src/model/cabling';
-import { deviceBottomY, deviceFrontX, faceWidth, resolveEnd, U } from '../src/model/geometry';
+import { coveredInView, deviceBottomY, deviceFrontX, endInView, faceWidth, findFreeSpot, panelInView, resolveEnd, U } from '../src/model/geometry';
 import { devicePorts } from '../src/model/modules';
 import { facingSide, hitMountPlane, pickPort, portTargets, targetAt, type V3 } from '../src/three/pick3d';
 
@@ -95,6 +95,45 @@ if (rack().type.hasRearRails) {
   const half = BUILTIN_DEVICES.find((d) => d.slots === 2 && d.heightU === 1 && d.rackStandard === 19)!;
   const left = targetAt(st().project, rack(), half, 'rear', 0, 100, 100);
   check(left.slot === 1, `rear mounting: front-view left half is slot 1 (got ${left.slot})`);
+}
+
+// 7) turned around: the Schuko outlets of the PDU face outwards on the mounting side
+{
+  const schuko = BUILTIN_DEVICES.find((d) => d.id === 'gen-pdu-schuko8')!;
+  st().removeDevice(rack().id, 'd-drawer');
+  const spot = findFreeSpot(st().project, rack(), schuko, 'front');
+  check(!!spot, 'free unit for the Schuko PDU');
+  if (spot) {
+    const pid = st().placeDevice(rack().id, schuko, spot.u, 'front', spot.slot, spot.bay)!;
+    const outs = () => portTargets(st().project, rack()).filter((p) => p.deviceId === pid && p.name.startsWith('Out'));
+    check(outs().length === 8 && outs().every((p) => p.n === -1), 'normally the outlets face into the rack (rear)');
+    st().updateDevice(rack().id, pid, { reversed: true });
+    check(outs().every((p) => p.n === 1 && Math.abs(p.pos[2]) < 1e-6), 'reversed: outlets face the front at the front rails');
+    const inlet = portTargets(st().project, rack()).find((p) => p.deviceId === pid && p.name === 'Netz In')!;
+    check(inlet.n === -1 && inlet.pos[2] < -100, 'reversed: the inlet faces into the rack');
+    check(panelInView(rack().devices.find((d) => d.id === pid)!, 'front') === 'rear', 'front view shows the rear panel');
+    st().updateDevice(rack().id, pid, { reversed: false });
+    check(outs().every((p) => p.n === -1), 'turning back restores the outlets');
+  }
+}
+
+// 8) devices mounted on both sides: the covered ones are listed per view and their connectors get column positions
+if (rack().type.hasRearRails) {
+  const rx1 = rack().devices.find((d) => d.id === 'd-rx1')!;
+  const patch = BUILTIN_DEVICES.find((d) => d.id === 'gen-patch-xlr16')!;
+  const rid = st().placeDevice(rack().id, patch, rx1.u, 'rear', 0, 0);
+  check(!!rid, 'rear patch behind RX 1');
+  if (rid) {
+    const pj2 = st().project, rk = rack();
+    check(coveredInView(pj2, rk, 'rear').has('d-rx1') && !coveredInView(pj2, rk, 'rear').has(rid), 'rear view: RX 1 is covered by the rear patch');
+    check(coveredInView(pj2, rk, 'front').has(rid), 'front view: the rear patch is covered by RX 1');
+    check(!coveredInView(pj2, rk, 'rear').has('d-bnc'), 'rear view: devices without a rear neighbour stay in the rack');
+    const p1 = devicePorts(pj2.templates['shure-ulxd4q'], rx1).find((q) => q.side === 'rear')!;
+    const end = resolveEnd(pj2, rk, { deviceId: 'd-rx1', portId: p1.id })!;
+    const v = endInView(rk, end, 'rear', coveredInView(pj2, rk, 'rear'))!;
+    check(v.x > faceWidth(19) + 100, `covered connector sits in the column (x ${Math.round(v.x)})`);
+    check(endInView(rk, end, 'front', coveredInView(pj2, rk, 'front')) === null, 'rear connector is not drawn in the front view');
+  }
 }
 
 if (failures) { console.error(`edit3d: ${failures} problem(s)`); process.exit(1); }

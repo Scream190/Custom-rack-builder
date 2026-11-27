@@ -1,6 +1,6 @@
 import type { Face, Project, Rack } from '../model/types';
 import { devicePorts } from '../model/modules';
-import { boxAreaHeight, boxLayout, deviceTopY, deviceViewX, faceWidth, frameBottom, holeSpacing, PANEL_GAP, rackBays, rackExtent, rackSizeLabel, railOpening, U, bayOf } from '../model/geometry';
+import { boxAreaHeight, boxLayout, deviceTopY, deviceViewX, faceWidth, frameBottom, holeSpacing, PANEL_GAP, rackBays, rackExtent, rackSizeLabel, railOpening, U, bayOf, panelInView, behindDx, coveredInView, hasBehind, rackWall } from '../model/geometry';
 import { BoxFace } from './BoxFace';
 import { connectorDef } from '../model/connectors';
 import { DeviceFace, shade, type PortState } from './DeviceFace';
@@ -40,7 +40,8 @@ export function rackLayout(rack: Rack, project?: Project) {
   // fw / H: the whole bay arrangement (one 19" face for a plain rack)
   const { w: fw, h: H } = rackExtent(rack.type);
   const kind = rack.type.kind;
-  const wall = Math.max(18, Math.min(70, (rack.type.outer.w - fw) / 2));
+  const wall = rackWall(rack.type);
+  const behind = project ? hasBehind(project, rack) : false;
   const topFrame = kind === 'cabinet' ? 60 : kind === 'open' ? 22 : 34;
   const bottomFrame = frameBottom(kind);
   const boxH = project ? boxAreaHeight(project, rack) : 0;
@@ -49,10 +50,10 @@ export function rackLayout(rack: Rack, project?: Project) {
   const vb = {
     x: -(wall + margin),
     y: -(topFrame + titleH),
-    w: fw + 2 * (wall + margin),
+    w: fw + 2 * (wall + margin) + (behind ? behindDx(rack) : 0),
     h: H + topFrame + bottomFrame + titleH + 12 + boxH,
   };
-  return { fw, H, wall, topFrame, bottomFrame, margin, vb, sideGap: wall + 10 };
+  return { fw, H, wall, topFrame, bottomFrame, margin, vb, sideGap: wall + 10, behind };
 }
 
 function textColorFor(bg: string) {
@@ -97,6 +98,8 @@ export function RackSvg(props: RackSvgProps) {
     return connected.has(key) ? 'connected' : 'normal';
   };
 
+  const covered = coveredInView(project, rack, view);
+  const bdx = behindDx(rack);
   const devices = rack.devices
     .map((d) => ({ d, tpl: project.templates[d.templateId] }))
     .filter((x) => !!x.tpl)
@@ -185,16 +188,45 @@ export function RackSvg(props: RackSvgProps) {
         );
       })}
 
+      {/* column with the devices hidden behind those mounted on this side: same heights, all connectors reachable */}
+      {L.behind ? (
+        <g>
+          <text x={bdx + fw / 2} y={-topFrame - 9} textAnchor="middle" fontSize={7} fontWeight={700} fill={forExport ? '#333' : 'currentColor'} opacity={0.85}>
+            {view === 'front' ? 'Dahinter: hinten eingebaute Geräte' : 'Dahinter: vorne eingebaute Geräte'}
+          </text>
+          <text x={bdx + fw / 2} y={-topFrame - 2} textAnchor="middle" fontSize={4.2} fill={forExport ? '#555' : 'currentColor'} opacity={0.6}>
+            verdeckt durch die Geräte dieser Seite, gleiche Höhe wie im Rack
+          </text>
+          {rackBays(rt).map((bay, bi) => {
+            const bfw = faceWidth(bay.rackStandard);
+            const bx = bdx + (view === 'front' ? bay.x : fw - bay.x - bfw);
+            const bTop = H - (bay.y + bay.heightU * U);
+            const bH = bay.heightU * U;
+            return (
+              <g key={bi}>
+                <rect x={bx} y={bTop} width={bfw} height={bH} fill={forExport ? '#f3f4f6' : '#101114'} stroke={forExport ? '#9ca3af' : '#3b4048'} strokeWidth={0.6} strokeDasharray="4 3" />
+                {Array.from({ length: bay.heightU }, (_, i) => (
+                  <text key={i} x={bx + bfw + 6} y={bTop + i * U + U / 2 + 1.8} fontSize={5} fill={forExport ? '#555' : '#d1d5db'} opacity={0.6}>{bay.heightU - i}</text>
+                ))}
+              </g>
+            );
+          })}
+          {covered.size === 0 ? (
+            <text x={bdx + fw / 2} y={H / 2} textAnchor="middle" fontSize={5} fill={forExport ? '#777' : '#9ca3af'}>In dieser Ansicht ist nichts verdeckt.</text>
+          ) : null}
+        </g>
+      ) : null}
+
       {/* devices */}
       {devices.map(({ d, tpl }) => {
-        const x = deviceViewX(rack, d, tpl, view);
+        const x = deviceViewX(rack, d, tpl, view) + (covered.has(d.id) ? bdx : 0);
         const yTop = H - deviceTopY(d, tpl, rack) + PANEL_GAP / 2;
-        const panel: Face = d.mount === view ? 'front' : 'rear';
+        const panel: Face = panelInView(d, view);
         const w = faceWidth(bayOf(rack, d).rackStandard) / tpl.slots;
         const states: Record<string, PortState> = {};
         for (const p of devicePorts(tpl, d)) states[p.id] = portState(d.id, p.id, p.connector);
         return (
-          <g key={d.id} transform={`translate(${x},${yTop})`} data-device={d.id} style={{ cursor: forExport ? undefined : 'grab' }}>
+          <g key={d.id} transform={`translate(${x},${yTop})`} data-device={d.id} data-behind={covered.has(d.id) ? '1' : undefined} style={{ cursor: forExport ? undefined : covered.has(d.id) ? 'pointer' : 'grab' }}>
             <DeviceFace tpl={tpl} panel={panel} width={w} device={d} portStates={states} showPortLabels={s.showPortLabels} selected={d.id === selectedDeviceId} behind={d.mount !== view} />
           </g>
         );

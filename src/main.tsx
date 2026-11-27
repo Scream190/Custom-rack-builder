@@ -20,6 +20,8 @@ if (embedded) {
 }
 
 startDomTranslation();
+// dev builds only: browser test scripts drive the store directly
+if (import.meta.env.DEV) (window as unknown as { __store: typeof useStore }).__store = useStore;
 createRoot(document.getElementById('root')!).render(<App />);
 
 if (libraryUpdate.updated && !embedded) {

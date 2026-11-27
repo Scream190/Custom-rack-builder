@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { renderMarkup as renderToStaticMarkup } from '../i18n/render';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Project, Rack } from '../model/types';
-import { deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, U } from '../model/geometry';
+import { deviceFrontX, deviceTopY, faceWidth, outerPanel, panelHeight, rackBays, U } from '../model/geometry';
 import { bayPlace, bottomBlock, buildOf, isFlightRack, rackDims } from '../model/rackBuild';
 import { DeviceFace } from '../render/DeviceFace';
 import { Builder, boxGeo, faceBasis, makeMats, v3 } from './caseParts';
@@ -206,7 +206,7 @@ export function buildRack(root: THREE.Group, project: Project, rack: Rack, open:
       plate.position.set(x, y, plateZ);
       root.add(plate);
       B.add(root, boxGeo(bodyW, h - 2, depth - 3), side, x, y, front ? plateZ - 1.5 - (depth - 3) / 2 : plateZ + 1.5 + (depth - 3) / 2);
-      panelTexture(renderToStaticMarkup(<DeviceFace tpl={tpl} panel="front" width={w} device={dev} showPortLabels={false} />), w, h).then((tex) => {
+      panelTexture(renderToStaticMarkup(<DeviceFace tpl={tpl} panel={outerPanel(dev)} width={w} device={dev} showPortLabels={false} />), w, h).then((tex) => {
         faceMat.map = tex;
         faceMat.needsUpdate = true;
         faceMat.addEventListener('dispose', () => tex.dispose());

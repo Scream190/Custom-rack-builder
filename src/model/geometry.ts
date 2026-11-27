@@ -83,10 +83,16 @@ export function deviceViewX(rack: Rack, pd: PlacedDevice, tpl: DeviceTemplate, v
 export const deviceBottomY = (pd: PlacedDevice, rack?: Rack) => (rack ? bayOf(rack, pd).y : 0) + (pd.u - 1) * U;
 export const deviceTopY = (pd: PlacedDevice, tpl: DeviceTemplate, rack?: Rack) => (rack ? bayOf(rack, pd).y : 0) + (pd.u - 1 + tpl.heightU) * U;
 
+/** The panel that faces the mounting rails (normally the front, the rear when the device is turned around). */
+export const outerPanel = (pd: Pick<PlacedDevice, 'reversed'>): Face => (pd.reversed ? 'rear' : 'front');
+
 /** Which way a device panel faces in the rack. */
 export function panelFacing(pd: PlacedDevice, panel: Face): Face {
-  return panel === 'front' ? pd.mount : opposite(pd.mount);
+  return panel === outerPanel(pd) ? pd.mount : opposite(pd.mount);
 }
+
+/** The panel of a device seen in the given view. */
+export const panelInView = (pd: PlacedDevice, view: Face): Face => (pd.mount === view ? outerPanel(pd) : opposite(outerPanel(pd)));
 
 export interface PortPos {
   /** x in FRONT-view coordinates, mm from left edge of the 19" face */
@@ -109,15 +115,59 @@ export function portPosition(rack: Rack, pd: PlacedDevice, tpl: DeviceTemplate, 
   let z: number;
   const bay = bayOf(rack, pd);
   const bz = bayZ(bay), bd = bayDepth(rack.type, bay);
-  if (pd.mount === 'front') z = bz + (port.side === 'front' ? 0 : tpl.depth);
-  else z = bz + (port.side === 'front' ? bd : bd - tpl.depth);
+  const outer = port.side === outerPanel(pd);
+  if (pd.mount === 'front') z = bz + (outer ? 0 : tpl.depth);
+  else z = bz + (outer ? bd : bd - tpl.depth);
   return { x, y, z, facing };
 }
+
+/** side wall thickness of the rack as drawn in the 2D views */
+export const rackWall = (rt: RackType) => Math.max(18, Math.min(70, (rt.outer.w - rackExtent(rt).w) / 2));
+
+/**
+ * Devices whose panel facing `view` is hidden behind a device mounted on that side (same bay, overlapping units and
+ * width). The 2D views draw them in a column beside the rack so all their connectors stay reachable.
+ */
+export function coveredInView(project: Project, rack: Rack, view: Face): Set<string> {
+  const out = new Set<string>();
+  const span = (d: PlacedDevice, t: DeviceTemplate) => { const x0 = deviceFrontX(rack, d, t); return [x0, x0 + faceWidth(bayOf(rack, d).rackStandard) / t.slots]; };
+  for (const d of rack.devices) {
+    if (d.mount === view) continue;
+    const t = project.templates[d.templateId];
+    if (!t) continue;
+    const [x0, x1] = span(d, t);
+    for (const o of rack.devices) {
+      if (o.mount !== view || (o.bay ?? 0) !== (d.bay ?? 0)) continue;
+      const ot = project.templates[o.templateId];
+      if (!ot || o.u + ot.heightU - 1 < d.u || o.u > d.u + t.heightU - 1) continue;
+      const [ox0, ox1] = span(o, ot);
+      if (Math.min(x1, ox1) - Math.max(x0, ox0) > 0.5) { out.add(d.id); break; }
+    }
+  }
+  return out;
+}
+
+/** true when either view hides devices (both views then get the column, so they keep the same size) */
+export const hasBehind = (project: Project, rack: Rack) => coveredInView(project, rack, 'front').size > 0 || coveredInView(project, rack, 'rear').size > 0;
+
+/** x offset in a view from a device's place in the rack to its place in the column of covered devices */
+export const behindDx = (rack: Rack) => rackExtent(rack.type).w + 2 * rackWall(rack.type) + 70;
 
 /** Port position projected into a 2D view (x from left, y from bottom). */
 export function portViewPos(rack: Rack, pos: PortPos, view: Face) {
   const fw = rackExtent(rack.type).w;
   return { x: view === 'front' ? pos.x : fw - pos.x, y: pos.y };
+}
+
+/**
+ * Where a cable end appears in a 2D view (x from the left including the column of covered devices, y from the bottom),
+ * or null when its connector faces the other side.
+ */
+export function endInView(rack: Rack, e: ResolvedEnd, view: Face, covered: Set<string>): { x: number; y: number } | null {
+  if (e.box) return { x: e.pos.x, y: e.pos.y };
+  if (e.pos.facing !== view) return null;
+  const p = portViewPos(rack, e.pos, view);
+  return { x: p.x + (covered.has(e.device.id) ? behindDx(rack) : 0), y: p.y };
 }
 
 export interface ResolvedEnd {

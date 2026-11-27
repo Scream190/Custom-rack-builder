@@ -253,7 +253,7 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
       const W = page.w - 2 * MARGIN;
       const cols: Col[] = [
         { title: 'HE', w: W * 0.06, get: (i) => { const t = project.templates[devs[i].templateId]; return t.heightU > 1 ? `${devs[i].u}-${devs[i].u + t.heightU - 1}` : `${devs[i].u}`; } },
-        { title: 'Montage', w: W * 0.08, get: (i) => { const t = project.templates[devs[i].templateId]; return (devs[i].mount === 'front' ? 'vorne' : 'hinten') + (t.slots > 1 ? ` ${devs[i].slot + 1}/${t.slots}` : ''); } },
+        { title: 'Montage', w: W * 0.08, get: (i) => { const t = project.templates[devs[i].templateId]; return (devs[i].mount === 'front' ? 'vorne' : 'hinten') + (devs[i].reversed ? ', gedreht' : '') + (t.slots > 1 ? ` ${devs[i].slot + 1}/${t.slots}` : ''); } },
         { title: 'Hersteller', w: W * 0.12, get: (i) => project.templates[devs[i].templateId].manufacturer },
         { title: 'Gerät', w: W * 0.17, get: (i) => project.templates[devs[i].templateId].name },
         { title: 'Bezeichnung', w: W * 0.15, get: (i) => devs[i].label ?? '' },

@@ -1,5 +1,5 @@
 import type { Project, Rack } from '../model/types';
-import { bayOf, bayZ, deviceViewX, deviceTopY, faceWidth, PANEL_GAP, rackBays, U } from '../model/geometry';
+import { bayOf, bayZ, deviceViewX, deviceTopY, faceWidth, PANEL_GAP, rackBays, U, outerPanel } from '../model/geometry';
 import { bayPlace, bottomBlock, buildOf, isFlightRack, rackDims, type RackBlock } from '../model/rackBuild';
 import { DeviceFace, shade } from './DeviceFace';
 import { CaseDefs } from './CaseDrawing';
@@ -128,7 +128,7 @@ export function RackSheet({ project, rack, devices, light }: { project: Project;
                 const tpl = project.templates[dev.templateId];
                 if (!tpl) return null;
                 const w = faceWidth(bayOf(rack, dev).rackStandard) / tpl.slots;
-                return <g key={dev.id} transform={`translate(${F.x + deviceViewX(rack, dev, tpl, 'front') - d.ox},${fy(deviceTopY(dev, tpl, rack) - d.oy) + PANEL_GAP / 2})`}><DeviceFace tpl={tpl} panel="front" width={w} device={dev} showPortLabels={false} /></g>;
+                return <g key={dev.id} transform={`translate(${F.x + deviceViewX(rack, dev, tpl, 'front') - d.ox},${fy(deviceTopY(dev, tpl, rack) - d.oy) + PANEL_GAP / 2})`}><DeviceFace tpl={tpl} panel={outerPanel(dev)} width={w} device={dev} showPortLabels={false} /></g>;
               }) : null}
               <text x={x0 + fw / 2} y={y0 + h + 14 * u} fontSize={fsD * 0.8} textAnchor="middle" fill="#8b939e">{bay.label ? `${bay.label}, ` : ''}{bay.heightU} HE{bayZ(bay) ? `, ${bayZ(bay)} mm zurück` : ''}</text>
             </g>
