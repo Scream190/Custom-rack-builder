@@ -112,11 +112,17 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   SSL SB 32.24 (5 HE) und SB 16.12 (3 HE); Avid VENUE Stage 32 (5 HE); DiGiCo Orange Box (2 HE); Allen & Heath AB168
   (4 HE mit Rackkit); Riedel Artist 64 (6 HE); Clear-Com Eclipse HX-PiCo (1 HE); Lectrosonics UMCWBD-L; Wisycom MRK16
   (4 Steckplätze für MCR54 oder MCR54-DUAL).
+  Vierter Durchgang (`src/library/devicesComplete4.ts`): Allen & Heath DX32 (4 HE, 4 Kartensteckplätze: M-DX32-IN,
+  -OUT, PRIME-Varianten, -DOUT mit AES) und AR84 (1 HE); Meyer Sound GALAXY 816 (2 HE); Biamp Tesira SERVER-IO (3 HE,
+  12 Kartensteckplätze hinten für SIC-4, SOC-4, AEC-4); Barco Event Master S3-4K (3 HE); Ross Ultrix FR1 (1 HE,
+  16 × 16 + 2 Aux); ETC Net3 4-Port Gateway und Response 4-Port Gateway (halbe Breite); Green-GO Bridge X und SW81;
+  Luminex GigaCore 16i (halbe Breite).
 - **Ladegeräte mit wählbaren Schächten:** Shure SBRC (4 Schächte, je Schacht SBC-AX, SBM910, SBM910M, SBM920, AXT901
   oder AXT902, frei gemischt), Shure AXT900 (AXT901/AXT902) und Sennheiser L 6000 (LM 6060, LM 6061, LM 6062, LM 6070).
   Im Inspector unter *Schächte* belegen, auch *Alle Schächte gleich belegen*; die Front zeigt je Schacht das Modul mit
   zwei Akkufächern oder „leer“. Gespeichert wird die Auswahl in den Gerätefeldern, ältere Projekte bleiben ladbar.
-  Dasselbe gibt es für Einschubkarten: RY-Karten im Yamaha RPio, Module im DirectOut PRODIGY, MCR54 im Wisycom MRK16.
+  Dasselbe gibt es für Einschubkarten: RY-Karten im Yamaha RPio, Module im DirectOut PRODIGY, Karten im A&H DX32 und
+  in der Biamp Tesira SERVER-IO (Steckplätze auf der Rückseite), MCR54 im Wisycom MRK16.
   Die Front zeigt dann je Steckplatz die Karte mit ihren Anschlüssen. Diese sind echte Ports: Kabel lassen sich daran
   stecken, sie erscheinen in Kabelliste, Steckerbedarf, PDF und 3D, benannt nach Steckplatz (z. B. „RY1 In 5“, „M3 Mic
   In 1–8“). RY16-ML-SRC bringt 16 XLR-Eingänge, RY16-DA 16 XLR-Ausgänge, RY16-AE zwei D-Sub 25 (AES), die PRODIGY-Module
