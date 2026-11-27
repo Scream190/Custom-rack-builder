@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { allTemplates, useStore } from '../model/store';
 import type { CaseItem, FlightCase, FoamMaterial, OutlinePt, Project } from '../model/types';
-import { caseBom, caseWarnings, depthAvailable, drawerInner, footprint, freePosition, isDrawer, ITEM_PRESETS, itemFromTemplate } from '../model/cases';
+import { caseBom, caseWarnings, depthAvailable, drawerInner, footprint, freePosition, isDrawer, ITEM_PRESETS } from '../model/cases';
+import { CUTOUT_KINDS, CUTOUT_LIBRARY, type CutoutKind } from '../library/cutouts';
 import { arrangeItems, cutDepth, cutList, filletPolygon, FOAM_MATERIALS, foamMaterial, inlayContainer, inlayList, inlayThickness, rectOutline, shapeOutline } from '../model/inlay';
 import { ShapeEditor } from './ShapeEditor';
 import { uid } from '../model/util';
@@ -33,12 +34,15 @@ export function ShapePreview({ pts, l, w, size = 44, width = size * 2 }: { pts: 
 /** contour editor state shared by the add panel and the inspector */
 let openEditor: (itemId: string) => void = () => {};
 
-function AddPanel({ c, project, layer }: { c: FlightCase; project: Project; layer: InlayLayer }) {
+function AddPanel({ c, layer }: { c: FlightCase; layer: InlayLayer }) {
   const selection = useStore((s) => s.selection);
   const [form, setForm] = useState({ name: 'Ausschnitt', shape: 'rect' as 'rect' | 'circle', l: 200, w: 100, h: 50, qty: 1 });
   const [q, setQ] = useState('');
-  const templates = useMemo(() => allTemplates(project), [project]);
-  const hits = q.trim().length >= 2 ? templates.filter((t) => `${t.manufacturer} ${t.name}`.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 30) : [];
+  const [kind, setKind] = useState<CutoutKind | null>(null);
+  const needle = q.trim().toLowerCase();
+  const cutHits = CUTOUT_LIBRARY.filter((p) => (!kind || p.kind === kind) && (!needle || `${p.man} ${p.name} ${p.system ?? ''} ${p.kind}`.toLowerCase().includes(needle)));
+  const brands = [...new Set(cutHits.map((p) => p.man))];
+  const genHits = kind ? [] : ITEM_PRESETS.filter((p) => !needle || `${p.name} ${p.group}`.toLowerCase().includes(needle));
   const add = (base: Omit<CaseItem, 'id' | 'x' | 'y' | 'layer'>, qty = 1) => {
     let cur = c;
     const items: CaseItem[] = [];
@@ -80,16 +84,35 @@ function AddPanel({ c, project, layer }: { c: FlightCase; project: Project; laye
           </div>
           </Section>
 
-          <Section id="inlay.add.presets" title="Vorlagen" summary={`${ITEM_PRESETS.length} typische Inhalte`} defaultOpen>
-          <div className="muted small">Typische Außenmaße mit passender Kontur. Danach anpassen oder im Form-Editor nachzeichnen.</div>
-          {[...new Set(ITEM_PRESETS.map((p) => p.group))].map((g) => (
+          <Section id="inlay.add.presets" title="Vorlagen" summary={`${CUTOUT_LIBRARY.length + ITEM_PRESETS.length} Ausschnitte`} defaultOpen>
+          <input placeholder="Suchen, z. B. ULXD1, SM58, P10R" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Vorlagen durchsuchen" />
+          <div className="chip-row">
+            <button className={'chip' + (!kind ? ' on' : '')} onClick={() => setKind(null)}>Alle</button>
+            {CUTOUT_KINDS.map((k) => <button key={k} className={'chip' + (kind === k ? ' on' : '')} onClick={() => setKind(kind === k ? null : k)}>{k}</button>)}
+          </div>
+          <div className="muted small">Zubehör zu den Geräten der 19"-Bibliothek. Maße mit Antenne; „geschätzt“ heißt: vor dem Zuschnitt nachmessen.</div>
+          {brands.map((g) => (
             <div key={g} className="tile-group">
               <div className="tile-group-head">{g}</div>
               <div className="tile-grid">
-                {ITEM_PRESETS.filter((p) => p.group === g).map((p) => {
+                {cutHits.filter((p) => p.man === g).map((p) => (
+                  <button key={p.id} className="tile" onClick={() => add({ name: `${p.man} ${p.name}`, l: p.l, w: p.w, h: p.h, weight: p.weight, outline: p.outline })} title={`${p.man} ${p.name}${p.system ? ` (${p.system})` : ''}: ${p.source}`}>
+                    <ShapePreview pts={p.outline} l={p.l} w={p.w} />
+                    <span className="tile-name">{p.name}</span>
+                    <span className="tile-dim">{p.l} × {p.w} × {p.h}{p.source.startsWith('Schätzung') ? ', geschätzt' : ''}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+          {genHits.length ? (
+            <div className="tile-group">
+              <div className="tile-group-head">Allgemein</div>
+              <div className="tile-grid">
+                {genHits.map((p) => {
                   const pts = p.shape ? shapeOutline(p.shape, p.l, p.w) : rectOutline(p.l, p.w, 6);
                   return (
-                    <button key={p.name} className="tile" onClick={() => add({ name: p.name, l: p.l, w: p.w, h: p.h, weight: p.weight, outline: p.shape ? pts : undefined })} title={`${p.name} einfügen (${p.l} × ${p.w} × ${p.h} mm)`}>
+                    <button key={p.name} className="tile" onClick={() => add({ name: p.name, l: p.l, w: p.w, h: p.h, weight: p.weight, outline: p.shape ? pts : undefined })} title={`${p.name} einfügen (${p.l} × ${p.w} × ${p.h} mm, typische Maße)`}>
                       <ShapePreview pts={pts} l={p.l} w={p.w} />
                       <span className="tile-name">{p.name}</span>
                       <span className="tile-dim">{p.l} × {p.w} × {p.h}</span>
@@ -98,11 +121,8 @@ function AddPanel({ c, project, layer }: { c: FlightCase; project: Project; laye
                 })}
               </div>
             </div>
-          ))}
-          </Section>
-          <Section id="inlay.add.library" title="Aus der Gerätebibliothek" summary="Gehäusemaße übernehmen">
-          <input placeholder="Gerät suchen, z. B. SM58" value={q} onChange={(e) => setQ(e.target.value)} />
-          {hits.map((t) => <button key={t.id} className="list-btn" onClick={() => add(itemFromTemplate(t))} title="Mit den Gehäusemaßen des Geräts einfügen">{t.manufacturer} {t.name}</button>)}
+          ) : null}
+          {!cutHits.length && !genHits.length ? <div className="hint">Nichts gefunden. Eigener Ausschnitt oder Kontur zeichnen geht immer.</div> : null}
           </Section>
         </div>
         <div className="insp add-form">
@@ -355,7 +375,7 @@ export function InlayWorkspace() {
     <main className="workspace">
       {!ro && layout.showLibrary ? (
         <>
-          <div className="col" style={{ width: layout.libraryW }}><AddPanel c={c} project={project} layer={layer} /></div>
+          <div className="col" style={{ width: layout.libraryW }}><AddPanel c={c} layer={layer} /></div>
           <Splitter dir="x" value={layout.libraryW} min={200} max={560} onChange={(v) => setLayout({ libraryW: v })} onReset={() => setLayout({ libraryW: DEFAULT_LAYOUT.libraryW })} />
         </>
       ) : null}

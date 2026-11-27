@@ -308,10 +308,20 @@ jedes Flightcases.
 - **Behälter:** Rackschublade (im Rack die Schublade wählen → *Schaumstoff-Einlage gestalten*, oder *+ Neue Einlage*),
   beliebiger Behälter mit eigenen Innenmaßen (gekaufter Koffer, Transportbox, Werkzeugkiste) oder ein Flightcase aus dem
   Case-Designer (Unterteil und Deckel als eigene Ebenen).
-- **Ausschnitte:** eigene Maße, 22 Vorlagen oder Geräte aus der Bibliothek. Rechteckig mit einstellbarem Eckenradius,
+- **Ausschnitte:** eigene Maße oder Vorlagen. Rechteckig mit einstellbarem Eckenradius,
   rund/oval oder mit eigener Kontur. Schnitttiefe getrennt von der Höhe des Inhalts, Griffmulden (halbrund) an jeder Seite,
   Name als Gravur. Schubladen-Einlagen bekommen für jede Zeile der Inhaltsliste einen Ausschnitt (zunächst 100 × 60 mm).
-- **Vorlagen mit Kontur:** als Kacheln nach Gruppen (Funk, Mikrofone, IT, Strom und Kabel, Audio, Werkzeug), jede mit
+- **Zubehör-Vorlagen** (`src/library/cutouts.ts`): Ausschnitte für das tragbare Zubehör zu den Geräten der 19"-Bibliothek,
+  nach Hersteller gruppiert, mit Suche und Filter nach Art (Handsender, Taschensender, Aufstecksender, IEM-Empfänger,
+  Mikrofon, Headset/Lavalier, In-Ear-Hörer, Ladegerät, Akku, Antenne). Shure (ULX-D, QLX-D, SLX-D, Axient Digital, ADX,
+  Axient, UHF-R, BLX, GLX-D+, PSM 1000/900/300, Ladestationen, Akkus, Antennen, SM58 bis KSM9), Sennheiser (Digital 6000
+  und 9000, EW-DX, EW-D, ew G4/G3, 2000, XSW, Spectera, IEM-Empfänger, Ladegeräte, Akkus, e-Serie, MD 421/441),
+  Audio-Technica, Lectrosonics, Wisycom, AKG, Sony, Sound Devices, Electro-Voice, DPA, Neumann, Audix, Countryman.
+  Taschensender und IEM-Empfänger mit Antennenstummel (Länge geschätzt). Maße nach Datenblatt nur, wo belegt (z. B.
+  ULXD1/ULXD2, QLXD1/QLXD2, SK/SKM 6000, SKM 100 G4, EK IEM G4, P10R+, SM58, Beta 58A); alle anderen sind als
+  „geschätzt“ markiert und vor dem Zuschnitt nachzumessen. Die Gerätebibliothek selbst ist im Einlagen-Designer nicht
+  mehr als Vorlage gelistet, da Einlagen für nicht rackbare Geräte gedacht sind.
+- **Allgemeine Vorlagen mit Kontur:** als Kacheln nach Gruppen (Funk, Mikrofone, IT, Strom und Kabel, Audio, Werkzeug), jede mit
   Vorschau der Form. Handsender und Kabelmikrofon mit rundem Korb und schmalem Griff, Taschensender und In-Ear-Empfänger
   mit Antennenstummel, Stab- und Paddle-Antenne, Kopfhörer mit zwei Muscheln, Kabeltrommel und Gaffa rund.
 - **Form-Editor (kleines 2D-CAD):** *Kontur zeichnen …* beim Einfügen oder *Form: Kontur → Im Form-Editor bearbeiten*.
@@ -391,7 +401,7 @@ src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie,
                 cableBuild.ts = Kabelbau (eigene Kabel, Belegung, Arbeitsschritte),
                 rackBuild.ts = Rack-Designer (Maße, Stückliste, Gewicht),
                 inlay.ts = Einlagen (Umrisse, Griffmulden, eigene Konturen und Formvorlagen, Schaumarten, Plattenaufbau)
-src/library/    drawers.ts = Rackschubladen mit Innenmaßen, Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
+src/library/    drawers.ts = Rackschubladen mit Innenmaßen, cutouts.ts = Zubehör-Ausschnitte, Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
 src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auch für Export & 3D-Texturen
 src/ui/         Oberfläche, Editoren, Dialoge, ShapeEditor.tsx = Form-Editor für Ausschnitt-Konturen, DrawerPicker.tsx = Schubladen-Vorlagen
 src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung, caseParts.ts = Case-Bauteile, Scene3D.tsx = Studio-Betrachter

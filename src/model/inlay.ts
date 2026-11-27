@@ -194,7 +194,7 @@ export function normalizeOutline(pts: OutlinePt[]): { pts: OutlinePt[]; l: numbe
 
 export const rectOutline = (l: number, w: number, r = 0): OutlinePt[] => [{ x: 0, y: 0, r }, { x: l, y: 0, r }, { x: l, y: w, r }, { x: 0, y: w, r }];
 
-export type ShapeKind = 'mic' | 'mic-wired' | 'bodypack' | 'iem' | 'paddle' | 'whip' | 'drum' | 'laptop' | 'charger' | 'headphones' | 'battery-box';
+export type ShapeKind = 'mic' | 'mic-wired' | 'bodypack' | 'iem' | 'paddle' | 'whip' | 'drum' | 'laptop' | 'charger' | 'headphones' | 'battery-box' | 'stick';
 
 /** contour templates for typical contents, scaled to length l and width w (mm) */
 export function shapeOutline(kind: ShapeKind, l: number, w: number): OutlinePt[] {
@@ -226,6 +226,8 @@ export function shapeOutline(kind: ShapeKind, l: number, w: number): OutlinePt[]
     case 'laptop': return rectOutline(l, w, 10);
     case 'charger': return rectOutline(l, w, 8);
     case 'battery-box': return rectOutline(l, w, 4);
+    // cylinder lying down: plug-on transmitters, pencil microphones, round batteries
+    case 'stick': return rectOutline(l, w, Math.max(0, Math.min(l, w) / 2 - 0.5));
     case 'headphones': {
       // two ear cups joined by the headband
       const cup = Math.min(0.38 * l, w), bh = Math.max(14, 0.18 * w);
@@ -240,5 +242,5 @@ export function shapeOutline(kind: ShapeKind, l: number, w: number): OutlinePt[]
 
 export const SHAPE_LABELS: Record<ShapeKind, string> = {
   mic: 'Handmikrofon', 'mic-wired': 'Kabelmikrofon', bodypack: 'Taschensender mit Antenne', iem: 'In-Ear-Empfänger', paddle: 'Paddle-Antenne',
-  whip: 'Stabantenne', drum: 'Kabeltrommel (rund)', laptop: 'Laptop', charger: 'Ladegerät', headphones: 'Kopfhörer', 'battery-box': 'Akku-Box',
+  whip: 'Stabantenne', drum: 'Kabeltrommel (rund)', laptop: 'Laptop', charger: 'Ladegerät', headphones: 'Kopfhörer', 'battery-box': 'Akku-Box', stick: 'Zylinder (Aufstecksender, Stäbchenmikrofon)',
 };

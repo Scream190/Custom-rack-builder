@@ -1,6 +1,7 @@
 // Case designer checks. Run: npm run test:cases
 import { caseBom, caseDims, caseWarnings, drawerInner, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
 import { BUILTIN_DEVICES } from '../src/library/devices';
+import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
 import { inlayContainer } from '../src/model/inlay';
 import { sampleProject } from '../src/library/sample';
 import { uid } from '../src/model/util';
@@ -133,6 +134,21 @@ ok(drawerTpls.filter((t) => t.drawerInner).every((t) => t.drawerInner!.h < t.hei
 const gen2 = BUILTIN_DEVICES.find((t) => t.id === 'gen-drawer2')!;
 ok(drawerInner(gen2).h > 0 && !gen2.drawerInner, 'generic drawers keep the estimated inner size');
 console.log(`drawer templates: ${drawerTpls.length} (${drawerTpls.filter((t) => t.drawerInner).length} with manufacturer inner size)`);
+
+// 9) cut-out library: accessories of the 19" gear
+const cids = new Set<string>();
+for (const t of CUTOUT_LIBRARY) {
+  ok(!cids.has(t.id), `cut-out id ${t.id} unique`); cids.add(t.id);
+  ok(t.l > 0 && t.w > 0 && t.h > 0 && t.l >= t.w * 0.9 - 1 || t.kind === 'Headset / Lavalier' || t.kind === 'Ladegerät' || t.kind === 'In-Ear-Hörer' || t.kind === 'Antenne' || t.kind === 'Mikrofon', `${t.id}: sensible size`);
+  const b = outlineBox(filletPolygon(t.outline));
+  ok(b.x0 >= -0.5 && b.y0 >= -0.5 && Math.abs(b.x1 - t.l) < 1 && Math.abs(b.y1 - t.w) < 1, `${t.id}: contour fills its box (${Math.round(b.x1)} × ${Math.round(b.y1)} vs ${t.l} × ${t.w})`);
+  ok(/^(Datenblatt|Schätzung)/.test(t.source), `${t.id}: source states accuracy`);
+}
+for (const k of CUTOUT_KINDS) ok(CUTOUT_LIBRARY.some((t) => t.kind === k), `cut-outs contain ${k}`);
+// every brand with 19" wireless receivers or IEM transmitters in the library has matching transmitters/receivers
+const wirelessBrands = [...new Set(BUILTIN_DEVICES.filter((t) => /UHF Empfänger|IEM Sender/.test(t.category) && t.manufacturer !== 'Generisch').map((t) => t.manufacturer))];
+const covered = wirelessBrands.filter((m) => CUTOUT_LIBRARY.some((t) => t.man === m && /sender|Empfänger/.test(t.kind)));
+console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRARY.filter((t) => t.source.startsWith('Datenblatt')).length} after data sheet), wireless brands covered ${covered.length}/${wirelessBrands.length}${covered.length < wirelessBrands.length ? ` (missing: ${wirelessBrands.filter((m) => !covered.includes(m)).join(', ')})` : ''}`);
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }
 console.log('case designer: ok');

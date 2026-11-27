@@ -443,3 +443,7 @@ tr.bad-row td { color: #fca5a5; }
 .drawer-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; background: var(--panel2); border: 1px solid var(--line); border-radius: 3px; cursor: pointer; text-align: left; min-width: 0; }
 .drawer-tile:hover { border-color: #4a525e; background: #252a31; }
 .drawer-tile-u { font-size: 18px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.chip-row { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 3px; padding: 2px 7px; font-size: 11.5px; cursor: pointer; color: var(--text); }
+.chip:hover { border-color: #4a525e; }
+.chip.on { background: var(--accent2); border-color: var(--accent2); color: #fff; }
