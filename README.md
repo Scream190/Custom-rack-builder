@@ -58,6 +58,10 @@ Händlerangabe, die das Datenblatt zitiert). Die Ergebnisse stehen mit Quelle in
 beim Laden der Bibliothek angewendet (`src/library/verified.ts`): Tiefe, Gewicht, Gehäusebreite und Name werden
 übernommen; ändern sich Höheneinheiten oder Breite (Halbrack / volle Breite), wandern Anschlüsse, Modulschächte und
 Frontgrafik mit. Wo keine verlässliche Angabe zu finden war, bleibt der Wert und die Quelle sagt „nicht bestätigt“.
+Stand 11/2026 sind alle 480 Herstellergeräte geprüft: 463 haben einen Eintrag in `verifiedData.ts`, davon 410 mit
+Werten aus Datenblatt, Handbuch oder Händlerangabe und 53 ohne verlässliche Angabe; 17 Shure- und Sennheiser-Geräte
+sind direkt nach Bedienungsanleitung bzw. Datenblatt gebaut. Die 87 generischen Vorlagen (Blenden, Fachböden,
+Schubladen ohne Hersteller) sind als Schätzung gekennzeichnet.
 Der Bibliothekstest prüft zusätzlich, dass jede Vorlage ihre Genauigkeit nennt, dass Anschlussnamen und Steckertyp
 zusammenpassen (z. B. „USB“ auf einer USB-Buchse) und dass Netzeingänge nicht als Ausgang geführt werden.
 
