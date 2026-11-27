@@ -52,6 +52,19 @@ Die Szene wird bei Änderungen im Hintergrund neu aufgebaut und erst ausgetausch
 unveränderte Fronten werden aus einem Zwischenspeicher genommen. `npm run test:edit3d` prüft Anschluss-Picking,
 Verkabeln per Klick, Einbauziel und Verschieben ohne Browser.
 
+### 3D-Export
+*Export → 3D-Modell* speichert das Rack so, wie es die 3D-Ansicht zeigt (Gehäuse, Schienen, Geräte mit Front- und
+Rückseitengrafik, verlegte Kabel), für das aktuelle oder alle Racks:
+
+| Format | Wofür |
+|---|---|
+| GLB (glTF 2.0) | Blender, Cinema 4D, Fusion, SketchUp, Windows 3D-Viewer, Web-Viewer; Texturen eingebettet, Maße in Metern |
+| USDZ | AR Quick Look auf iPhone, iPad und Mac: das Rack steht in Originalgröße im Raum |
+| STL | nur Geometrie in Millimetern, für CAD und 3D-Druck |
+| Bild (PNG) | gerenderte Ansicht aus der Startperspektive, 2400 × 1600 px |
+
+Der Export baut die Szene unabhängig von der geöffneten Ansicht auf (`src/three/rackScene.tsx`, gemeinsam mit der 3D-Ansicht).
+
 ### Sprache (Deutsch / English)
 Die ganze Oberfläche gibt es auf Deutsch und Englisch: *Einstellungen → Darstellung → Sprache*. Beim ersten Start wird
 die Sprache des Browsers übernommen. Übersetzt werden alle Texte, Menüs, Tooltips, Rückfragen, Hinweise, Zeichnungen,

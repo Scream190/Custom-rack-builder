@@ -413,6 +413,28 @@ function RackExportDialog() {
         </div>
 
         <div className="export-card">
+          <h4>3D-Modell</h4>
+          <p className="muted small">
+            Das Rack wie in der 3D-Ansicht, mit Gerätefronten, Rückseiten und Kabeln. GLB öffnet in Blender, Cinema 4D, Fusion,
+            SketchUp und vielen Web-Viewern; USDZ zeigt das Rack auf iPhone und iPad in AR; STL (mm) enthält nur die Geometrie für CAD.
+          </p>
+          <div className="row gap8 wrap">
+            {(['glb', 'usdz', 'stl', 'png3d'] as const).map((f) => (
+              <button key={f} className="btn" disabled={!!busy} onClick={() => run(f, async () => {
+                const m = await import('../export/rack3d');
+                for (const r of racks) {
+                  const name = `${base}_${safeFileName(r.name)}_3D`;
+                  if (f === 'glb') downloadBlob(await m.exportRackGlb(project, r), `${name}.glb`);
+                  else if (f === 'usdz') downloadBlob(await m.exportRackUsdz(project, r), `${name}.usdz`);
+                  else if (f === 'stl') downloadBlob(await m.exportRackStl(project, r), `${name}.stl`);
+                  else downloadBlob(await m.renderRack3dPng(project, r), `${name}.png`);
+                }
+              })}>{busy === f ? 'Erzeuge …' : f === 'png3d' ? 'Bild (PNG)' : f.toUpperCase()}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="export-card">
           <h4>Interaktiv (HTML)</h4>
           <p className="muted small">
             Eine einzelne HTML-Datei, die in jedem Browser öffnet – ohne Installation, auch offline. Mit Vorder-/Rückansicht, 3D, Kabel-Hervorhebung,

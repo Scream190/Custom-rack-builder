@@ -8,7 +8,7 @@ import { bayPlace, bottomBlock, buildOf, isFlightRack, rackDims } from '../model
 import { DeviceFace } from '../render/DeviceFace';
 import { Builder, boxGeo, faceBasis, makeMats, v3 } from './caseParts';
 import { Scene3D, type BuildResult } from './Scene3D';
-import { panelTexture } from './Rack3D';
+import { panelTexture } from './rackScene';
 
 /** 3D view of a designed rack housing with its rails and (optionally) the installed devices. */
 export function RackBuild3D({ project, rack, devices }: { project: Project; rack: Rack; devices: boolean }) {
