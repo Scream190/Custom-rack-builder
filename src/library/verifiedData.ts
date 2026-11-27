@@ -98,7 +98,6 @@ export const VERIFIED: VerifiedEntry[] = [
   {id: "eaton-5px1500", src: "Eaton: 438 × 448 × 85,5 mm, 22,4 kg", depth: 448, weight: 22.4},
   {id: "eaton-9px3000", src: "Eaton: 440 × 86,5 × 605 mm (2 HE), 27,57 kg", depth: 605, weight: 27.57},
   {id: "el-distressor", src: "Händler: Metallgehäuse 1,75 × 19 × 10 in (1 HE)", heightU: 1, depth: 254},
-  {id: "elc-dmxlan-node16", src: "Modell bei ELC nicht auffindbar (ELC führt 19\"-Nodes mit 8 Ports: 483 × 44 × 150 mm); Wert unverändert", unconfirmed: true},
   {id: "ev-re3rx", src: "Electro-Voice Datenblatt: 210 × 44 × 155 mm (175 mit Buchsen), 1,23 kg", depth: 155, bodyWidth: 210, weight: 1.23},
   {id: "eventide-h9000", src: "Eventide: 8,9 × 48,3 × 31,7 cm (2 HE), 6,4 kg", heightU: 2, depth: 317, weight: 6.4},
   {id: "ferrofish-a32dante", src: "Händler: 1 HE, 27 cm tief inkl. Anschlüsse, 4,1 kg", depth: 270, weight: 4.1},
