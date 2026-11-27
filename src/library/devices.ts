@@ -1,4 +1,5 @@
 import type { DeviceTemplate, Face, Port } from '../model/types';
+import { applyVerified } from './verified';
 import { BRANDED_DEVICES } from './devicesBranded';
 import { RFSCAN_DEVICES } from './devicesRfScan';
 import { PRO_DEVICES } from './devicesPro';
@@ -34,7 +35,7 @@ function dev(t: Omit<DeviceTemplate, 'textColor' | 'rackStandard'> & Partial<Pic
 
 const UHF_FIELDS = ['Frequenz', 'Kanal / Name', 'Gruppe'];
 
-export const BUILTIN_DEVICES: DeviceTemplate[] = [
+const RAW_DEVICES: DeviceTemplate[] = [
   ...BRANDED_DEVICES,
   ...RFSCAN_DEVICES,
   ...PRO_DEVICES,
@@ -166,5 +167,8 @@ export const BUILTIN_DEVICES: DeviceTemplate[] = [
   })),
   dev({ id: 'gen-cablemgmt1', name: 'Kabelführung 1 HE', manufacturer: 'Generisch', category: 'Zubehör', heightU: 1, slots: 1, depth: 60, color: '#1a1a1a', ports: [] }),
 ];
+
+/** the library with the dimensions checked against the data sheets (see verified.ts) */
+export const BUILTIN_DEVICES: DeviceTemplate[] = applyVerified(RAW_DEVICES);
 
 export const DEVICE_CATEGORIES = Array.from(new Set(BUILTIN_DEVICES.map((d) => d.category)));

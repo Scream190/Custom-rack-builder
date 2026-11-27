@@ -52,6 +52,15 @@ Die Szene wird bei Änderungen im Hintergrund neu aufgebaut und erst ausgetausch
 unveränderte Fronten werden aus einem Zwischenspeicher genommen. `npm run test:edit3d` prüft Anschluss-Picking,
 Verkabeln per Klick, Einbauziel und Verschieben ohne Browser.
 
+### Geräte gegen Datenblätter geprüft
+Maße und Gewichte der Gerätevorlagen werden mit den Herstellerangaben abgeglichen (Datenblatt, Handbuch oder
+Händlerangabe, die das Datenblatt zitiert). Die Ergebnisse stehen mit Quelle in `src/library/verifiedData.ts` und werden
+beim Laden der Bibliothek angewendet (`src/library/verified.ts`): Tiefe, Gewicht, Gehäusebreite und Name werden
+übernommen; ändern sich Höheneinheiten oder Breite (Halbrack / volle Breite), wandern Anschlüsse, Modulschächte und
+Frontgrafik mit. Wo keine verlässliche Angabe zu finden war, bleibt der Wert und die Quelle sagt „nicht bestätigt“.
+Der Bibliothekstest prüft zusätzlich, dass jede Vorlage ihre Genauigkeit nennt, dass Anschlussnamen und Steckertyp
+zusammenpassen (z. B. „USB“ auf einer USB-Buchse) und dass Netzeingänge nicht als Ausgang geführt werden.
+
 ### 3D-Export
 *Export → 3D-Modell* speichert das Rack so, wie es die 3D-Ansicht zeigt (Gehäuse, Schienen, Geräte mit Front- und
 Rückseitengrafik, verlegte Kabel), für das aktuelle oder alle Racks:

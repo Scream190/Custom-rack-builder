@@ -27,6 +27,7 @@ export const EN_EXTRA: Record<string, string> = {
   'Geräte einer Seite ausblenden, um an die Anschlüsse dahinter zu kommen': 'Hide the devices of one side to reach the connectors behind them',
   '3D-Modell': '3D model', 'Bild (PNG)': 'Image (PNG)', 'PNG konnte nicht erzeugt werden': 'The PNG could not be created',
   'Das Rack wie in der 3D-Ansicht, mit Gerätefronten, Rückseiten und Kabeln. GLB öffnet in Blender, Cinema 4D, Fusion, SketchUp und vielen Web-Viewern; USDZ zeigt das Rack auf iPhone und iPad in AR; STL (mm) enthält nur die Geometrie für CAD.': 'The rack as in the 3D view, with device fronts, rear panels and cables. GLB opens in Blender, Cinema 4D, Fusion, SketchUp and many web viewers; USDZ shows the rack in AR on iPhone and iPad; STL (mm) holds the geometry only, for CAD.',
+  'SC-Duplex optisch (MADI)': 'SC duplex optical (MADI)',
   'Dosen stehen unter dem Rack': 'Boxes sit below the rack', 'Netz': 'Mains',
   'Ungültiger Einbauplatz': 'Invalid mounting position', 'Ungültiges Einbaufeld': 'Invalid mounting bay', 'VGA-Stecker (D-Sub 15)': 'VGA plug (D-Sub 15)',
   'Verbindungsbeschlag zwischen den Blöcken': 'Connecting hardware between the blocks',

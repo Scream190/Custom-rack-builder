@@ -412,20 +412,53 @@ export const RFSCAN_DEVICES: DeviceTemplate[] = [
   ...(['EW-DX EM 2', 'EW-DX EM 2 Dante', 'EW-DX EM 4 Dante'] as const).map((m) => {
     const dante = m.includes('Dante');
     const quad = m.includes('EM 4');
-    const outs = quad ? [4, 3, 2, 1] : [2, 1];
-    const outX = quad ? [205, 235, 265, 295] : [245, 280];
+    if (!quad) {
+      // EM 2 / EM 2 Dante: half-rack receivers, 212 × 44 × 189 mm (Sennheiser product specification)
+      const d = dante ? 20 : 0;
+      return dev({
+        id: `senn-${m.toLowerCase().replace(/[^a-z0-9]+/g, '')}`, name: m, manufacturer: 'Sennheiser', category: 'UHF Empfänger', heightU: 1, slots: 2, depth: 189, bodyWidth: 212, weight: 1.0, color: '#2b2d31',
+        fields: UHF_FIELDS, power: 20,
+        source: 'Datenblatt – Sennheiser EW-DX Product Specification (212 × 44 × 189 mm, ca. 1 kg); Anschlussliste nach Manual, Positionen Schätzung',
+        notes: `Doppel-Empfänger Evolution Wireless Digital${dante ? ' mit Dante' : ''}, halbe Rackbreite. Versorgung über Netzteil (DC, Zugentlastung).`,
+        ports: [
+          p('Phones', 'JACK', 'front', 22, 30, 'out'),
+          p('DC In', 'DC', 'rear', 22, 24, 'in'),
+          p('Network', 'RJ45', 'rear', 40, 24, 'io'),
+          ...(dante ? [p('Dante Primary', 'RJ45', 'rear', 60, 15, 'io'), p('Dante Secondary', 'RJ45', 'rear', 60, 32, 'io')] : []),
+          p('Out 2 Jack', 'JACK', 'rear', 60 + d, 30, 'out'),
+          p('Out 2', 'XLR3M', 'rear', 84 + d, 21, 'out'),
+          p('Out 1', 'XLR3M', 'rear', 114 + d, 21, 'out'),
+          p('Out 1 Jack', 'JACK', 'rear', 138 + d, 30, 'out'),
+          p('Ant A In', 'BNC', 'rear', 160 + d, 14, 'in'), p('Ant A Out', 'BNC', 'rear', 160 + d, 31, 'out'),
+          p('Ant B In', 'BNC', 'rear', 182 + d, 14, 'in'), p('Ant B Out', 'BNC', 'rear', 182 + d, 31, 'out'),
+        ],
+        art: {
+          front: [
+            { t: 'rect', x: 14, y: 0.5, w: 22, h: 42.6, fill: '#e5e7eb' }, { t: 'knob', x: 30, y: 12, r: 3.5 },
+            { t: 'leds', x: 44, y: 14, n: 2, dy: 14, colors: [GREEN, GREEN], r: 0.8 },
+            { t: 'button', x: 48, y: 10, w: 7, h: 7, round: true, label: '1' }, { t: 'button', x: 48, y: 26, w: 7, h: 7, round: true, label: '2' },
+            { t: 'lcd', x: 62, y: 8, w: 70, h: 27, tint: '#e0f2fe', info: true, channel: 0 },
+            { t: 'knob', x: 148, y: 22, r: 8 },
+            { t: 'button', x: 161, y: 9, w: 8, h: 8, round: true, label: 'SET', fill: '#1e3a8a' }, { t: 'button', x: 161, y: 26, w: 8, h: 8, round: true, label: 'ESC' },
+            { t: 'button', x: 185, y: 18, w: 8, h: 8, round: true, fill: '#3a1d1d' },
+            T(204, 39.5, 'EW-DX  SENNHEISER', 1.7, { anchor: 'end', weight: 700 }), { t: 'labelArea', x: 62, y: 37, w: 50, h: 4.6 },
+          ],
+          rear: [],
+        },
+      });
+    }
+    const outs = [4, 3, 2, 1];
+    const outX = [205, 235, 265, 295];
     return dev({
-      id: `senn-${m.toLowerCase().replace(/[^a-z0-9]+/g, '')}`, name: m, manufacturer: 'Sennheiser', category: 'UHF Empfänger', heightU: 1, slots: 1, depth: 225, color: '#2b2d31',
-      fields: UHF_FIELDS, power: quad ? 30 : 20,
-      source: 'Datenblatt – Sennheiser EW-DX Quick Guide / Manual (Anschlüsse), Positionen nach Kurzanleitungs-Zeichnung geschätzt',
-      notes: `${quad ? 'Vierfach' : 'Doppel'}-Empfänger Evolution Wireless Digital${dante ? ' mit Dante' : ''}. Versorgung über Netzteil (DC, Zugentlastung).`,
+      id: `senn-${m.toLowerCase().replace(/[^a-z0-9]+/g, '')}`, name: m, manufacturer: 'Sennheiser', category: 'UHF Empfänger', heightU: 1, slots: 1, depth: 373, weight: 4.56, color: '#2b2d31',
+      fields: UHF_FIELDS, power: 30,
+      source: 'Datenblatt – Sennheiser EW-DX EM 4 Dante Product Specification (483 × 44 × 373 mm, 4560 g); Positionen nach Kurzanleitungs-Zeichnung geschätzt',
+      notes: 'Vierfach-Empfänger Evolution Wireless Digital mit Dante. Versorgung über Netzteil (DC, Zugentlastung).',
       ports: [
         p('Phones', 'JACK', 'front', 26, 30, 'out'),
         p('Network', 'RJ45', 'rear', 60, 24, 'io'),
-        ...(dante ? [p('Dante Primary', 'RJ45', 'rear', 84, 16, 'io'), p('Dante Secondary', 'RJ45', 'rear', 84, 31, 'io')] : []),
-        ...(!quad ? [p('Out 2 Jack', 'JACK', 'rear', 220, 29, 'out')] : []),
+        p('Dante Primary', 'RJ45', 'rear', 84, 16, 'io'), p('Dante Secondary', 'RJ45', 'rear', 84, 31, 'io'),
         ...outs.map((o, i) => p(`Out ${o}`, 'XLR3M', 'rear', outX[i], 21, 'out')),
-        ...(!quad ? [p('Out 1 Jack', 'JACK', 'rear', 305, 29, 'out')] : []),
         p('Ant A In', 'BNC', 'rear', 345, 15, 'in'), p('Ant A Out', 'BNC', 'rear', 345, 32, 'out'),
         p('Ant B In', 'BNC', 'rear', 405, 15, 'in'), p('Ant B Out', 'BNC', 'rear', 405, 32, 'out'),
         p('DC In', 'DC', 'rear', 440, 24, 'in'),
@@ -433,7 +466,7 @@ export const RFSCAN_DEVICES: DeviceTemplate[] = [
       art: {
         front: [
           { t: 'rect', x: 16, y: 0.5, w: 30, h: 42.6, fill: '#e5e7eb' }, { t: 'knob', x: 38, y: 30, r: 4 },
-          ...(quad ? [0, 200] : [0]).flatMap((dx, i): ArtElement[] => [
+          ...[0, 200].flatMap((dx, i): ArtElement[] => [
             { t: 'leds', x: 60 + dx, y: 14, n: 2, dy: 14, colors: [GREEN, GREEN], r: 0.8 },
             { t: 'button', x: 64 + dx, y: 10, w: 7, h: 7, round: true, label: String(i * 2 + 1) }, { t: 'button', x: 64 + dx, y: 26, w: 7, h: 7, round: true, label: String(i * 2 + 2) },
             { t: 'lcd', x: 80 + dx, y: 8, w: 70, h: 27, tint: '#e0f2fe', info: true, channel: i === 0 ? 0 : 3 },

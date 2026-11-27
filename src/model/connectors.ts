@@ -64,6 +64,7 @@ export const CONNECTORS: Record<string, ConnectorDef> = Object.fromEntries(
     c('SFP', 'SFP', 'network', 'sfp', 14, 9),
     c('QSFP', 'QSFP (40/100 G)', 'network', 'sfp', 19, 9),
     c('LC', 'LC-Duplex (Glasfaser)', 'network', 'sfp', 13, 7),
+    c('SC', 'SC-Duplex optisch (MADI)', 'aes', 'sfp', 14, 9),
     c('VGA', 'VGA (D-Sub 15)', 'video', 'dsub', 31, 12),
     c('DP', 'DisplayPort', 'video', 'hdmi', 17, 7),
     c('DVI', 'DVI-D', 'video', 'dsub', 39, 13),

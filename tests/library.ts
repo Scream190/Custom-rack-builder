@@ -57,6 +57,27 @@ for (const t of BUILTIN_DEVICES) {
     cardChecks++;
   }
 }
+// data-sheet rules: accuracy stated, connector matches what the port name says, direction matches the connector
+const NAME_HINTS: [RegExp, (c: string) => boolean, string][] = [
+  [/\bBNC\b/i, (c) => /BNC/.test(c), 'BNC'],
+  [/\bUSB\b/i, (c) => /USB/.test(c), 'USB'],
+  [/\bHDMI\b/i, (c) => /HDMI/.test(c), 'HDMI'],
+  [/\betherCON\b/i, (c) => c === 'ETHERCON', 'etherCON'],
+  [/\bspeakON\b|\bNL4\b|\bNL8\b/i, (c) => /SPEAKON/.test(c), 'speakON'],
+  [/\bpowerCON\b/i, (c) => /POWERCON|TRUE1/.test(c), 'powerCON'],
+  [/\bIEC\b/i, (c) => /IEC/.test(c), 'IEC'],
+  [/\bXLR\b(?!.*TA3)/i, (c) => /XLR|COMBO/.test(c), 'XLR'],
+  [/\bMADI\b/i, (c) => /BNC|SFP|LC|SC|OPTICALCON|RJ45/.test(c), 'MADI'],
+  [/\bSDI\b/i, (c) => /BNC|SFP|LC/.test(c), 'SDI'],
+];
+for (const t of BUILTIN_DEVICES) {
+  if (!t.source || !/vermessen|abgeleitet|Datenblatt|Schätzung|generisch|Generische/i.test(t.source)) errors.push(`${t.id}: source without accuracy (vermessen / abgeleitet / Datenblatt / Schätzung)`);
+  for (const p of t.ports) {
+    for (const [re, ok, what] of NAME_HINTS) if (re.test(p.name) && !ok(p.connector)) errors.push(`${t.id}: "${p.name}" sounds like ${what}, connector is ${p.connector}`);
+    if (p.dir === 'out' && ['IEC_C14', 'POWERCON_IN', 'TRUE1_IN', 'POWERCON32_IN', 'IEC_C20'].includes(p.connector)) errors.push(`${t.id}: "${p.name}" is an output on inlet ${p.connector}`);
+    if (p.dir === 'in' && ['IEC_C13', 'POWERCON_OUT', 'TRUE1_OUT', 'IEC_C19', 'SCHUKO'].includes(p.connector)) errors.push(`${t.id}: "${p.name}" is an input on outlet ${p.connector}`);
+  }
+}
 // module bays (chargers): inside the front panel, not overlapping, with choices
 for (const t of BUILTIN_DEVICES) {
   const bays = t.modules ?? [];
