@@ -120,6 +120,8 @@ export interface DeviceTemplate {
   source?: string;
   /** rack drawer: placed devices get a contents list that is printed on the front */
   drawer?: boolean;
+  /** usable inner size of a drawer from the manufacturer (l = width, w = depth, h = height, mm); estimated otherwise */
+  drawerInner?: { l: number; w: number; h: number; hEstimated?: boolean };
   /** product id in the RF Frequency Manager ("Shure|AD4D"); built-in templates are mapped in integration/rf.ts */
   rfProduct?: string;
   /** Free-form metadata fields this device type typically needs (e.g. "Frequenz"). */
@@ -443,6 +445,8 @@ export interface FlightCase {
   kind?: 'case' | 'drawer' | 'inlay';
   /** the rack drawer this inlay belongs to */
   drawer?: { rackId: string; deviceId: string };
+  /** drawer inlay made from a drawer template without a placed drawer (template id) */
+  drawerTemplate?: string;
   /** clear inside of the walls in mm (h = body + lid) */
   inner: { l: number; w: number; h: number };
   /** inner height of the lid part (0 = no lid) */

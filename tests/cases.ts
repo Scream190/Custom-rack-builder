@@ -1,5 +1,7 @@
 // Case designer checks. Run: npm run test:cases
-import { caseBom, caseDims, caseWarnings, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
+import { caseBom, caseDims, caseWarnings, drawerInner, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
+import { BUILTIN_DEVICES } from '../src/library/devices';
+import { inlayContainer } from '../src/model/inlay';
 import { sampleProject } from '../src/library/sample';
 import { uid } from '../src/model/util';
 import { applyBuild, blockClashes, blockGap, rackBom, rackDims } from '../src/model/rackBuild';
@@ -119,6 +121,18 @@ ok(ITEM_PRESETS.filter((p) => p.shape).length >= 15 && ITEM_PRESETS.every((p) =>
 const mic = filletPolygon(shapeOutline('mic', 260, 55));
 ok(area(mic) < 0.75 * 260 * 55, 'microphone contour is narrower than its rectangle');
 console.log(`contours: ${Object.keys(SHAPE_LABELS).length} templates, microphone ${Math.round((area(mic) / (260 * 55)) * 100)} % of its rectangle`);
+
+// 8) drawer templates with the manufacturer's inner size: inlay without a placed drawer
+const ah4 = BUILTIN_DEVICES.find((t) => t.id === 'ah-87404')!;
+const di = newDrawerInlay('Test', ah4, null, []);
+ok(di.kind === 'drawer' && !di.drawer && di.drawerTemplate === 'ah-87404', 'drawer inlay from a template has no rack link but remembers the template');
+ok(di.inner.l === 401 && di.inner.w === 373 && di.inner.h === 175, `inner size from the data sheet (${di.inner.l} × ${di.inner.w} × ${di.inner.h})`);
+ok(inlayContainer(sampleProject(), di) === 'Schublade Adam Hall 87404 Rackschublade 4 HE', `container label: ${inlayContainer(sampleProject(), di)}`);
+const drawerTpls = BUILTIN_DEVICES.filter((t) => t.drawer);
+ok(drawerTpls.filter((t) => t.drawerInner).every((t) => t.drawerInner!.h < t.heightU * 44.45 && t.drawerInner!.l <= 420), 'drawer inner sizes fit their height and the 19" opening');
+const gen2 = BUILTIN_DEVICES.find((t) => t.id === 'gen-drawer2')!;
+ok(drawerInner(gen2).h > 0 && !gen2.drawerInner, 'generic drawers keep the estimated inner size');
+console.log(`drawer templates: ${drawerTpls.length} (${drawerTpls.filter((t) => t.drawerInner).length} with manufacturer inner size)`);
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }
 console.log('case designer: ok');

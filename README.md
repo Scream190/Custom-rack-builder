@@ -299,6 +299,12 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
 Eigener Arbeitsbereich für Schaumstoff-Einlagen. In der Liste stehen Schubladen-Einlagen, freie Einlagen und die Einlage
 jedes Flightcases.
 
+- **Schubladen-Vorlagen:** *+ Neue Einlage → Für eine Rackschublade (Vorlage wählen)* zeigt alle Schubladen nach Hersteller
+  und Höhe: Adam Hall 87402/87403/87404, Penn Elcom (1 bis 8 HE, auch 10" tief), Middle Atlantic UD1–UD4, Thon 2 HE kurz
+  und 4 HE, dazu die generischen. Die Innenmaße stammen von Hersteller- oder Händlerseiten (Quelle in der Vorlage, bei
+  Middle Atlantic ist die Höhe geschätzt). Die Einlage braucht kein Rack; die Vorlage lässt sich im Inspector wechseln.
+  Dieselben Schubladen stehen in der Gerätebibliothek unter „Schubladen“, eine daraus im Rack eingebaute Schublade
+  bringt ihr Innenmaß in die Einlage mit. Tiefe Schubladen zeigt die 3D-Ansicht von schräg oben.
 - **Behälter:** Rackschublade (im Rack die Schublade wählen → *Schaumstoff-Einlage gestalten*, oder *+ Neue Einlage*),
   beliebiger Behälter mit eigenen Innenmaßen (gekaufter Koffer, Transportbox, Werkzeugkiste) oder ein Flightcase aus dem
   Case-Designer (Unterteil und Deckel als eigene Ebenen).
@@ -385,9 +391,9 @@ src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie,
                 cableBuild.ts = Kabelbau (eigene Kabel, Belegung, Arbeitsschritte),
                 rackBuild.ts = Rack-Designer (Maße, Stückliste, Gewicht),
                 inlay.ts = Einlagen (Umrisse, Griffmulden, eigene Konturen und Formvorlagen, Schaumarten, Plattenaufbau)
-src/library/    Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
+src/library/    drawers.ts = Rackschubladen mit Innenmaßen, Geräte- (devicesBranded.ts = Marken-Geräte, devicesPro.ts + proLayout.ts = Profi-Geräte), Rack- und Kabeltyp-Bibliotheken, Beispielprojekt
 src/render/     SVG-Darstellung (Rack, Geräte, Stecker, Kabel, Blenden) – auch für Export & 3D-Texturen
-src/ui/         Oberfläche, Editoren, Dialoge, ShapeEditor.tsx = Form-Editor für Ausschnitt-Konturen
+src/ui/         Oberfläche, Editoren, Dialoge, ShapeEditor.tsx = Form-Editor für Ausschnitt-Konturen, DrawerPicker.tsx = Schubladen-Vorlagen
 src/three/      3D-Ansicht, route3d.ts = kollisionsfreie Kabelführung, caseParts.ts = Case-Bauteile, Scene3D.tsx = Studio-Betrachter
 tests/          library.ts: Prüfung der Gerätebibliothek, cases.ts: Packen, Außenmaß, Stückliste, Einlagen, Konturen, Rack-Designer,
                 cables.ts: Kabelbau (Steckerliste, Belegungen, Zuordnung zu Rack-Kabeln, Arbeitsschritte, Kartenports),

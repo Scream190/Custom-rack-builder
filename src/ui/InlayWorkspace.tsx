@@ -221,6 +221,8 @@ function InlayInspector({ c, project }: { c: FlightCase; project: Project }) {
   const warnings = caseWarnings(c);
   const mat = foamMaterial(c);
   const link = c.drawer ? projectDrawers(project).find((x) => x.device.id === c.drawer!.deviceId) : undefined;
+  const drawerTpls = allTemplates(project).filter((t) => t.drawer);
+  const dtpl = link?.tpl ?? drawerTpls.find((t) => t.id === c.drawerTemplate);
   const isCase = !c.kind || c.kind === 'case';
   return (
     <aside className="panel inspector">
@@ -239,8 +241,20 @@ function InlayInspector({ c, project }: { c: FlightCase; project: Project }) {
         <Section id="inlay.container" title="Behälter und Innenmaß" defaultOpen={!isCase} summary={inlayContainer(project, c)}>
         {isDrawer(c) ? (
           <>
-            <div className="muted small">{link ? `${link.device.label || link.tpl.name} in „${link.rack.name}“, HE ${link.device.u}.` : 'Die verknüpfte Schublade gibt es nicht mehr im Rack.'} Die Innenmaße sind aus der Schubladen-Vorlage geschätzt. Bitte nachmessen.</div>
-            {link && !ro ? <button className="btn sm" onClick={() => set({ inner: drawerInner(link.tpl) })} title="Geschätzte Innenmaße der Schublade wieder einsetzen">Innenmaß aus der Schublade übernehmen</button> : null}
+            {c.drawer ? (
+              <div className="muted small">{link ? `${link.device.label || link.tpl.name} in „${link.rack.name}“, HE ${link.device.u}.` : 'Die verknüpfte Schublade gibt es nicht mehr im Rack.'} {dtpl?.drawerInner ? 'Innenmaß laut Hersteller.' : 'Die Innenmaße sind aus der Schubladen-Vorlage geschätzt. Bitte nachmessen.'}</div>
+            ) : (
+              <>
+                <Field label="Schublade (Vorlage)">
+                  <select disabled={ro} value={c.drawerTemplate ?? ''} onChange={(e) => { const t = drawerTpls.find((x) => x.id === e.target.value); if (t) set({ drawerTemplate: t.id, inner: drawerInner(t) }); }}>
+                    {!dtpl ? <option value="">unbekannt</option> : null}
+                    {drawerTpls.map((t) => <option key={t.id} value={t.id}>{t.manufacturer === 'Generisch' ? '' : `${t.manufacturer} `}{t.name} ({drawerInner(t).l} × {drawerInner(t).w} × {drawerInner(t).h})</option>)}
+                  </select>
+                </Field>
+                <div className="muted small">{!dtpl?.drawerInner ? 'Innenmaß aus der Bauhöhe geschätzt. Bitte an der Schublade nachmessen.' : dtpl.drawerInner.hEstimated ? 'Breite und Tiefe laut Hersteller, Höhe geschätzt. Höhe bitte nachmessen.' : 'Innenmaß laut Hersteller, siehe Quelle in der Vorlage.'} Nicht mit einem Rack verknüpft.</div>
+              </>
+            )}
+            {dtpl && !ro ? <button className="btn sm" onClick={() => set({ inner: drawerInner(dtpl) })} title="Innenmaß der Schubladen-Vorlage wieder einsetzen">Innenmaß aus der Vorlage übernehmen</button> : null}
           </>
         ) : isCase ? (
           <>

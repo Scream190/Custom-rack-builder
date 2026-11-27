@@ -35,7 +35,7 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean): Buil
     const floor = isDrawer(c) ? 1.5 : 3;
     addFoam(g, c, 'body', floor, c.inner.h - floor, B);
     B.finish();
-    return { size: { x: c.inner.l + 80, y: c.inner.h + 20, z: c.inner.w + 60 } };
+    return { size: { x: c.inner.l + 80, y: c.inner.h + 20, z: c.inner.w + 60 }, steep: isDrawer(c) && c.inner.h > 0.2 * c.inner.w };
   }
 
   const L = d.L, W = d.W;

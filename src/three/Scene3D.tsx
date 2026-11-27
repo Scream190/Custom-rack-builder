@@ -15,6 +15,8 @@ export interface BuildResult {
   size: { x: number; y: number; z: number };
   /** shift of the look-at point along z (e.g. a lid set down behind the case) */
   zShift?: number;
+  /** look down more steeply (deep drawers: the front plate would hide the cut-outs at the front) */
+  steep?: boolean;
 }
 
 /**
@@ -138,12 +140,13 @@ export function Scene3D({ build, deps, children }: { build: (root: THREE.Group) 
     if (scene.fog instanceof THREE.Fog) { scene.fog.near = size * 4; scene.fog.far = size * 12; }
     ao?.updateGtaoMaterial({ radius: Math.max(0.02, size * 0.06), distanceExponent: 1.5, thickness: Math.max(0.02, size * 0.05), scale: 1, samples: 16 });
     // keep the user's camera unless the model changed size noticeably
-    const key = [res.size.x, res.size.y, res.size.z, res.zShift ?? 0].map((x) => Math.round(x / 10)).join('|');
+    const key = [res.size.x, res.size.y, res.size.z, res.zShift ?? 0].map((x) => Math.round(x / 10)).join('|') + (res.steep ? '|s' : '');
     if (key !== lastSize.current) {
       lastSize.current = key;
       const zShift = (res.zShift ?? 0) * S;
       controls.target.set(0, (res.size.y / 2) * S, zShift);
-      camera.position.set(size * 1.35, size * 1.25, size * 1.9 + zShift);
+      if (res.steep) camera.position.set(size * 0.8, size * 2.2, size * 1.35 + zShift);
+      else camera.position.set(size * 1.35, size * 1.25, size * 1.9 + zShift);
       camera.near = size / 100;
       camera.far = size * 60;
       camera.updateProjectionMatrix();

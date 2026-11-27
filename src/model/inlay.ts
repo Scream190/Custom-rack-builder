@@ -1,4 +1,5 @@
 import type { CaseItem, FlightCase, FoamMaterial, OutlinePt, Project } from './types';
+import { BUILTIN_DEVICES } from '../library/devices';
 import { footprint, isDrawer, packItems, usableArea } from './cases';
 import { uid } from './util';
 
@@ -104,7 +105,12 @@ export function inlayContainer(p: Project, c: FlightCase): string {
     const rack = p.racks.find((r) => r.id === c.drawer?.rackId);
     const dev = rack?.devices.find((d) => d.id === c.drawer?.deviceId);
     const tpl = dev ? p.templates[dev.templateId] : undefined;
-    return dev && rack ? `Schublade ${dev.label || tpl?.name || ''} in „${rack.name}“` : 'Schublade (nicht mehr im Rack)';
+    if (dev && rack) return `Schublade ${dev.label || tpl?.name || ''} in „${rack.name}“`;
+    if (c.drawerTemplate && !c.drawer) {
+      const t = p.templates[c.drawerTemplate] ?? BUILTIN_DEVICES.find((x) => x.id === c.drawerTemplate);
+      return t ? `Schublade ${t.manufacturer === 'Generisch' ? '' : `${t.manufacturer} `}${t.name}` : 'Rackschublade';
+    }
+    return 'Schublade (nicht mehr im Rack)';
   }
   if (c.kind === 'inlay') return 'freier Behälter';
   return 'Flightcase aus dem Case-Designer';

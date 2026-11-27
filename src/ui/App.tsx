@@ -25,6 +25,7 @@ import { newCase } from '../model/cases';
 import { rackSizeLabel } from '../model/geometry';
 import { ExportDialog, RackTypeEditor } from './Dialogs';
 import { SettingsDialog } from './SettingsDialog';
+import { DrawerPicker } from './DrawerPicker';
 import { Rack3D } from '../three/Rack3D';
 import { sampleProject } from '../library/sample';
 import type { Project } from '../model/types';
@@ -245,7 +246,8 @@ export function App() {
             newButton={!readOnly ? (
               <Menu label="+ Neue Einlage" className="sm accent" title="Neue Einlage für eine Schublade oder einen beliebigen Behälter" align="right">
                 <button onClick={() => st().addCase({ ...newFreeInlay(`Einlage ${inlays.filter((c) => c.kind === 'inlay').length + 1}`), foam: { bottom: 10, lid: 0, sides: 15, color: getLayout().foamColor, material: getLayout().foamMaterial } })}>Für einen beliebigen Behälter (eigene Innenmaße)</button>
-                {drawers.length ? <><hr /><div className="menu-head">Für eine Rackschublade</div></> : null}
+                <button onClick={() => st().openModal({ kind: 'drawerPicker' })} title="Schublade aus der Bibliothek wählen: Adam Hall, Penn Elcom, Middle Atlantic, Thon oder generisch, mit Innenmaßen">Für eine Rackschublade (Vorlage wählen) …</button>
+                {drawers.length ? <><hr /><div className="menu-head">Für eine Schublade in deinen Racks</div></> : null}
                 {drawers.map((x) => (
                   <button key={x.device.id} onClick={() => openDrawerInlay(project, x.rack.id, x.device.id)}>{x.device.label || x.tpl.name} ({x.rack.name}, HE {x.device.u})</button>
                 ))}
@@ -265,6 +267,7 @@ export function App() {
       {modal?.kind === 'rackTypes' ? <RackTypeEditor /> : null}
       {modal?.kind === 'cableTypes' ? <SettingsDialog tab="cables" /> : null}
       {modal?.kind === 'settings' ? <SettingsDialog tab={modal.tab} /> : null}
+      {modal?.kind === 'drawerPicker' ? <DrawerPicker /> : null}
       {modal?.kind === 'export' ? <ExportDialog /> : null}
       {modal?.kind === 'rfImport' ? <RfImportDialog data={modal.data} /> : null}
       {toast ? <div className={'toast ' + toast.kind}>{toast.text}</div> : null}

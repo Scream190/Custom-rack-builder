@@ -31,6 +31,7 @@ export type Modal =
   | { kind: 'panel'; templateId?: string }
   | { kind: 'box'; templateId?: string }
   /** global settings; tab = topic to open (see SettingsDialog) */
+  | { kind: 'drawerPicker' }
   | { kind: 'settings'; tab?: 'view' | 'cables' | 'racks' | 'inlays' | 'library' | 'export' | 'project' }
   | { kind: 'export' }
   | { kind: 'rfImport'; data: RfImport };

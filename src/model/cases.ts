@@ -68,18 +68,19 @@ export function newCase(name = 'Neues Case'): FlightCase {
 
 /** Inner space of a 19" drawer (estimated from the template: rails, drawer walls and front take some room). */
 export function drawerInner(tpl: DeviceTemplate): { l: number; w: number; h: number } {
+  if (tpl.drawerInner) return { l: tpl.drawerInner.l, w: tpl.drawerInner.w, h: tpl.drawerInner.h };
   const fw = faceWidth(tpl.rackStandard);
   return { l: Math.round(fw - 72), w: Math.max(60, Math.round(tpl.depth - 30)), h: Math.max(20, Math.round(tpl.heightU * U - 14)) };
 }
 
 /** Foam inlay for a rack drawer; items are created from the drawer's contents list. */
-export function newDrawerInlay(name: string, tpl: DeviceTemplate, link: { rackId: string; deviceId: string }, contents: { qty?: number; text: string }[]): FlightCase {
+export function newDrawerInlay(name: string, tpl: DeviceTemplate, link: { rackId: string; deviceId: string } | null, contents: { qty?: number; text: string }[]): FlightCase {
   const inner = drawerInner(tpl);
   const c: FlightCase = {
-    id: uid('case-'), name, kind: 'drawer', drawer: link, inner, lidKind: 'none', lidH: 0, panel: 0, profile: 'none', color: '#202022',
+    id: uid('case-'), name, kind: 'drawer', ...(link ? { drawer: link } : { drawerTemplate: tpl.id }), inner, lidKind: 'none', lidH: 0, panel: 0, profile: 'none', color: '#202022',
     cornerBalls: false, hardware: [], castorSize: 100, foam: { bottom: Math.min(10, Math.round(inner.h * 0.2)), lid: 0, sides: 10, color: '#3f3f46' },
     items: [], dividers: [],
-    notes: 'Innenmaße aus der Schubladen-Vorlage geschätzt – bitte an der Schublade nachmessen.',
+    notes: tpl.drawerInner ? `Innenmaße laut Hersteller (${tpl.manufacturer} ${tpl.name}).` : 'Innenmaße aus der Schubladen-Vorlage geschätzt – bitte an der Schublade nachmessen.',
   };
   const depth = Math.max(10, inner.h - c.foam.bottom - 3);
   // one cut-out per line of the contents list (sizes are placeholders to be adjusted)
