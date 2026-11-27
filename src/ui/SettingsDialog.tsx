@@ -7,6 +7,7 @@ import { FOAM_MATERIALS } from '../model/inlay';
 import { RACK_KIND_LABELS } from '../library/rackTypes';
 import { uid } from '../model/util';
 import { Field, Modal, NumberInput } from './Modal';
+import { getLang, setLang } from '../i18n';
 
 /*
  * One place for every setting. Left: topics, right: the settings of the topic. Each block says whether it belongs to
@@ -55,6 +56,12 @@ function ViewTab() {
   const layout = useLayout();
   return (
     <>
+      <h3>Sprache</h3>
+      <div className="muted small" data-no-tr>Sprache der Oberfläche, der Exporte und der Zeichnungen. / Language of the interface, exports and drawings.</div>
+      <div className="seg" data-no-tr>
+        <button className={getLang() === 'de' ? 'on' : ''} onClick={() => getLang() !== 'de' && setLang('de')}>Deutsch</button>
+        <button className={getLang() === 'en' ? 'on' : ''} onClick={() => getLang() !== 'en' && setLang('en')}>English</button>
+      </div>
       <h3>Zeichnung der Racks</h3>
       <Scope project />
       <div className="row gap8">

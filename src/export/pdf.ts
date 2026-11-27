@@ -1,4 +1,5 @@
 import { jsPDF } from 'jspdf';
+import { trPdf } from '../i18n/render';
 import 'svg2pdf.js';
 import type { Face, Project, Rack } from '../model/types';
 import { cableLength, formatLength, rackSizeLabel, totalUnits } from '../model/geometry';
@@ -98,7 +99,7 @@ function table(doc: jsPDF, cols: Col[], count: number, startY: number, page: { w
 }
 
 export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob> {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: opt.format });
+  const doc = trPdf(new jsPDF({ orientation: 'landscape', unit: 'mm', format: opt.format }));
   const page = { w: doc.internal.pageSize.getWidth(), h: doc.internal.pageSize.getHeight() };
   let first = true;
   const newPage = () => { if (!first) doc.addPage(); first = false; };
@@ -310,7 +311,7 @@ export async function exportPdf(project: Project, opt: PdfOptions): Promise<Blob
  * (parts and steps) of every kind of cable.
  */
 export async function exportCablesPdf(project: Project, asm: Assembly[]): Promise<Blob> {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const doc = trPdf(new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }));
   const page = { w: doc.internal.pageSize.getWidth(), h: doc.internal.pageSize.getHeight() };
   let first = true;
   const newPage = (title: string) => { if (!first) doc.addPage(); first = false; header(doc, project, title, page); };

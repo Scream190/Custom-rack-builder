@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderMarkup as renderToStaticMarkup, trPdf } from '../i18n/render';
 import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { FlightCase, Project } from '../model/types';
@@ -44,7 +44,7 @@ function prepareSvg(markup: string): SVGSVGElement {
 
 /** PDF: drawing (top view with cut-outs, front and side view) and parts list, one or more pages per case */
 export async function exportCasesPdf(project: Project, cases: FlightCase[]): Promise<Blob> {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const doc = trPdf(new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }));
   const page = { w: doc.internal.pageSize.getWidth(), h: doc.internal.pageSize.getHeight() };
   const M = 12;
   const head = (title: string) => {
@@ -96,7 +96,7 @@ export async function exportCasesPdf(project: Project, cases: FlightCase[]): Pro
 
 /** PDF of foam inlays: cutting plan per layer (top view with dimensions and section) and a cut list */
 export async function exportInlaysPdf(project: Project, inlays: FlightCase[]): Promise<Blob> {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const doc = trPdf(new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }));
   const page = { w: doc.internal.pageSize.getWidth(), h: doc.internal.pageSize.getHeight() };
   const M = 12;
   const head = (title: string) => {
@@ -148,7 +148,7 @@ export async function exportInlaysPdf(project: Project, inlays: FlightCase[]): P
 
 /** PDF of rack housings: drawing (front, side, top section) and parts list per rack */
 export async function exportRackBuildPdf(project: Project, racks: Rack[], devices = true): Promise<Blob> {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const doc = trPdf(new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }));
   const page = { w: doc.internal.pageSize.getWidth(), h: doc.internal.pageSize.getHeight() };
   const M = 12;
   const head = (title: string) => {

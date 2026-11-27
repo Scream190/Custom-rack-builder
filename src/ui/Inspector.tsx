@@ -66,7 +66,7 @@ function RackInspector({ rack, project }: { rack: Rack; project: Project }) {
         <div className="muted small">Rack, {RACK_KIND_LABELS[rack.type.kind]}, {rackSizeLabel(rack.type)}</div>
       </div>
       <dl className="keyfigs">
-        <div><dt>Belegt</dt><dd>{stats.used} von {totalUnits(rack.type)} HE</dd></div>
+        <div><dt>Belegt</dt><dd>{`${stats.used} von ${totalUnits(rack.type)} HE`}</dd></div>
         <div title="Breite × Höhe × Tiefe"><dt>Außenmaß</dt><dd>{rack.type.outer.w} × {rack.type.outer.h} × {rack.type.outer.d} mm</dd></div>
         {stats.weight > 0 ? <div><dt>Gewicht</dt><dd>ca. {stats.weight.toFixed(1).replace('.', ',')} kg</dd></div> : null}
         {stats.power > 0 ? <div><dt>Leistung</dt><dd>ca. {stats.power} W</dd></div> : null}
@@ -315,7 +315,7 @@ function CableInspector({ rack, id, project }: { rack: Rack; id: string; project
       <Section id="cable.y" title="Y-Kabel" summary={c.yGroup ? `${rack.cables.filter((x) => x.yGroup === c.yGroup).length} Äste` : 'Ast hinzufügen'}>
       {c.yGroup ? (
         <div className="muted small">
-          Ast {String.fromCharCode(96 + (c.yLeg ?? 1))} von {rack.cables.filter((x) => x.yGroup === c.yGroup).length}. Alle Äste teilen den Stecker an Ende A
+          {`Ast ${String.fromCharCode(96 + (c.yLeg ?? 1))} von ${rack.cables.filter((x) => x.yGroup === c.yGroup).length}`}. Alle Äste teilen den Stecker an Ende A
           ({a ? `${a.device.label || a.tpl.name}, ${a.port.name}` : '?'}); die Länge gilt vom gemeinsamen Stecker bis zum Ende des Asts.
         </div>
       ) : <div className="muted small">Ein weiterer Ast macht aus diesem Kabel ein Y-Kabel mit gemeinsamem Stecker.</div>}

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderMarkup as renderToStaticMarkup } from '../i18n/render';
 import type { Project, Rack } from '../model/types';
 import { bayDepth, bayOf, bayZ, rackDepth, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, railOpening, U } from '../model/geometry';
 import { bodyWidth3D, route3D } from './route3d';

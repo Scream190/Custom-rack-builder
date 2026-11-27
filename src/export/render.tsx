@@ -1,4 +1,5 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderMarkup as renderToStaticMarkup } from '../i18n/render';
+import { tr } from '../i18n';
 import type { Face, Project, Rack } from '../model/types';
 import { RackSvg, rackLayout } from '../render/RackSvg';
 import { AssemblySheet } from '../render/CableAssemblies';
@@ -31,7 +32,7 @@ export function rackSvgSize(rack: Rack, views: number, column = false, project?:
 
 /** Characters outside WinAnsi break the built-in PDF fonts – replace them. */
 export function pdfSafe(s: string): string {
-  return s
+  return tr(s)
     .replace(/↔/g, '<->').replace(/→/g, '->').replace(/←/g, '<-')
     .replace(/Ω/g, 'Ohm').replace(/−/g, '-').replace(/⏚/g, 'PE').replace(/[✎★]/g, '*').replace(/≥/g, '>=').replace(/≤/g, '<=')
     .replace(/[^\u0000-ÿ–—‘’“”•…€]/g, '?');

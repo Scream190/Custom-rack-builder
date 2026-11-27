@@ -6,4 +6,4 @@
 - `dist/` ist generiert und nicht im Repo (`npm run build`).
 - README bei neuen Funktionen oder Geräten mitpflegen.
 - Neue Geräte: Genauigkeit in `source` angeben (vermessen / abgeleitet / Datenblatt / Schätzung).
-- UI-Texte auf Deutsch, Code-Kommentare Englisch.
+- UI-Texte auf Deutsch, Code-Kommentare Englisch. Für jeden neuen UI-Text den englischen Eintrag in `src/i18n/enExtra.ts` ergänzen (Muster mit {0} für Platzhalter).

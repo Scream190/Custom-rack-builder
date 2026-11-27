@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import * as THREE from 'three';
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderMarkup as renderToStaticMarkup } from '../i18n/render';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import type { Project, Rack } from '../model/types';
 import { deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, U } from '../model/geometry';

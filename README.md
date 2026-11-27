@@ -26,6 +26,17 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
 | 3D-Standardansichten | ViewCube oben rechts (Seite anklicken), ⌂ = Startansicht |
 | Bereiche anpassen | Trennlinien zwischen Bibliothek / Ansicht / Eigenschaften / Kabelliste ziehen (Doppelklick = Standard); ein-/ausblenden über *Anzeigen* rechts in der Werkzeugleiste |
 
+### Sprache (Deutsch / English)
+Die ganze Oberfläche gibt es auf Deutsch und Englisch: *Einstellungen → Darstellung → Sprache*. Beim ersten Start wird
+die Sprache des Browsers übernommen. Übersetzt werden alle Texte, Menüs, Tooltips, Rückfragen, Hinweise, Zeichnungen,
+PDF-, SVG- und PNG-Exporte sowie die Texturen der 3D-Ansicht. Eigene Eingaben (Namen, Notizen, Schubladeninhalte) und
+das deutsche Beispielprojekt bleiben, wie sie sind.
+
+Technik: Deutsch ist die Quellsprache im Code. `src/i18n/en.ts` enthält die englische Tabelle (rund 1.250 Texte und
+170 Muster mit Platzhaltern), `src/i18n/enExtra.ts` die von Hand gepflegten Ergänzungen. `src/i18n/dom.ts` übersetzt alles,
+was gerendert wird; Exporte laufen über `trMarkup` und `trPdf`. Neue Texte in der Oberfläche brauchen einen Eintrag in
+`enExtra.ts`; `npm run test:i18n` prüft Platzhalter und Stichproben.
+
 ### Funktionen
 - **Rack-Typen:** Rackcases, Shockmount-Cases, Doppeltür, Schränke, Open Frame, Wandgehäuse, Pulte, 10"-Minirack.
   Eigene Typen mit beliebiger HE, Einbautiefe, Außenmaß, hinteren Schienen, Gewicht und Farbe.
@@ -398,7 +409,8 @@ Beispiele liegen in `beispiele/`.
 npm install
 npm run dev      # Entwicklungsserver
 npm run build    # erzeugt dist/index.html (eine selbstständige Datei)
-npm test         # Bibliothek prüfen (Stecker im Gehäuse, keine Überlappung, eindeutige Namen) + Case-Designer + Kabelbau + 3D-Kollisionstest
+npm test         # Übersetzung prüfen (test:i18n) +
+                 # Bibliothek prüfen (Stecker im Gehäuse, keine Überlappung, eindeutige Namen) + Case-Designer + Kabelbau + 3D-Kollisionstest
 ```
 
 Während `npm run dev` läuft, zeigt `http://localhost:5173/gallery.html` alle Marken-Geräte (Front + Rückseite) zum visuellen Abgleich

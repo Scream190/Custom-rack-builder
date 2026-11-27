@@ -1,4 +1,4 @@
-import { renderToStaticMarkup } from 'react-dom/server';
+import { renderMarkup as renderToStaticMarkup, trPdf } from '../i18n/render';
 import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { PanelDesign, PanelElement } from '../model/types';
@@ -158,7 +158,7 @@ export function elementDescription(el: PanelElement): string {
 }
 
 export async function panelToPdf(pd: PanelDesign, name: string): Promise<Blob> {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const doc = trPdf(new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' }));
   const pw = doc.internal.pageSize.getWidth();
   const ph = doc.internal.pageSize.getHeight();
   const { w, h } = panelSize(pd);
