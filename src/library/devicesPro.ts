@@ -197,8 +197,9 @@ const dmxOther: DeviceTemplate[] = [
     rear: [G([PSU_TRUE1, B.one('Power Thru', 'TRUE1_OUT', 'out', { gap: 4 }), B.ec(2, 'Ethernet ', { gap: 16 })])], src: SRC.EST,
   }),
   mk({
-    id: 'swisson-xnd8', name: 'XND-8', man: 'Swisson', cat: DMX, u: 1, depth: 180, color: '#1f2022', logo: 'SWISSON',
-    front: [G([B.dmx(8, 'DMX ', { dir: 'io' }), B.ec(1, 'Ethernet ', { gap: 12 })], 'right')], rear: [G([PSU_TRUE1])], src: SRC.EST,
+    id: 'swisson-xnd8', name: 'XND-8', man: 'Swisson', cat: DMX, u: 1, depth: 136, color: '#1f2022', logo: 'SWISSON', weight: 1.8,
+    front: [G([B.dmx(8, 'DMX ', { dir: 'io' }), B.ec(1, 'Ethernet ', { gap: 12 })], 'right')], rear: [G([B.one('Power In', 'POWERCON_IN', 'in'), B.one('Power Out', 'POWERCON_OUT', 'out', { gap: 6 })])],
+    src: 'Datenblatt – Swisson Produktseite (XND-8R5): 19", 44,5 mm hoch, 136 mm, 1,8 kg, powerCON Ein/Aus, 8 DMX (XLR 5-pol); Zahl der Ethernet-Buchsen nicht angegeben, Positionen geschätzt',
   }),
   mk({
     id: 'gen-dmx-split8', name: 'DMX-Splitter 1→8', man: 'Generisch', cat: DMX, u: 1, depth: 150, color: '#1f2126',

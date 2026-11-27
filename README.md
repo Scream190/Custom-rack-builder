@@ -117,12 +117,18 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
   12 Kartensteckplätze hinten für SIC-4, SOC-4, AEC-4); Barco Event Master S3-4K (3 HE); Ross Ultrix FR1 (1 HE,
   16 × 16 + 2 Aux); ETC Net3 4-Port Gateway und Response 4-Port Gateway (halbe Breite); Green-GO Bridge X und SW81;
   Luminex GigaCore 16i (halbe Breite).
+  Fünfter Durchgang (`src/library/devicesComplete5.ts`), direkt aus den Spec-Seiten und Datenblättern der Hersteller:
+  Q-SYS Core 510i (2 HE, 8 Kartensteckplätze hinten für CIML4-HP, COL4, CDN64); Analog Way Aquilon RS1, RS2 (4 HE) und
+  RS3 (5 HE); Blackmagic Videohub 10x10 12G, ATEM 2 M/E Constellation 4K (1 HE), 4 M/E Constellation 4K (2 HE) und
+  4 M/E Constellation 4K Plus (4 HE); Lawo A__mic 8 und A__madi 6; Luminex GigaCore 20t; Swisson XND-4. Nach Datenblatt
+  korrigiert: Q-SYS Core 8 Flex (halbe Breite statt voller), Core Nano (Kaltgeräteanschluss statt DC), Luminex GigaCore
+  16i (Tiefe 296 mm, 2,4 kg, USB-C), Swisson XND-8 (powerCON Ein/Aus, 136 mm, 1,8 kg).
 - **Ladegeräte mit wählbaren Schächten:** Shure SBRC (4 Schächte, je Schacht SBC-AX, SBM910, SBM910M, SBM920, AXT901
   oder AXT902, frei gemischt), Shure AXT900 (AXT901/AXT902) und Sennheiser L 6000 (LM 6060, LM 6061, LM 6062, LM 6070).
   Im Inspector unter *Schächte* belegen, auch *Alle Schächte gleich belegen*; die Front zeigt je Schacht das Modul mit
   zwei Akkufächern oder „leer“. Gespeichert wird die Auswahl in den Gerätefeldern, ältere Projekte bleiben ladbar.
   Dasselbe gibt es für Einschubkarten: RY-Karten im Yamaha RPio, Module im DirectOut PRODIGY, Karten im A&H DX32 und
-  in der Biamp Tesira SERVER-IO (Steckplätze auf der Rückseite), MCR54 im Wisycom MRK16.
+  in der Biamp Tesira SERVER-IO und im Q-SYS Core 510i (Steckplätze auf der Rückseite), MCR54 im Wisycom MRK16.
   Die Front zeigt dann je Steckplatz die Karte mit ihren Anschlüssen. Diese sind echte Ports: Kabel lassen sich daran
   stecken, sie erscheinen in Kabelliste, Steckerbedarf, PDF und 3D, benannt nach Steckplatz (z. B. „RY1 In 5“, „M3 Mic
   In 1–8“). RY16-ML-SRC bringt 16 XLR-Eingänge, RY16-DA 16 XLR-Ausgänge, RY16-AE zwei D-Sub 25 (AES), die PRODIGY-Module

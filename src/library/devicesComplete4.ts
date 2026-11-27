@@ -88,9 +88,9 @@ const misc: DeviceTemplate[] = [
   mk({ id: 'greengo-sw81', name: 'SW81', man: 'Green-GO', cat: NET, u: 1, depth: 200, color: '#1f2a24', weight: 2, logo: 'GREEN-GO', model: 'SW81 PoE Switch',
     rear: [G([IEC]), G([B.list([...seq('Port ', 8).map((n) => `${n} (PoE)`), 'Port 9'], 'RJ45', 'io')], 'right')],
     src: ds('Green-GO SW81: 1 HE, 8 PoE-Ports + 1 ohne PoE'), notes: 'Switch für Green-GO-Sprechstellen.' }),
-  mk({ id: 'lmx-gc16i', name: 'GigaCore 16i', man: 'Luminex', cat: NET, u: 1, slots: 2, bodyW: 213, depth: 200, color: '#1d1e20', weight: 1.6, logo: 'LUMINEX', model: 'GigaCore 16i',
-    rear: [G([B.one('Power', 'IEC_C14', 'in')]), G([B.rj(12, 'Port ', { rows: 2 }), B.sfp(4, 'SFP+ ', { rows: 2, gap: 4 })], 'right')],
-    src: est('Luminex GigaCore 16i: halbe 19"-Breite laut Luminex; Aufteilung 12 × RJ45 + 4 × SFP+ geschätzt'), notes: '10-Gigabit-Switch für Installationen.' }),
+  mk({ id: 'lmx-gc16i', name: 'GigaCore 16i', man: 'Luminex', cat: NET, u: 1, slots: 2, bodyW: 213, depth: 296, color: '#1d1e20', weight: 2.4, logo: 'LUMINEX', model: 'GigaCore 16i',
+    rear: [G([B.one('Power', 'IEC_C14', 'in')]), G([B.one('Serial (USB-C)', 'USB-C', 'io'), B.rj(12, 'Port ', { rows: 2, gap: 4 }), B.sfp(4, 'SFP+ ', { rows: 2, gap: 4 })], 'right')],
+    src: ds('Luminex GigaCore 16i Produktseite: halbe 19"-Breite, 220 × 296,4 × 43,2 mm, 2,4 kg; 12 × RJ45, 4 × SFP+, USB-C, IEC C14'), notes: '10-Gigabit-Switch für Installationen.' }),
 ];
 
 // ================================================================== Biamp Tesira SERVER-IO (rear card slots with ports)
