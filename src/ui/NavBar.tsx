@@ -21,7 +21,7 @@ export function NavBar({ is3d }: { is3d: boolean }) {
   );
   return (
     <div className="navbar" onPointerDown={(e) => e.stopPropagation()}>
-      {tool('select', is3d ? 'Auswählen / Drehen mit linker Maustaste' : 'Auswählen & Bearbeiten (Esc)')}
+      {tool('select', is3d ? 'Auswählen und Bearbeiten: Anschlüsse anklicken verbindet, ausgewähltes Gerät ziehen verschiebt, sonst dreht die linke Maustaste' : 'Auswählen & Bearbeiten (Esc)')}
       {is3d ? tool('orbit', 'Orbit – linke Maustaste dreht (sonst Shift + Mittelklick)') : null}
       {tool('pan', 'Pan – linke Maustaste verschiebt (sonst Mittelklick ziehen)')}
       {tool('zoom', 'Zoom – linke Maustaste hoch/runter (sonst Mausrad)')}

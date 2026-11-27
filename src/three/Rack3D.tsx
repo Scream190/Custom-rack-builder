@@ -2,11 +2,14 @@ import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import { renderMarkup as renderToStaticMarkup } from '../i18n/render';
-import type { Project, Rack } from '../model/types';
-import { bayDepth, bayOf, bayZ, rackDepth, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, railOpening, U } from '../model/geometry';
-import { bodyWidth3D, route3D } from './route3d';
+import type { DeviceTemplate, Face, Project, Rack } from '../model/types';
+import { bayDepth, bayOf, bayZ, rackDepth, deviceBottomY, deviceFrontX, deviceTopY, faceWidth, panelHeight, rackBays, rackExtent, railOpening, U } from '../model/geometry';
+import { bodyWidth3D, deviceBoxes, route3D } from './route3d';
+import { facingSide, hitMountPlane, pickPort, portTargets, targetAt, type PortTarget, type Target3D, type V3 } from './pick3d';
 import { DeviceFace } from '../render/DeviceFace';
 import { useStore, type NavMode } from '../model/store';
+import { libraryDrag } from '../ui/RackCanvas';
+import { clickPort } from '../model/cabling';
 
 const S = 0.001; // mm -> m
 
@@ -35,14 +38,46 @@ interface Ctx {
   camera: THREE.PerspectiveCamera;
   controls: OrbitControls;
   content: THREE.Group;
+  /** hover ring, pending port, rubber band, placement ghost, selection frame (not rebuilt with the content) */
+  overlay: Overlay;
   grid: THREE.GridHelper;
-  textures: THREE.Texture[];
+  /** panel textures by markup, shared between rebuilds so a new cable does not re-rasterise every device */
+  texCache: Map<string, Promise<THREE.Texture>>;
+  /** texture keys held by builds that are still loading */
+  texInUse: Map<number, Set<string>>;
+  buildId: number;
+  ports: PortTarget[];
   /** bounding sphere of the current rack */
   center: THREE.Vector3;
   radius: number;
   anim: { from: THREE.Vector3; to: THREE.Vector3; tFrom: THREE.Vector3; tTo: THREE.Vector3; t0: number; dur: number } | null;
   navMode: NavMode;
 }
+
+interface Overlay {
+  group: THREE.Group;
+  hover: THREE.Mesh;
+  pending: THREE.Mesh;
+  band: THREE.Line;
+  ghost: THREE.Mesh;
+  ghostEdges: THREE.LineSegments;
+  sel: THREE.Box3Helper;
+}
+
+interface DragState {
+  deviceId: string;
+  tpl: DeviceTemplate;
+  mount: Face;
+  /** grab point relative to the panel centre (front-view mm) */
+  gx: number;
+  gy: number;
+  sx: number;
+  sy: number;
+  moved: boolean;
+  target: Target3D | null;
+}
+
+interface Hit { port?: PortTarget; deviceId?: string; cableId?: string; point?: V3 }
 
 // camera per rack survives re-renders and view switches
 const cameraMemory = new Map<string, { pos: THREE.Vector3; target: THREE.Vector3 }>();
@@ -62,18 +97,23 @@ const VIEW_DIRS: Record<string, THREE.Vector3> = {
  * 3D view with Fusion-360-style navigation:
  * mouse wheel = zoom to cursor, middle drag = pan, Shift + middle drag = orbit, double-click middle = fit,
  * left drag = orbit (or the tool chosen in the navigation bar), ViewCube for standard views.
+ * Editing (select tool): click a connector to start a cable and another one to connect it, click a device or cable to
+ * select it, drag a selected device to move it, drop templates from the library onto the rack.
  * Coordinate system: x = right (front view), y = up, z = towards the viewer at the front; front rails at z = 0.
  */
 export function Rack3D({ project, rack, highlightCableId }: { project: Project; rack: Rack; highlightCableId?: string | null }) {
   const host = useRef<HTMLDivElement>(null);
   const cubeRef = useRef<HTMLDivElement>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
   const ctxRef = useRef<Ctx | null>(null);
+  const data = useRef({ project, rack });
+  data.current = { project, rack };
   const navMode = useStore((s) => s.navMode);
   const fitTick = useStore((s) => s.fitTick);
   const homeTick = useStore((s) => s.homeTick);
   const [failed, setFailed] = useState<string | null>(null);
 
-  // ------------------------------------------------------------------ mount: renderer, camera, controls
+  // ------------------------------------------------------------------ mount: renderer, camera, controls, editing
   useEffect(() => {
     const el = host.current;
     if (!el) return;
@@ -105,29 +145,267 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
     scene.add(grid);
     const content = new THREE.Group();
     scene.add(content);
-    const ctx: Ctx = { renderer, scene, camera, controls, content, grid, textures: [], center: new THREE.Vector3(), radius: 0.5, anim: null, navMode: 'select' };
+    const overlay = makeOverlay();
+    scene.add(overlay.group);
+    const ctx: Ctx = {
+      renderer, scene, camera, controls, content, overlay, grid, texCache: new Map(), texInUse: new Map(), buildId: 0, ports: [],
+      center: new THREE.Vector3(), radius: 0.5, anim: null, navMode: 'select',
+    };
     ctxRef.current = ctx;
 
-    // Fusion mapping: middle = pan, Shift + middle = orbit (OrbitControls itself swaps PAN ↔ ROTATE while Shift
-    // is held), double-click middle = fit. Capture phase on the host = before OrbitControls sees the event.
-    let lastMiddle = 0;
-    const onDownCapture = (e: PointerEvent) => {
-      if (e.button !== 1) return;
-      e.preventDefault();
-      const now = Date.now();
-      if (now - lastMiddle < 350) { fitView(ctx, true); lastMiddle = 0; e.stopPropagation(); return; }
-      lastMiddle = now;
+    // ---------------------------------------------------------------- picking
+    const raycaster = new THREE.Raycaster();
+    const ndc = new THREE.Vector2();
+    const ray = (clientX: number, clientY: number): { o: V3; d: V3 } => {
+      const r = renderer.domElement.getBoundingClientRect();
+      ndc.set(((clientX - r.left) / r.width) * 2 - 1, -((clientY - r.top) / r.height) * 2 + 1);
+      raycaster.setFromCamera(ndc, camera);
+      const { origin: o, direction: d } = raycaster.ray;
+      return { o: [o.x / S, o.y / S, o.z / S], d: [d.x, d.y, d.z] };
     };
+    /** what is under the pointer: ports win over cables and devices, as in the 2D view */
+    const pick = (clientX: number, clientY: number): Hit => {
+      const { o, d } = ray(clientX, clientY);
+      const hits = raycaster.intersectObjects(ctx.content.children, false).filter((h) => h.object.userData.deviceId || h.object.userData.cableId);
+      const devHit = hits.find((h) => h.object.userData.deviceId);
+      const pp = pickPort(ctx.ports, o, d);
+      const at = (t: number): V3 => [o[0] + d[0] * t, o[1] + d[1] * t, o[2] + d[2] * t];
+      if (pp && (!devHit || pp.t <= devHit.distance / S + 3)) return { port: pp.port, point: at(pp.t) };
+      const first = hits[0];
+      if (first) return { deviceId: first.object.userData.deviceId, cableId: first.object.userData.cableId, point: at(first.distance / S) };
+      return {};
+    };
+
+    const tip = (text: string | null, x = 0, y = 0, bad = false) => {
+      const t = tipRef.current;
+      if (!t) return;
+      if (!text) { t.style.display = 'none'; return; }
+      const r = el.getBoundingClientRect();
+      t.style.display = 'block';
+      t.style.left = `${x - r.left + 14}px`;
+      t.style.top = `${y - r.top + 16}px`;
+      t.classList.toggle('bad', bad);
+      if (t.textContent !== text) t.textContent = text;
+    };
+    const showGhost = (t: Target3D | null) => {
+      const { ghost, ghostEdges } = ctx.overlay;
+      ghost.visible = ghostEdges.visible = !!t;
+      if (!t) return;
+      const col = t.ok ? '#22c55e' : '#ef4444';
+      (ghost.material as THREE.MeshBasicMaterial).color.set(col);
+      (ghostEdges.material as THREE.LineBasicMaterial).color.set(col);
+      for (const m of [ghost, ghostEdges]) {
+        m.scale.set(t.w * S, t.h * S, t.depth * S);
+        m.position.set((t.x0 + t.w / 2) * S, (t.yTop - t.h / 2) * S, (t.z0 + (t.dirZ * t.depth) / 2) * S);
+      }
+    };
+
+    // ---------------------------------------------------------------- pointer: ports, selection, moving devices
+    let lastMiddle = 0;
+    let drag: DragState | null = null;
+    let press: { x: number; y: number; hit: Hit; alt: boolean } | null = null;
+    let mouse: { x: number; y: number } | null = null;
+    let hoverDirty = false;
+
+    const onDownCapture = (e: PointerEvent) => {
+      // Fusion mapping: middle = pan, Shift + middle = orbit (OrbitControls itself swaps PAN ↔ ROTATE while Shift
+      // is held), double-click middle = fit. Capture phase on the host = before OrbitControls sees the event.
+      if (e.button === 1) {
+        e.preventDefault();
+        const now = Date.now();
+        if (now - lastMiddle < 350) { fitView(ctx, true); lastMiddle = 0; e.stopPropagation(); return; }
+        lastMiddle = now;
+        return;
+      }
+      if (e.button !== 0 || ctx.navMode !== 'select' || e.target !== renderer.domElement) return;
+      const s = useStore.getState();
+      const { project: pj, rack: rk } = data.current;
+      const hit = pick(e.clientX, e.clientY);
+      if (hit.port && !s.readOnly) {
+        clickPort(rk.id, hit.port.deviceId, hit.port.portId, e.altKey);
+        e.stopPropagation();
+        e.preventDefault();
+        hoverDirty = true;
+        return;
+      }
+      // a selected device can be dragged to another height unit / slot / bay; elsewhere left drag orbits
+      if (hit.deviceId && !s.readOnly && s.selection?.kind === 'device' && s.selection.id === hit.deviceId) {
+        const dev = rk.devices.find((x) => x.id === hit.deviceId);
+        const tpl = dev && pj.templates[dev.templateId];
+        if (dev && tpl) {
+          const { o, d } = ray(e.clientX, e.clientY);
+          const h = hitMountPlane(rk, o, d, dev.mount);
+          const cx = deviceFrontX(rk, dev, tpl) + faceWidth(bayOf(rk, dev).rackStandard) / tpl.slots / 2;
+          const cy = deviceBottomY(dev, rk) + (tpl.heightU * U) / 2;
+          drag = { deviceId: dev.id, tpl, mount: dev.mount, gx: h ? h.x - cx : 0, gy: h ? h.y - cy : 0, sx: e.clientX, sy: e.clientY, moved: false, target: null };
+          el.setPointerCapture(e.pointerId);
+          e.stopPropagation();
+          e.preventDefault();
+          return;
+        }
+      }
+      press = { x: e.clientX, y: e.clientY, hit, alt: e.altKey };
+    };
+
+    const onMove = (e: PointerEvent) => {
+      mouse = { x: e.clientX, y: e.clientY };
+      if (drag) {
+        if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) < 4) return;
+        drag.moved = true;
+        const { project: pj, rack: rk } = data.current;
+        const { o, d } = ray(e.clientX, e.clientY);
+        const h = hitMountPlane(rk, o, d, drag.mount);
+        drag.target = h ? targetAt(pj, rk, drag.tpl, drag.mount, h.bay, h.x - drag.gx, h.y - drag.gy, drag.deviceId) : null;
+        showGhost(drag.target);
+        tip(drag.target?.label ?? null, e.clientX, e.clientY, !drag.target?.ok);
+        return;
+      }
+      if (e.buttons) { tip(null); return; }   // orbiting / panning
+      hoverDirty = true;
+    };
+
+    const onUp = (e: PointerEvent) => {
+      if (drag) {
+        const dr = drag;
+        drag = null;
+        showGhost(null);
+        tip(null);
+        if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
+        if (dr.moved && dr.target) useStore.getState().moveDevice(data.current.rack.id, dr.deviceId, dr.target.u, dr.mount, dr.target.slot, dr.target.bay);
+        return;
+      }
+      const p = press;
+      press = null;
+      if (!p || e.button !== 0 || Math.hypot(e.clientX - p.x, e.clientY - p.y) > 4) return;
+      const s = useStore.getState();
+      if (p.hit.cableId) s.select({ kind: 'cable', id: p.hit.cableId });
+      else if (p.hit.deviceId) s.select({ kind: 'device', id: p.hit.deviceId });
+      else s.select(null);
+      s.setPendingPort(null);
+      hoverDirty = true;
+    };
+
+    const onLeave = () => {
+      mouse = null;
+      tip(null);
+      ctx.overlay.hover.visible = false;
+      ctx.overlay.band.visible = false;
+      if (useStore.getState().hoverCableId) useStore.getState().setHoverCable(null);
+    };
+
+    /** hover feedback, done once per frame: port ring and name, cable highlight, rubber band of a pending cable */
+    const hover = () => {
+      hoverDirty = false;
+      const ov = ctx.overlay;
+      const s = useStore.getState();
+      const { rack: rk } = data.current;
+      if (!mouse || ctx.navMode !== 'select') { ov.hover.visible = false; ov.band.visible = false; return; }
+      const hit = pick(mouse.x, mouse.y);
+      const editable = !s.readOnly;
+      if (hit.port && editable) {
+        placeRing(ov.hover, hit.port);
+        tip(`${hit.port.name}\n${hit.port.device}`, mouse.x, mouse.y);
+      } else {
+        ov.hover.visible = false;
+        tip(null);
+      }
+      const cid = hit.port ? null : hit.cableId ?? null;
+      if (cid !== s.hoverCableId) s.setHoverCable(cid);
+      const pend = s.pendingPort && s.pendingPort.rackId === rk.id ? ctx.ports.find((p) => p.deviceId === s.pendingPort!.deviceId && p.portId === s.pendingPort!.portId) : undefined;
+      if (pend) {
+        let end = hit.port ? hit.port.pos : hit.point;
+        if (!end) {
+          // nothing under the pointer: follow it on the plane through the port, facing the camera
+          const n = new THREE.Vector3(); camera.getWorldDirection(n);
+          const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(n, new THREE.Vector3(pend.pos[0] * S, pend.pos[1] * S, pend.pos[2] * S));
+          const q = raycaster.ray.intersectPlane(plane, new THREE.Vector3());
+          end = q ? [q.x / S, q.y / S, q.z / S] : undefined;
+        }
+        if (end) {
+          const a = new THREE.Vector3(pend.pos[0] * S, pend.pos[1] * S, (pend.pos[2] + pend.n) * S);
+          (ov.band.geometry as THREE.BufferGeometry).setFromPoints([a, new THREE.Vector3(end[0] * S, end[1] * S, end[2] * S)]);
+          ov.band.visible = true;
+        }
+      } else ov.band.visible = false;
+      const cur = hit.port && editable ? 'pointer' : pend ? 'crosshair'
+        : hit.deviceId && editable && s.selection?.kind === 'device' && s.selection.id === hit.deviceId ? 'move' : '';
+      if (renderer.domElement.style.cursor !== cur) renderer.domElement.style.cursor = cur;
+    };
+
+    // ---------------------------------------------------------------- library drag & drop
+    let dropTarget: { t: Target3D; mount: Face } | null = null;
+    const onDragOver = (e: DragEvent) => {
+      const tpl = libraryDrag.tpl;
+      if (!tpl || useStore.getState().readOnly) return;
+      e.preventDefault();
+      if (e.dataTransfer) e.dataTransfer.dropEffect = 'copy';
+      if (tpl.box) return;    // split boxes go below the rack
+      const { project: pj, rack: rk } = data.current;
+      const mount = facingSide(rk, camera.position.z / S);
+      const { o, d } = ray(e.clientX, e.clientY);
+      const h = hitMountPlane(rk, o, d, mount);
+      dropTarget = h ? { t: targetAt(pj, rk, tpl, mount, h.bay, h.x, h.y), mount } : null;
+      showGhost(dropTarget?.t ?? null);
+      tip(dropTarget?.t.label ?? null, e.clientX, e.clientY, !dropTarget?.t.ok);
+    };
+    const onDragLeave = (e: DragEvent) => {
+      if (e.relatedTarget && el.contains(e.relatedTarget as Node)) return;
+      dropTarget = null;
+      showGhost(null);
+      tip(null);
+    };
+    const onDrop = (e: DragEvent) => {
+      const tpl = libraryDrag.tpl;
+      const dt = dropTarget;
+      dropTarget = null;
+      showGhost(null);
+      tip(null);
+      const s = useStore.getState();
+      if (!tpl || s.readOnly) return;
+      e.preventDefault();
+      const rk = data.current.rack;
+      s.setActiveRack(rk.id);
+      if (tpl.box) s.addBox(rk.id, tpl);
+      else if (dt) s.placeDevice(rk.id, tpl, dt.t.u, dt.mount, dt.t.slot, dt.t.bay);
+      libraryDrag.tpl = null;
+    };
+
     // a lost WebGL context (GPU reset, too many contexts) is reported instead of leaving a black area
     const onLost = (e: Event) => { e.preventDefault(); setFailed('Die 3D-Grafik wurde vom Browser zurückgesetzt. Ansicht wechseln oder neu laden.'); };
     renderer.domElement.addEventListener('webglcontextlost', onLost);
     el.addEventListener('pointerdown', onDownCapture, true);
+    el.addEventListener('pointermove', onMove, true);
+    el.addEventListener('pointerup', onUp, true);
+    el.addEventListener('pointerleave', onLeave);
+    el.addEventListener('dragover', onDragOver);
+    el.addEventListener('dragleave', onDragLeave);
+    el.addEventListener('drop', onDrop);
     const noAuto = (e: MouseEvent) => { if (e.button === 1) e.preventDefault(); };
     el.addEventListener('mousedown', noAuto);
+    // selection frame and pending port follow the store
+    const unsub = useStore.subscribe((st, prev) => {
+      if (st.selection !== prev.selection || st.pendingPort !== prev.pendingPort) { updateMarks(ctx, data.current.project, data.current.rack); hoverDirty = true; }
+    });
+
+    // dev builds only: lets browser tests find screen positions (scripts drive the editor like a user)
+    if (import.meta.env.DEV) {
+      (el as unknown as { __rack3d: unknown }).__rack3d = {
+        ports: () => ctx.ports,
+        rack: () => data.current.rack,
+        store: () => { const st = useStore.getState(); return { selection: st.selection, pendingPort: st.pendingPort }; },
+        pick: (x: number, y: number) => { const h = pick(x, y); return { port: h.port?.portId, deviceId: h.deviceId, cableId: h.cableId, point: h.point, ray: ray(x, y) }; },
+        toScreen: (x: number, y: number, z: number) => {
+          const v = new THREE.Vector3(x * S, y * S, z * S).project(camera);
+          const r = renderer.domElement.getBoundingClientRect();
+          return { x: r.left + ((v.x + 1) / 2) * r.width, y: r.top + ((1 - v.y) / 2) * r.height };
+        },
+      };
+    }
 
     let raf = 0;
     const m = new THREE.Matrix4();
     const flip = new THREE.Matrix4().makeScale(1, -1, 1);
+    let lastCam = new THREE.Vector3();
     const loop = () => {
       if (ctx.anim) {
         const a = ctx.anim;
@@ -138,6 +416,9 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
         if (t >= 1) ctx.anim = null;
       }
       controls.update();
+      // the rubber band and hover ring need a refresh when the camera moves under a resting pointer
+      if (!camera.position.equals(lastCam)) { lastCam = camera.position.clone(); if (useStore.getState().pendingPort) hoverDirty = true; }
+      if (hoverDirty && !drag) hover();
       renderer.render(scene, camera);
       // ViewCube follows the camera orientation (CSS has y pointing down → conjugate with a y flip)
       if (cubeRef.current) {
@@ -160,12 +441,22 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
     return () => {
       cancelAnimationFrame(raf);
       ro.disconnect();
+      unsub();
       el.removeEventListener('pointerdown', onDownCapture, true);
+      el.removeEventListener('pointermove', onMove, true);
+      el.removeEventListener('pointerup', onUp, true);
+      el.removeEventListener('pointerleave', onLeave);
+      el.removeEventListener('dragover', onDragOver);
+      el.removeEventListener('dragleave', onDragLeave);
+      el.removeEventListener('drop', onDrop);
       el.removeEventListener('mousedown', noAuto);
       renderer.domElement.removeEventListener('webglcontextlost', onLost);
       controls.dispose();
-      disposeGroup(content);
-      ctx.textures.forEach((t) => t.dispose());
+      ctx.buildId++;
+      disposeGroup(ctx.content);
+      disposeGroup(overlay.group);
+      ctx.texCache.forEach((p) => p.then((t) => t.dispose()));
+      ctx.texCache.clear();
       grid.geometry.dispose();
       renderer.dispose();
       renderer.domElement.remove();
@@ -174,15 +465,14 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
   }, []);
 
   // ------------------------------------------------------------------ content: rack, devices, cables
+  // Built off-screen and swapped in once all panel textures are ready, so editing does not make the view flicker.
   useEffect(() => {
     const ctx = ctxRef.current;
     if (!ctx) return;
-    let cancelled = false;
-    disposeGroup(ctx.content);
-    ctx.content.clear();
-    ctx.textures.forEach((t) => t.dispose());
-    ctx.textures = [];
-    const root = ctx.content;
+    const id = ++ctx.buildId;
+    const used = new Set<string>();
+    ctx.texInUse.set(id, used);
+    const root = new THREE.Group();
     const { w: fw, h: H } = rackExtent(rack.type);
     const D = rackDepth(rack.type);
     const wall = Math.max(18, Math.min(70, (rack.type.outer.w - fw) / 2));
@@ -219,25 +509,49 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
     ctx.center.set((fw / 2) * S, (H / 2) * S, (-D / 2) * S);
     ctx.radius = 0.5 * Math.hypot(fw + 2 * wall, H + 2 * topH, outerD) * S;
 
-    // devices (textures load asynchronously): front plate across the slot, chassis behind it as wide as the real body
+    // cables: collision-aware orthogonal routes (see route3d.ts), rounded corners
+    const radiusOf = (typeId: string) => (project.cableTypes.find((t) => t.id === typeId)?.width ?? 2) * 1.1;
+    const { routes } = route3D(project, rack, radiusOf);
+    for (const rt of routes) {
+      const path = roundedPath(rt.points.map(([x, y, z]) => new THREE.Vector3(x * S, y * S, z * S)), Math.max(rt.radius * 2, 5) * S);
+      if (!path) continue;
+      const len = path.getLength() / S;
+      const mat = new THREE.MeshStandardMaterial({ color: rt.color, roughness: 0.5, transparent: true });
+      const mesh = new THREE.Mesh(new THREE.TubeGeometry(path, Math.min(800, Math.max(24, Math.round(len / 4))), rt.radius * S, 10, false), mat);
+      mesh.userData.cableId = rt.cableId;
+      root.add(mesh);
+    }
+
+    // panel textures: cached by their drawing, only changed panels are rasterised again
+    const texture = (key: string, make: () => Promise<THREE.Texture>) => {
+      used.add(key);
+      let p = ctx.texCache.get(key);
+      if (!p) { p = make(); ctx.texCache.set(key, p); }
+      return p;
+    };
+
+    // devices: front plate across the slot, chassis behind it as wide as the real body
     const PLATE = 3;
     (async () => {
-      for (const d of rack.devices) {
+      const jobs = rack.devices.map(async (d) => {
         const tpl = project.templates[d.templateId];
-        if (!tpl) continue;
+        if (!tpl) return;
         const w = faceWidth(bayOf(rack, d).rackStandard) / tpl.slots;
         const h = panelHeight(tpl.heightU);
         const depth = Math.max(PLATE + 1, Math.min(tpl.depth, bayDepth(rack.type, bayOf(rack, d))));
         const x0 = deviceFrontX(rack, d, tpl);
         const yTop = deviceTopY(d, tpl, rack) - 0.4;
         const bodyW = bodyWidth3D(rack, tpl, d);
-        const front = await panelTexture(renderToStaticMarkup(<DeviceFace tpl={tpl} panel="front" width={w} device={d} showPortLabels={project.settings.showPortLabels} />), w, h);
-        const rear = await panelTexture(renderToStaticMarkup(<DeviceFace tpl={tpl} panel="rear" width={w} device={d} showPortLabels={project.settings.showPortLabels} />), w, h);
-        if (cancelled) { front.dispose(); rear.dispose(); return; }
-        // the rear drawing spans the whole slot; show only the part where the chassis is
-        rear.repeat.set(bodyW / w, 1);
-        rear.offset.set((w - bodyW) / 2 / w, 0);
-        ctx.textures.push(front, rear);
+        const fm = renderToStaticMarkup(<DeviceFace tpl={tpl} panel="front" width={w} device={d} showPortLabels={project.settings.showPortLabels} />);
+        const rm = renderToStaticMarkup(<DeviceFace tpl={tpl} panel="rear" width={w} device={d} showPortLabels={project.settings.showPortLabels} />);
+        const front = await texture(`${w}x${h}|${fm}`, () => panelTexture(fm, w, h));
+        const rear = await texture(`${w}x${h}|${bodyW}|${rm}`, async () => {
+          const t = await panelTexture(rm, w, h);
+          // the rear drawing spans the whole slot; show only the part where the chassis is
+          t.repeat.set(bodyW / w, 1);
+          t.offset.set((w - bodyW) / 2 / w, 0);
+          return t;
+        });
         const side = new THREE.MeshStandardMaterial({ color: tpl.color, roughness: 0.6, metalness: 0.3 });
         const frontMat = new THREE.MeshStandardMaterial({ map: front, roughness: 0.55 });
         const rearMat = new THREE.MeshStandardMaterial({ map: rear, roughness: 0.6 });
@@ -251,30 +565,32 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
         const bodyLen = depth - PLATE;
         const body = new THREE.Mesh(new THREE.BoxGeometry(bodyW * S, (h - 0.6) * S, bodyLen * S), facingFront ? [side, side, side, side, side, rearMat] : [side, side, side, side, rearMat, side]);
         body.position.set((x0 + w / 2) * S, (yTop - h / 2) * S, (z0 + dirZ * (PLATE + bodyLen / 2)) * S);
+        plate.userData.deviceId = body.userData.deviceId = d.id;
         root.add(plate, body);
+      });
+      await Promise.all(jobs);
+      ctx.texInUse.delete(id);
+      if (ctx.buildId !== id || ctxRef.current !== ctx) { disposeGroup(root); return; }
+      // swap in the finished scene, then drop textures no build needs any more
+      ctx.scene.remove(ctx.content);
+      disposeGroup(ctx.content);
+      ctx.content = root;
+      ctx.scene.add(root);
+      ctx.ports = portTargets(project, rack);
+      for (const [key, p] of ctx.texCache) {
+        if (used.has(key) || [...ctx.texInUse.values()].some((u) => u.has(key))) continue;
+        ctx.texCache.delete(key);
+        p.then((t) => t.dispose());
       }
+      applyHighlight(ctx, useStore.getState().hoverCableId ?? highlightCableId ?? null);
+      updateMarks(ctx, project, rack);
     })();
-
-    // cables: collision-aware orthogonal routes (see route3d.ts), rounded corners
-    const radiusOf = (typeId: string) => (project.cableTypes.find((t) => t.id === typeId)?.width ?? 2) * 1.1;
-    const { routes } = route3D(project, rack, radiusOf);
-    for (const rt of routes) {
-      const path = roundedPath(rt.points.map(([x, y, z]) => new THREE.Vector3(x * S, y * S, z * S)), Math.max(rt.radius * 2, 5) * S);
-      if (!path) continue;
-      const len = path.getLength() / S;
-      const mat = new THREE.MeshStandardMaterial({ color: rt.color, roughness: 0.5, transparent: true });
-      const mesh = new THREE.Mesh(new THREE.TubeGeometry(path, Math.min(800, Math.max(24, Math.round(len / 4))), rt.radius * S, 10, false), mat);
-      mesh.userData.cableId = rt.cableId;
-      root.add(mesh);
-    }
-    applyHighlight(ctx, useStore.getState().hoverCableId ?? highlightCableId ?? null);
 
     // camera: restore what the user had for this rack, otherwise home view
     const mem = cameraMemory.get(rack.id);
     if (mem) { ctx.camera.position.copy(mem.pos); ctx.controls.target.copy(mem.target); }
     else setView(ctx, 'home', false);
     return () => {
-      cancelled = true;
       cameraMemory.set(rack.id, { pos: ctx.camera.position.clone(), target: ctx.controls.target.clone() });
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -293,6 +609,7 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
   return (
     <div className="view3d" ref={host}>
       {failed ? <div className="view3d-fail">{failed}</div> : null}
+      <div className="view3d-tip" ref={tipRef} />
       <div className="viewcube-wrap" title="ViewCube: Seite anklicken">
         <div className="viewcube" ref={cubeRef}>
           {face('front', 'VORNE', 'vc-front')}
@@ -306,6 +623,67 @@ export function Rack3D({ project, rack, highlightCableId }: { project: Project; 
       </div>
     </div>
   );
+}
+
+// ---------------------------------------------------------------------------------------------- editing overlay
+
+function makeOverlay(): Overlay {
+  const group = new THREE.Group();
+  group.renderOrder = 10;
+  const ring = (color: string) => {
+    const m = new THREE.Mesh(new THREE.RingGeometry(1, 1.32, 40), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, depthTest: false, transparent: true }));
+    m.renderOrder = 11;
+    m.visible = false;
+    group.add(m);
+    return m;
+  };
+  const hover = ring('#ffffff');
+  const pending = ring('#f43f5e');
+  const band = new THREE.Line(new THREE.BufferGeometry(), new THREE.LineBasicMaterial({ color: '#f43f5e', depthTest: false, transparent: true }));
+  band.renderOrder = 11;
+  band.visible = false;
+  const unit = new THREE.BoxGeometry(1, 1, 1);
+  const ghost = new THREE.Mesh(unit, new THREE.MeshBasicMaterial({ color: '#22c55e', transparent: true, opacity: 0.28, depthWrite: false }));
+  const ghostEdges = new THREE.LineSegments(new THREE.EdgesGeometry(unit), new THREE.LineBasicMaterial({ color: '#22c55e', depthTest: false, transparent: true }));
+  ghost.visible = ghostEdges.visible = false;
+  ghostEdges.renderOrder = 11;
+  const sel = new THREE.Box3Helper(new THREE.Box3(), new THREE.Color('#22d3ee'));
+  (sel.material as THREE.LineBasicMaterial).depthTest = false;
+  (sel.material as THREE.LineBasicMaterial).transparent = true;
+  sel.renderOrder = 11;
+  sel.visible = false;
+  group.add(band, ghost, ghostEdges, sel);
+  return { group, hover, pending, band, ghost, ghostEdges, sel };
+}
+
+/** a ring around a connector, slightly in front of its panel */
+function placeRing(m: THREE.Mesh, p: PortTarget) {
+  const r = Math.max(p.hw, p.hh) + 1.5;
+  m.scale.set(r * S, r * S, 1);
+  m.position.set(p.pos[0] * S, p.pos[1] * S, (p.pos[2] + p.n * 1.2) * S);
+  m.visible = true;
+}
+
+/** selection frame around the selected device and the marker on the port a new cable starts at */
+function updateMarks(ctx: Ctx, project: Project, rack: Rack) {
+  const s = useStore.getState();
+  const ov = ctx.overlay;
+  const sel = s.selection?.kind === 'device' ? rack.devices.find((d) => d.id === s.selection!.id) : undefined;
+  const tpl = sel && project.templates[sel.templateId];
+  if (sel && tpl) {
+    const b = ov.sel.box.makeEmpty();
+    for (const part of deviceBoxes(rack, sel, tpl)) {
+      b.expandByPoint(new THREE.Vector3(part.lo[0] * S, part.lo[1] * S, part.lo[2] * S));
+      b.expandByPoint(new THREE.Vector3(part.hi[0] * S, part.hi[1] * S, part.hi[2] * S));
+    }
+    b.expandByScalar(1.5 * S);
+    ov.sel.visible = true;
+  } else ov.sel.visible = false;
+  const pp = s.pendingPort;
+  const port = pp && pp.rackId === rack.id ? ctx.ports.find((p) => p.deviceId === pp.deviceId && p.portId === pp.portId) : undefined;
+  if (port) placeRing(ov.pending, port);
+  else ov.pending.visible = false;
+  if (!port) ov.band.visible = false;
 }
 
 // ---------------------------------------------------------------------------------------------- helpers

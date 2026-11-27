@@ -16,6 +16,8 @@ export const EN_EXTRA: Record<string, string> = {
   'Platzhalter aus dem RF-Import (generisches Gehäuse)': 'Placeholder from the RF import (generic housing)', 'RJ45-Stecker': 'RJ45 plug', 'Rack hat keine hinteren Schienen': 'The rack has no rear rails',
   'SMA-Stecker': 'SMA plug', 'SVG konnte nicht gerendert werden': 'SVG could not be rendered', 'Schublade (nicht mehr im Rack)': 'Drawer (no longer in the rack)', 'Schätzung': 'Estimate',
   'Stückliste': 'Parts list', 'TNC-Stecker': 'TNC plug', 'TOSLINK-Stecker': 'TOSLINK plug', 'USB-C-Stecker': 'USB-C plug', 'USB-Stecker': 'USB plug',
+  'Auswählen und Bearbeiten: Anschlüsse anklicken verbindet, ausgewähltes Gerät ziehen verschiebt, sonst dreht die linke Maustaste': 'Select and edit: clicking connectors connects them, dragging the selected device moves it, otherwise the left mouse button orbits',
+  'Dosen stehen unter dem Rack': 'Boxes sit below the rack', 'Netz': 'Mains',
   'Ungültiger Einbauplatz': 'Invalid mounting position', 'Ungültiges Einbaufeld': 'Invalid mounting bay', 'VGA-Stecker (D-Sub 15)': 'VGA plug (D-Sub 15)',
   'Verbindungsbeschlag zwischen den Blöcken': 'Connecting hardware between the blocks',
   'WebGL ist in diesem Browser bzw. dieser Vorschau nicht verfügbar. Öffne die Datei direkt in Chrome, Edge, Firefox oder Safari.': 'WebGL is not available in this browser or preview. Open the file directly in Chrome, Edge, Firefox or Safari.',
@@ -43,6 +45,8 @@ export const EN_EXTRA: Record<string, string> = {
 };
 
 export const EN_EXTRA_TPL: [string, string][] = [
+  // placement ghost (2D and 3D)
+  ['Feld {0}, HE {1}', 'Bay {0}, U {1}'], ['HE {0}', 'U {0}'], ['Belegt durch {0}', 'Occupied by {0}'],
   [' – {0} Gerätevorlagen aktualisiert', ' – {0} device templates updated'], [', {0} Kabel neu stecken', ', re-plug {0} cables'], ['; übersprungen: {0}', '; skipped: {0}'],
   ['Bild kalibrieren: {0} Punkt einer bekannten Strecke auf dem Bild klicken.', 'Calibrate image: click the {0} point of a known distance on the image.'],
   ['Eckpunkt anklicken, um ihn mit {0} mm abzurunden.', 'Click a vertex to round it with {0} mm.'], ['Für {0}', 'For {0}'],

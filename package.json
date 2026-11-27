@@ -11,9 +11,10 @@
     "sync-rf": "node scripts/sync-rf-data.mjs ../rf-scan-editor",
     "test:3d": "esbuild tests/collision3d.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/collision3d.mjs --log-level=warning && node node_modules/.cache/collision3d.mjs",
     "test:lib": "esbuild tests/library.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/library.mjs --log-level=warning && node node_modules/.cache/library.mjs",
-    "test": "npm run -s test:lib && npm run -s test:cases && npm run -s test:cables && npm run -s test:3d && npm run -s test:i18n",
+    "test": "npm run -s test:lib && npm run -s test:cases && npm run -s test:cables && npm run -s test:3d && npm run -s test:i18n && npm run -s test:edit3d",
     "test:cables": "esbuild tests/cables.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/cables.mjs --log-level=warning && node node_modules/.cache/cables.mjs",
     "test:cases": "esbuild tests/cases.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/cases.mjs --log-level=warning && node node_modules/.cache/cases.mjs",
+    "test:edit3d": "esbuild tests/edit3d.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/edit3d.mjs --log-level=warning && node node_modules/.cache/edit3d.mjs",
     "test:i18n": "esbuild tests/i18n.ts --bundle --platform=node --format=esm --outfile=node_modules/.cache/i18n.mjs --log-level=warning && node node_modules/.cache/i18n.mjs"
   },
   "dependencies": {

@@ -3,6 +3,7 @@ import type { DeviceTemplate, Face, Rack } from '../model/types';
 import { useStore } from '../model/store';
 import { checkPlacement, deviceTopY, deviceViewX, faceWidth, panelHeight, portViewPos, rackBays, rackExtent, resolveEnd, U } from '../model/geometry';
 import { RackSvg, type Ghost } from '../render/RackSvg';
+import { clickPort } from '../model/cabling';
 import { toSvg } from '../render/cablePaths';
 
 /** Template currently dragged from the library (dataTransfer can't be read during dragover). */
@@ -129,16 +130,7 @@ export function RackCanvas({ rack, view }: Props) {
 
     if (portEl && !readOnly) {
       const [deviceId, portId] = portEl.getAttribute('data-port')!.split(':');
-      const pend = s.pendingPort;
-      if (pend && pend.rackId === rack.id) {
-        if (!(pend.deviceId === deviceId && pend.portId === portId)) s.connect(rack.id, { deviceId: pend.deviceId, portId: pend.portId }, { deviceId, portId });
-        s.setPendingPort(null);
-      } else {
-        // clicking a connected port selects its cable, otherwise start a new cable
-        const existing = rack.cables.find((c) => (c.a.deviceId === deviceId && c.a.portId === portId) || (c.b.deviceId === deviceId && c.b.portId === portId));
-        if (existing && !e.altKey) s.select({ kind: 'cable', id: existing.id });
-        else s.setPendingPort({ rackId: rack.id, deviceId, portId });
-      }
+      clickPort(rack.id, deviceId, portId, e.altKey);
       e.stopPropagation();
       return;
     }

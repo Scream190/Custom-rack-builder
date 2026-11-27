@@ -117,7 +117,7 @@ hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
 .rack-canvas { touch-action: none; }
 .rack-canvas.cabling { cursor: crosshair; }
 .rack-canvas .port:hover circle:first-of-type { fill: rgba(34, 211, 238, 0.18); }
-.cabling-banner { position: relative; z-index: 5; background: #4c0519; border-bottom: 1px solid #9f1239; color: #fecdd3; padding: 4px 12px; font-size: 12px; }
+.cabling-banner { position: absolute; top: 0; left: 0; z-index: 5; pointer-events: none; background: #4c0519; border: 1px solid #9f1239; border-width: 0 1px 1px 0; color: #fecdd3; padding: 4px 12px; font-size: 12px; }
 .view3d canvas { display: block; }
 
 .cable-list-wrap { flex: none; min-height: 0; display: flex; }
@@ -244,6 +244,9 @@ body.resizing-y, body.resizing-y * { cursor: row-resize !important; user-select:
   .splitter-x { display: none; }
   .viewcube-wrap { transform: scale(.8); transform-origin: top right; }
 }
+.view3d-tip { position: absolute; z-index: 6; display: none; pointer-events: none; max-width: 260px; padding: 4px 8px; background: #0d0f12; border: 1px solid #3b4048; border-radius: 3px; color: #e6e8eb; font-size: 12px; line-height: 1.35; white-space: pre-line; }
+.view3d-tip::first-line { font-weight: 600; }
+.view3d-tip.bad { border-color: var(--danger); color: #fca5a5; }
 .view3d-fail { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; text-align: center; color: #fca5a5; z-index: 4; background: #15171b; }
 .drawer-box { display: flex; flex-direction: column; gap: 5px; }
 .drawer-row input { padding: 3px 6px; }

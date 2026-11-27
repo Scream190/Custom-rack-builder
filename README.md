@@ -26,6 +26,22 @@ legst du eine `.rackplan.json` an, die du weitergeben und wieder öffnen kannst.
 | 3D-Standardansichten | ViewCube oben rechts (Seite anklicken), ⌂ = Startansicht |
 | Bereiche anpassen | Trennlinien zwischen Bibliothek / Ansicht / Eigenschaften / Kabelliste ziehen (Doppelklick = Standard); ein-/ausblenden über *Anzeigen* rechts in der Werkzeugleiste |
 
+### Bearbeiten in der 3D-Ansicht
+In der 3D-Ansicht des Rackplaners lässt sich genauso arbeiten wie in 2D (Werkzeug *Auswählen* in der Navigationsleiste):
+
+- **Kabel verlegen:** Anschluss anklicken, dann den Zielanschluss. Unter dem Mauszeiger zeigt ein Ring den Anschluss,
+  daneben stehen Anschluss- und Gerätename; eine rote Linie folgt der Maus, bis das Kabel steckt. Ein belegter
+  Anschluss wählt sein Kabel aus, mit <kbd>Alt</kbd> beginnt dort ein weiteres. <kbd>Esc</kbd> bricht ab.
+- **Rack bestücken:** Gerät aus der Bibliothek auf das Rack ziehen. Ein Platzhalter zeigt Höheneinheit und Feld (grün)
+  oder den Grund, warum es nicht passt (rot). Schaut die Kamera von hinten auf das Rack, wird hinten eingebaut.
+- **Verschieben:** Gerät anklicken (türkiser Rahmen), dann ziehen. Ziehen auf freier Fläche oder auf nicht ausgewählten
+  Geräten dreht weiterhin die Ansicht. <kbd>Entf</kbd> löscht das ausgewählte Gerät oder Kabel.
+- Kabel und Geräte lassen sich per Klick auswählen und im Inspektor bearbeiten.
+
+Die Szene wird bei Änderungen im Hintergrund neu aufgebaut und erst ausgetauscht, wenn alle Gerätegrafiken fertig sind;
+unveränderte Fronten werden aus einem Zwischenspeicher genommen. `npm run test:edit3d` prüft Anschluss-Picking,
+Verkabeln per Klick, Einbauziel und Verschieben ohne Browser.
+
 ### Sprache (Deutsch / English)
 Die ganze Oberfläche gibt es auf Deutsch und Englisch: *Einstellungen → Darstellung → Sprache*. Beim ersten Start wird
 die Sprache des Browsers übernommen. Übersetzt werden alle Texte, Menüs, Tooltips, Rückfragen, Hinweise, Zeichnungen,
@@ -409,7 +425,7 @@ Beispiele liegen in `beispiele/`.
 npm install
 npm run dev      # Entwicklungsserver
 npm run build    # erzeugt dist/index.html (eine selbstständige Datei)
-npm test         # Übersetzung prüfen (test:i18n) +
+npm test         # 3D-Bearbeitung (test:edit3d), Übersetzung (test:i18n) +
                  # Bibliothek prüfen (Stecker im Gehäuse, keine Überlappung, eindeutige Namen) + Case-Designer + Kabelbau + 3D-Kollisionstest
 ```
 

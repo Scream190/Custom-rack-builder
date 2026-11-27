@@ -187,8 +187,8 @@ export function App() {
                   <MenuCheck checked={project.settings.showCableLabels} onChange={(v) => st().updateSettings({ showCableLabels: v })}>Kabelbeschriftung</MenuCheck>
                 </ShowMenu>
               </Toolbar>
-              {pending ? <div className="cabling-banner">Kabel ziehen: Zielanschluss anklicken. <kbd>Esc</kbd> bricht ab.</div> : null}
               <div className="stage">
+                {pending ? <div className="cabling-banner">Kabel ziehen: Zielanschluss anklicken. <kbd>Esc</kbd> bricht ab.</div> : null}
                 <ErrorBoundary resetKey={view + rack.id}>
                   {view === '3d' ? (
                     <Rack3D project={project} rack={rack} highlightCableId={highlightCable} />

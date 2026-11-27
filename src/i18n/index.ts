@@ -32,7 +32,7 @@ export function setLang(l: Lang) {
   if (typeof location !== 'undefined') location.reload();
 }
 
-interface Tpl { re: RegExp; anchor: string; en: string; groups: number[][] }
+interface Tpl { re: RegExp; anchor: string; lit: number; en: string; groups: number[][] }
 const TPL: Tpl[] = EN_TPL.map(([de, en]) => {
   const parts = de.split(/\{\d+\}/);
   const anchor = parts.reduce((a, b) => (b.trim().length > a.length ? b.trim() : a), '');
@@ -46,8 +46,9 @@ const TPL: Tpl[] = EN_TPL.map(([de, en]) => {
       else { groups.push([+m[1]]); src += '(.*?)'; }
     } else src += tok.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
-  return { re: new RegExp('^' + src + '$', 's'), anchor, en, groups };
-}).sort((a, b) => b.anchor.length - a.anchor.length);
+  return { re: new RegExp('^' + src + '$', 's'), anchor, lit: parts.join('').trim().length, en, groups };
+// the more fixed text a template has, the more specific it is
+}).sort((a, b) => b.lit - a.lit || b.anchor.length - a.anchor.length);
 
 /** known German phrases inside longer texts (longest first, whole words only) */
 let PHRASES: RegExp | null = null;
