@@ -187,9 +187,11 @@ const dmxOther: DeviceTemplate[] = [
     rear: [G([PSU_TRUE1, B.list(['In/Thru A', 'In/Thru B'], 'XLR5M', 'io', { gap: 16 })])], src: SRC.DS, notes: 'DMX/RDM-Splitter, 2 Zonen (A/B).',
   }),
   mk({
-    id: 'lmx-lumisplit110', name: 'LumiSplit 1.10', man: 'Luminex', cat: DMX, u: 1, depth: 170, color: BLACK, logo: 'LUMINEX',
-    front: [G([B.one('In', 'XLR5M', 'in'), B.one('Thru', 'XLR5F', 'out', { gap: 4 }), B.dmx(10, 'Out ', { gap: 10 })], 'right')],
-    rear: [G([PSU_TRUE1])], src: SRC.EST,
+    // id kept from an earlier, non-existent "LumiSplit 1.10" so saved projects still load
+    id: 'lmx-lumisplit110', name: 'LumiSplit 1.6', man: 'Luminex', cat: DMX, u: 1, depth: 210, color: BLACK, logo: 'LUMINEX', weight: 2.62,
+    front: [G([B.one('In', 'XLR5M', 'in'), B.one('Thru', 'XLR5F', 'out', { gap: 4 }), B.dmx(6, 'Out ', { gap: 10 })], 'right')],
+    rear: [G([PSU_TRUE1, B.one('Power Thru', 'TRUE1_OUT', 'out', { gap: 4 })])], src: 'Datenblatt: Luminex LumiSplit 1.6 (1 × XLR5 In, 1 × Thru, 6 × Out, TRUE1 In/Out), Positionen Schätzung',
+    notes: 'DMX/RDM-Splitter, 1 Eingang auf 6 Ausgänge.',
   }),
   mk({
     id: 'obs-netron-en12', name: 'NETRON EN12', man: 'Obsidian Control', cat: DMX, u: 1, depth: 200, color: '#1b1b1d', logo: 'OBSIDIAN',
