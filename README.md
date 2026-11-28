@@ -393,6 +393,16 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
     Auswahl zeigt das Modell die lichten Maße darunter und darüber bzw. davor und dahinter, rechts stehen Position,
     lichte Maße und *Gleichmäßig verteilen*. Im Bereich Bauform setzen die Knöpfe *Fachboden +*, *Trennwand längs +*
     und *Trennwand quer +* weitere ein und verteilen alle gleichmäßig. Einbauten gehen in Zuschnitt und Gewicht ein.
+  - *Messen* (Taste I): zwei Punkte anklicken, unten links stehen Abstand und Versatz in Länge, Höhe und Tiefe; liegen
+    beide Punkte auf parallelen Flächen, auch deren senkrechter Abstand (z. B. Innenwand zu Innenwand). Geht auch im
+    Nur-Lesen-Modus.
+  - *Rechtsklick* auf ein Teil öffnet ein Menü: Stück oder Zeile löschen, auf die Gegenseite spiegeln, gleichmäßig
+    verteilen, Tür oder Deckel entfernen, *Ausblenden*, *Isolieren* (nur dieses Teil zeigen), *Alle einblenden*,
+    *Einpassen*. Rechts ziehen schwenkt weiterhin die Ansicht.
+  - *Tastenkürzel* (Knopf ? oder Taste ?): V Auswählen, H Fuge waagrecht, T Fuge senkrecht, E Fachboden, I Messen,
+    F Einpassen, M Maße, X Schnitt, 1/2/3/0 Vorne/Oben/Rechts/Iso, Entf, Esc.
+  - *3D-Datei* in der Werkzeugleiste speichert das Case geschlossen mit Beschlägen, Rollen und Schaum als GLB (glTF,
+    für Fusion, Blender, SketchUp), STL in mm (CAD, 3D-Druck) oder USDZ (AR auf iPhone, iPad, Mac).
   - *Maße:* blendet Maßketten am Modell ein: Länge vorne unten, Breite rechts unten, Höhe an der vorderen rechten
     Kante, jeweils mit den Teilmaßen (Türen, Unterteil, Deckel, Rollen) und dem Gesamtmaß.
 

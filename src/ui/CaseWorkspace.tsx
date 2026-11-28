@@ -15,7 +15,8 @@ import { DEFAULT_LAYOUT, getLayout, setLayout, useLayout } from '../model/layout
 import { Field, NumberInput } from './Modal';
 import { Section } from './Section';
 import { SheetCanvas } from './SheetCanvas';
-import { EmptyState, Seg, ShowMenu, ToolGroup, Toolbar } from './Shell';
+import { EmptyState, Menu, Seg, ShowMenu, ToolGroup, Toolbar } from './Shell';
+import { downloadBlob } from '../model/util';
 
 const st = useStore.getState;
 const kg = (n: number) => String(n).replace('.', ',');
@@ -392,7 +393,7 @@ export function CaseWorkspace() {
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const cases = caseList(project);
   const c = cases.find((x) => x.id === activeId) ?? cases[0];
-  const edit: CaseEdit | undefined = c ? { tool, setTool, selected, select, hidden, readOnly: ro } : undefined;
+  const edit: CaseEdit | undefined = c ? { tool, setTool, selected, select, hidden, setHidden, readOnly: ro } : undefined;
   useEffect(() => { select(null); setTool('select'); }, [c?.id]);
   // keyboard: Del removes the selection, Esc ends a tool or clears the selection
   useEffect(() => {
@@ -400,6 +401,13 @@ export function CaseWorkspace() {
     const onKey = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k === 'i') { setTool('measure'); return; }
+      if (!ro && k === 'v') { setTool('select'); return; }
+      if (!ro && k === 'h') { setTool('seam-h'); return; }
+      if (!ro && k === 't') { setTool('seam-v'); return; }
+      if (!ro && k === 'e') { setTool('div:z'); return; }
       if (e.key === 'Escape') { if (tool !== 'select') setTool('select'); else select(null); }
       else if ((e.key === 'Delete' || e.key === 'Backspace') && selected && !ro) {
         const p = removeSelection(c, selected);
@@ -429,12 +437,21 @@ export function CaseWorkspace() {
               { id: '3d', label: '3D', title: 'Räumliche Ansicht, mit der Maus drehen und zoomen' },
             ]} />
           </ToolGroup>
+          {view === '3d' && ro ? (
+            <ToolGroup label="Werkzeug">
+              <Seg value={tool === 'measure' ? 'measure' : 'select'} onChange={setTool} options={[
+                { id: 'select', label: 'Ansehen', title: 'Drehen, zoomen, auswählen' },
+                { id: 'measure', label: 'Messen', title: 'Abstand zwischen zwei Punkten oder parallelen Flächen messen (I)' },
+              ]} />
+            </ToolGroup>
+          ) : null}
           {view === '3d' && !ro ? (
             <ToolGroup label="Werkzeug">
               <Seg value={tool.startsWith('place:') ? ('place' as CaseTool) : tool} onChange={(v) => setTool(v === ('place' as CaseTool) ? (`place:${PLACEABLE[0]}` as CaseTool) : v)} options={[
-                { id: 'select', label: 'Auswählen', title: 'Auswählen, Beschläge verschieben, an den Pfeilen Maße ziehen (Esc)' },
-                { id: 'seam-h', label: 'Fuge waagrecht', title: 'Case waagrecht teilen: Klick auf eine Seitenwand setzt die Deckelfuge' },
-                { id: 'seam-v', label: 'Fuge senkrecht', title: 'Case senkrecht teilen: Klick nahe einem Ende setzt eine Tür, in der Deckelmitte wird der Deckel geteilt' },
+                { id: 'select', label: 'Auswählen', title: 'Auswählen, Beschläge verschieben, an den Pfeilen Maße ziehen (V)' },
+                { id: 'seam-h', label: 'Fuge waagrecht', title: 'Case waagrecht teilen: Klick auf eine Seitenwand setzt die Deckelfuge (H)' },
+                { id: 'seam-v', label: 'Fuge senkrecht', title: 'Case senkrecht teilen: Klick nahe einem Ende setzt eine Tür, in der Deckelmitte wird der Deckel geteilt (T)' },
+                { id: 'measure', label: 'Messen', title: 'Abstand zwischen zwei Punkten oder parallelen Flächen messen (I)' },
               ]} />
               <select className={tool.startsWith('place:') ? 'active' : ''} value={tool.startsWith('place:') ? tool.slice(6) : ''} onChange={(e) => setTool(e.target.value ? (`place:${e.target.value}` as CaseTool) : 'select')} title="Beschlag wählen und auf die Außenseite klicken">
                 <option value="">Beschlag setzen …</option>
@@ -459,7 +476,22 @@ export function CaseWorkspace() {
             {view === '3d' ? (
               <div className="case-edit">
                 {layout.showLibrary ? <CaseTree c={c} edit={edit!} setHidden={setHidden} /> : null}
-                <div className="case-view"><Case3D c={c} edit={edit} /></div>
+                <div className="case-view">
+                  <Case3D c={c} edit={edit} />
+                  <div className="view3d-file">
+            <Menu align="right" label="3D-Datei" title="Das Case als 3D-Modell speichern (geschlossen, mit Beschlägen, Rollen und Schaum)">
+              {([['glb', 'GLB (glTF): Fusion, Blender, SketchUp, Web'], ['stl', 'STL in mm: CAD und 3D-Druck'], ['usdz', 'USDZ: AR auf iPhone, iPad, Mac']] as const).map(([f, label]) => (
+                <button key={f} onClick={async () => {
+                  const m = await import('../export/case3d');
+                  const name = (c.name || 'Case').replace(/[\\/:*?"<>|]+/g, '_');
+                  if (f === 'glb') downloadBlob(await m.exportCaseGlb(c), `${name}.glb`);
+                  else if (f === 'stl') downloadBlob(await m.exportCaseStl(c), `${name}.stl`);
+                  else downloadBlob(await m.exportCaseUsdz(c), `${name}.usdz`);
+                }}>{label}</button>
+              ))}
+            </Menu>
+                  </div>
+                </div>
               </div>
             ) : (
               <SheetCanvas c={c} size={{ x: -90, y: -40, w: L.w + 130, h: L.h + 60 }} fitKey={`${c.id}:${Math.round(L.w)}:${Math.round(L.h)}`} editable={false}

@@ -7,9 +7,10 @@ import { baseInner, caseBoxes, caseDims, addDivider, dimChains, DIVIDER_T, divid
 import { cutoutOutline, outlineBox } from '../model/inlay';
 import { Builder, FOAM_MM, S, boxGeo, faceBasis, inlayGeo, makeMats, v3, type FaceKey } from './caseParts';
 import { Scene3D, type BuildResult, type Scene3DApi } from './Scene3D';
+import { mirrorHardware, removeSelection, spreadDividers } from '../model/cases';
 
 /** editor tools: select and drag, split the case (horizontal = lid seam, vertical = door), place a piece of hardware */
-export type CaseTool = 'select' | 'seam-h' | 'seam-v' | `place:${HardwareKind}` | `div:${DividerAxis}`;
+export type CaseTool = 'select' | 'seam-h' | 'seam-v' | 'measure' | `place:${HardwareKind}` | `div:${DividerAxis}`;
 /** editor state owned by the workspace (shared with the component tree and the inspector) */
 export interface CaseEdit {
   tool: CaseTool;
@@ -17,6 +18,7 @@ export interface CaseEdit {
   selected: string | null;
   select: (s: string | null) => void;
   hidden: Set<string>;
+  setHidden: (h: Set<string>) => void;
   readOnly?: boolean;
 }
 
@@ -25,6 +27,7 @@ const TOOL_HINTS: Record<string, string> = {
   'seam-h': 'Auf eine Seitenwand klicken: Dort wird waagrecht geteilt (Deckelfuge). Esc beendet.',
   'seam-v': 'Auf eine Seitenwand oder den Deckel klicken: Am näheren Ende entsteht eine Tür, in der Deckelmitte wird der Deckel geteilt. Esc beendet.',
   place: 'Auf die Außenseite klicken, um den Beschlag zu setzen. Verschlüsse und Scharniere rasten an der nächsten Fuge ein. Esc beendet.',
+  measure: 'Zwei Punkte anklicken: Abstand und Versatz in Länge, Höhe und Tiefe. Zwei parallele Flächen ergeben ihren senkrechten Abstand (z. B. Innenwand zu Innenwand). Ein dritter Klick beginnt neu, Esc beendet.',
   div: 'Auf eine Außenwand klicken: Ein Fachboden entsteht in der geklickten Höhe, eine Trennwand an der geklickten Stelle (längs: Seitenwand oder Deckel, quer: Vorder- oder Rückwand). Esc beendet.',
 };
 
@@ -47,6 +50,33 @@ export function Case3D({ c, edit }: { c: FlightCase; edit?: CaseEdit }) {
   const [hud, setHud] = useState<Hud | null>(null);
   const [section, setSection] = useState<{ axis: 'x' | 'y'; pos: number } | null>(null);
   const [dims, setDims] = useState(false);
+  const [measure, setMeasure] = useState<{ a: MeasurePt; b?: MeasurePt } | null>(null);
+  const [menu, setMenu] = useState<CtxMenu | null>(null);
+  const [help, setHelp] = useState(false);
+  const isMeasure = edit?.tool === 'measure';
+  useEffect(() => { if (!isMeasure) setMeasure(null); }, [isMeasure]);
+  const ui = useRef<EditorUi>({ setHud: () => {}, setMenu: () => {}, onMeasure: () => {} });
+  ui.current = { setHud, setMenu, onMeasure: (pt) => setMeasure((m) => (!m || m.b ? { a: pt } : { ...m, b: pt })) };
+  // view shortcuts (tools are handled by the workspace)
+  useEffect(() => {
+    if (!edit) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (e.ctrlKey || e.metaKey || e.altKey || (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable))) return;
+      const k = e.key.toLowerCase();
+      if (k === 'f') setFit((n) => n + 1);
+      else if (k === 'm') setDims((d) => !d);
+      else if (k === 'x' && size) setSection((s) => (s ? null : { axis: 'x', pos: Math.round(size.L / 2) }));
+      else if (k === '1') ctl.current?.view('front');
+      else if (k === '2') ctl.current?.view('top');
+      else if (k === '3') ctl.current?.view('right');
+      else if (k === '0') ctl.current?.view('iso');
+      else if (e.key === '?') setHelp((h) => !h);
+      else if (e.key === 'Escape') { setMenu(null); setHelp(false); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
   // shelves and walls sit inside: open the case when their tool is picked
   const divTool = edit?.tool.startsWith('div:');
   useEffect(() => { if (divTool) setOpen(true); }, [divTool]);
@@ -57,8 +87,8 @@ export function Case3D({ c, edit }: { c: FlightCase; edit?: CaseEdit }) {
   const doors = hasDoors(c);
   const lidToggle = !isDrawer(c) && c.kind !== 'inlay' && (c.lidKind !== 'none' || doors);
   const what = doors ? (c.lidKind !== 'none' ? 'Deckel und Türen' : 'Türen') : 'Deckel';
-  const view: CaseView | undefined = edit ? { hidden: edit.hidden, selected: edit.selected, dims } : undefined;
-  const hint = edit && !edit.readOnly ? TOOL_HINTS[edit.tool.startsWith('place:') ? 'place' : edit.tool.startsWith('div:') ? 'div' : edit.tool] : null;
+  const view: CaseView | undefined = edit ? { hidden: edit.hidden, selected: edit.selected, dims, measure: measure ?? undefined } : undefined;
+  const hint = edit && (!edit.readOnly || edit.tool === 'measure') ? TOOL_HINTS[edit.tool.startsWith('place:') ? 'place' : edit.tool.startsWith('div:') ? 'div' : edit.tool] : null;
   const size = edit && !isDrawer(c) && c.kind !== 'inlay' ? shellSize(c) : null;
   // section plane: keeps the part left of the cut (length) or behind it (width)
   useEffect(() => {
@@ -68,8 +98,8 @@ export function Case3D({ c, edit }: { c: FlightCase; edit?: CaseEdit }) {
     ctl.current.clip([section.axis === 'x' ? new THREE.Plane(v3(-1, 0, 0), (pos - size.L / 2) * S) : new THREE.Plane(v3(0, 0, -1), (size.W / 2 - pos) * S)]);
   }, [section, size?.L, size?.W]);
   return (
-    <Scene3D build={(root) => buildCase(root, c, open, view)} deps={[c, open, edit?.selected, edit?.hidden, dims]}
-      interact={edit ? (api) => caseEditor(api, cRef, editRef, openRef, ctl, setHud) : undefined}
+    <Scene3D build={(root) => buildCase(root, c, open, view)} deps={[c, open, edit?.selected, edit?.hidden, dims, measure]}
+      interact={edit ? (api) => caseEditor(api, cRef, editRef, openRef, ctl, ui) : undefined}
       frameKey={edit ? `${c.id}:${open}:${fit}` : undefined}>
       <div className="view3d-btns">
         {lidToggle ? (
@@ -99,12 +129,109 @@ export function Case3D({ c, edit }: { c: FlightCase; edit?: CaseEdit }) {
                 ) : null}
               </>
             ) : null}
+            <span className="view3d-sep" />
+            <button className={'btn sm' + (help ? ' active' : '')} onClick={() => setHelp(!help)} title="Tastenkürzel anzeigen (?)" aria-label="Tastenkürzel">?</button>
           </>
         ) : null}
       </div>
+      {help ? <ShortcutHelp onClose={() => setHelp(false)} /> : null}
+      {measure ? <MeasureReadout m={measure} /> : null}
+      {menu && edit ? <ContextMenu menu={menu} c={c} edit={edit} close={() => setMenu(null)} fit={() => setFit(fit + 1)} /> : null}
       {hud ? <div className="view3d-hud" style={{ left: hud.x + 16, top: hud.y + 12 }}>{hud.text.split('\n').map((l, i) => <div key={i}>{l}</div>)}</div> : null}
       {hint ? <div className="view3d-hint">{hint}</div> : null}
     </Scene3D>
+  );
+}
+
+/** what the editor reports to the overlay */
+interface EditorUi { setHud: (h: Hud | null) => void; setMenu: (m: CtxMenu | null) => void; onMeasure: (pt: MeasurePt) => void }
+interface CtxMenu { x: number; y: number; tag: Tag | null }
+
+const SHORTCUTS: [string, string][] = [
+  ['V', 'Auswählen'], ['H', 'Fuge waagrecht'], ['T', 'Fuge senkrecht (Tür)'], ['E', 'Fachboden setzen'], ['I', 'Messen'],
+  ['F', 'Einpassen'], ['M', 'Maße ein/aus'], ['X', 'Schnitt ein/aus'], ['1 / 2 / 3 / 0', 'Vorne / Oben / Rechts / Iso'],
+  ['Entf', 'Auswahl löschen'], ['Esc', 'Werkzeug beenden, Auswahl aufheben'], ['Strg+Z / Strg+Y', 'Rückgängig / Wiederholen'],
+  ['Strg beim Ziehen', '1-mm-Schritte'], ['Alt beim Ziehen', 'ohne Einrasten'], ['Rechtsklick', 'Menü am Teil'], ['Rechts ziehen', 'Ansicht schwenken'],
+];
+function ShortcutHelp({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="view3d-help" role="dialog" aria-label="Tastenkürzel">
+      <div className="view3d-help-head"><b>Tastenkürzel</b><button className="icon-btn" onClick={onClose} aria-label="Schließen" title="Schließen (Esc)">✕</button></div>
+      <table><tbody>{SHORTCUTS.map(([k, v]) => <tr key={k}><td><kbd>{k}</kbd></td><td>{v}</td></tr>)}</tbody></table>
+    </div>
+  );
+}
+
+/** result of the measure tool: distance, offsets along the axes, distance of parallel faces */
+function MeasureReadout({ m }: { m: { a: MeasurePt; b?: MeasurePt } }) {
+  if (!m.b) return <div className="view3d-measure">Messen: zweiten Punkt anklicken</div>;
+  const [ax, ay, az] = m.a.p, [bx, by, bz] = m.b.p;
+  const dx = Math.abs(bx - ax), dy = Math.abs(by - ay), dz = Math.abs(bz - az);
+  const d = Math.hypot(dx, dy, dz);
+  const par = m.a.ax === m.b.ax ? (m.a.ax === 'x' ? dx : m.a.ax === 'y' ? dy : dz) : null;
+  const r = (v: number) => (Math.round(v * 10) / 10).toString().replace('.', ',');
+  return (
+    <div className="view3d-measure">
+      <div><b>{`Abstand ${r(d)} mm`}</b></div>
+      <div>{`Länge ${r(dx)} mm, Höhe ${r(dy)} mm, Tiefe ${r(dz)} mm`}</div>
+      {par !== null && par > 0.5 ? <div>{`Parallele Flächen: ${r(par)} mm`}</div> : null}
+    </div>
+  );
+}
+
+/** keys of every component that can be hidden (for "isolate") */
+function allKeys(c: FlightCase): string[] {
+  return [...caseBoxes(c).map((b) => `part:${b.id}`), ...c.hardware.map((h, i) => (h.kind.startsWith('castor') ? '' : `hw:${i}`)).filter(Boolean), ...c.dividers.map((_, i) => `div:${i}`), 'foam'];
+}
+
+/** right-click menu on a part, a piece of hardware, a shelf or the empty view */
+function ContextMenu({ menu, c, edit, close, fit }: { menu: CtxMenu; c: FlightCase; edit: CaseEdit; close: () => void; fit: () => void }) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const down = (e: PointerEvent) => { if (!ref.current?.contains(e.target as Node)) close(); };
+    document.addEventListener('pointerdown', down);
+    return () => document.removeEventListener('pointerdown', down);
+  }, [close]);
+  const set = (patch: Partial<FlightCase> | null) => { if (patch) useStore.getState().updateCase(c.id, patch); };
+  const tag = menu.tag;
+  const items: ([string, () => void, string?] | null)[] = [];
+  const ro = edit.readOnly;
+  let key: string | null = null;
+  if (tag?.hw) {
+    const { i, k } = tag.hw;
+    key = `hw:${i}`;
+    if (!ro) {
+      items.push(['Stück löschen', () => { set(removeSelection(c, `hw:${i}:${k}`)); edit.select(null); }]);
+      items.push(['Ganze Zeile löschen', () => { set(removeSelection(c, `hw:${i}`)); edit.select(null); }]);
+      const mir = mirrorHardware(c, i);
+      if (mir) items.push(['Auf Gegenseite spiegeln', () => { set({ hardware: mir }); edit.select(`hw:${mir.length - 1}`); }]);
+      if (c.hardware[i]?.at) items.push(['Gleichmäßig verteilen', () => set({ hardware: c.hardware.map((x, j) => (j === i ? { ...x, at: undefined, count: x.at!.length } : x)) })]);
+    }
+  } else if (tag?.div !== undefined) {
+    const i = tag.div;
+    key = `div:${i}`;
+    if (!ro) {
+      items.push(['Einbau löschen', () => { set(removeSelection(c, key!)); edit.select(null); }]);
+      const ax = c.dividers[i]?.axis;
+      if (ax && c.dividers.filter((d) => d.axis === ax).length > 1) items.push(['Gleichmäßig verteilen', () => set({ dividers: spreadDividers(c, ax) })]);
+    }
+  } else if (tag?.part) {
+    key = `part:${tag.part}`;
+    if (!ro && tag.part !== 'base') items.push([tag.part.startsWith('door') ? 'Tür entfernen' : c.lidSplit ? 'Teilung aufheben' : 'Deckel entfernen', () => { set(removeSelection(c, key!)); edit.select(null); }]);
+  }
+  if (key) {
+    const k = key;
+    if (items.length) items.push(null);
+    items.push(['Ausblenden', () => { const h = new Set(edit.hidden); h.add(k); edit.setHidden(h); if (edit.selected?.startsWith(k)) edit.select(null); }]);
+    items.push(['Isolieren', () => edit.setHidden(new Set(allKeys(c).filter((x) => x !== k))), 'Nur dieses Teil zeigen, alle anderen ausblenden']);
+  }
+  if (items.length) items.push(null);
+  if (edit.hidden.size) items.push(['Alle einblenden', () => edit.setHidden(new Set())]);
+  items.push(['Einpassen', fit]);
+  return (
+    <div ref={ref} className="ctx-menu" role="menu" style={{ left: menu.x, top: menu.y }} onContextMenu={(e) => e.preventDefault()}>
+      {items.map((it, n) => (it ? <button key={n} role="menuitem" title={it[2]} onClick={() => { it[1](); close(); }}>{it[0]}</button> : <hr key={n} />))}
+    </div>
   );
 }
 
@@ -150,8 +277,10 @@ function tagOf(o: THREE.Object3D | null): Tag | null {
  * Pointer handling of the case editor: picking, dragging hardware over its face, push/pull grips, split and
  * placement tools. Works on refs so the scene keeps one set of listeners while the case changes under it.
  */
-function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { current: CaseEdit | undefined }, openRef: { current: boolean }, ctl: { current: EditorCtl | null }, setHud: (h: Hud | null) => void) {
+function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { current: CaseEdit | undefined }, openRef: { current: boolean }, ctl: { current: EditorCtl | null }, ui: { current: EditorUi }) {
   const { dom, camera, content, controls } = api;
+  const setHud = (h: Hud | null) => ui.current.setHud(h);
+  let rdown: { x: number; y: number } | null = null;
   const hudAt = (e: PointerEvent, text: string) => { const r = dom.getBoundingClientRect(); setHud({ x: e.clientX - r.left, y: e.clientY - r.top, text }); };
 
   // standard views: the camera swings around the current target, keeping its distance
@@ -244,6 +373,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
 
   const onDown = (e: PointerEvent) => {
     const ed = editRef.current;
+    if (e.button === 2) { rdown = { x: e.clientX, y: e.clientY }; return; }
     if (!ed || e.button !== 0) return;
     down = { x: e.clientX, y: e.clientY, id: e.pointerId };
     moved = false;
@@ -351,6 +481,20 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
 
   const onUp = (e: PointerEvent) => {
     const ed = editRef.current;
+    if (e.button === 2) {
+      // right click without dragging (dragging pans): menu on what is under the pointer
+      const was = rdown;
+      rdown = null;
+      if (!ed || !was || Math.hypot(e.clientX - was.x, e.clientY - was.y) > 5) return;
+      const p = pick(e);
+      const tag = p && !p.tag.grip ? p.tag : null;
+      if (tag?.hw) ed.select(`hw:${tag.hw.i}:${tag.hw.k}`);
+      else if (tag?.div !== undefined) ed.select(`div:${tag.div}`);
+      else if (tag?.part) ed.select(`part:${tag.part}`);
+      const r = dom.getBoundingClientRect();
+      ui.current.setMenu({ x: e.clientX - r.left, y: e.clientY - r.top, tag });
+      return;
+    }
     const wasDrag = drag;
     drag = null;
     if (wasDrag) { controls.enabled = true; setHud(null); try { dom.releasePointerCapture(e.pointerId); } catch { /* already released */ } }
@@ -364,6 +508,17 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
       if (p.tag.hw) ed.select(`hw:${p.tag.hw.i}:${p.tag.hw.k}`);
       else if (p.tag.div !== undefined) ed.select(`div:${p.tag.div}`);
       else if (p.tag.part) ed.select(`part:${p.tag.part}`);
+      return;
+    }
+    if (ed.tool === 'measure') {
+      // any surface of the model; overlays (markers, grips) are skipped
+      const hit = hitsOf(e).find((h) => !h.object.userData.overlay && !h.object.userData.grip && !((h.object as THREE.Mesh).material as THREE.Material).userData?.noClip);
+      const root = content.children[0];
+      if (!hit || !root || !hit.face) return;
+      const lp = root.worldToLocal(hit.point.clone());
+      const n = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+      const ax = Math.abs(n.x) >= Math.abs(n.y) && Math.abs(n.x) >= Math.abs(n.z) ? 'x' : Math.abs(n.y) >= Math.abs(n.z) ? 'y' : 'z';
+      ui.current.onMeasure({ p: [lp.x, lp.y, lp.z], ax });
       return;
     }
     if (ed.readOnly) return;
@@ -414,7 +569,9 @@ const ITEM_TONES = ['#26292e', '#33373d', '#1f2125', '#3b4047', '#2c3036', '#414
 
 /** builds the model into `root` (mm) */
 /** what the editor shows: hidden components ('part:base', 'hw:3', 'foam') and the selection (outlined) */
-export interface CaseView { hidden?: Set<string>; selected?: string | null; /** outer chain dimensions */ dims?: boolean }
+/** a measured point: model coordinates (mm, scene axes) and the axis of the face it lies on */
+export interface MeasurePt { p: [number, number, number]; ax: 'x' | 'y' | 'z' }
+export interface CaseView { hidden?: Set<string>; selected?: string | null; /** outer chain dimensions */ dims?: boolean; measure?: { a: MeasurePt; b?: MeasurePt } }
 
 export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?: CaseView): BuildResult {
   const d = caseDims(c);
@@ -646,6 +803,7 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?
     }
   }
   if (view?.dims) addOuterDims(root, c, y0);
+  if (view?.measure) addMeasure(root, view.measure);
   const selDiv = /^div:(\d+)$/.exec(view?.selected ?? '');
   if (selDiv && c.dividers[Number(selDiv[1])]) addDividerDims(base, c, Number(selDiv[1]), t, P);
   B.finish();
@@ -876,4 +1034,32 @@ function addDividerDims(base: THREE.Object3D, c: FlightCase, i: number, t: numbe
   dimChain(g, [lo, dv.pos - DIVIDER_T / 2], at, v3(0, 0, 0));
   dimChain(g, [dv.pos + DIVIDER_T / 2, hi], at, v3(0, 0, 0));
   base.add(g);
+}
+
+/** measure tool: markers at the picked points and the line between them with its length */
+function addMeasure(root: THREE.Object3D, m: { a: MeasurePt; b?: MeasurePt }) {
+  const g = new THREE.Group();
+  g.userData.overlay = true;
+  const mat = new THREE.MeshBasicMaterial({ color: '#22d3ee', depthTest: false, transparent: true });
+  mat.userData.noClip = true;
+  const pts = [m.a, m.b].filter(Boolean) as MeasurePt[];
+  for (const p of pts) {
+    const s = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 12), mat);
+    s.position.set(...p.p);
+    s.renderOrder = 22;
+    s.userData.overlay = true;
+    g.add(s);
+  }
+  if (m.b) {
+    const a = new THREE.Vector3(...m.a.p), b = new THREE.Vector3(...m.b.p);
+    const geo = new THREE.BufferGeometry().setFromPoints([a, b]);
+    const lm = new THREE.LineBasicMaterial({ color: '#22d3ee', depthTest: false, transparent: true });
+    lm.userData.noClip = true;
+    const line = new THREE.Line(geo, lm);
+    line.renderOrder = 22;
+    g.add(line);
+    const lab = dimLabel(String(Math.round(a.distanceTo(b))), 28);
+    if (lab) { lab.position.copy(a).add(b).multiplyScalar(0.5); g.add(lab); }
+  }
+  root.add(g);
 }

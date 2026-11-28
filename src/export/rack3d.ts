@@ -35,7 +35,7 @@ async function sceneOf(project: Project, rack: Rack) {
  * Exporters handle one material per mesh best (the USDZ exporter skips meshes with several): split the device boxes
  * (one material per face group) into one mesh per group. Cables become opaque (the view only fades them for highlights).
  */
-function prepare(root: THREE.Object3D) {
+export function prepare(root: THREE.Object3D) {
   const multi: THREE.Mesh[] = [];
   root.traverse((o) => {
     const m = o as THREE.Mesh;
@@ -65,7 +65,7 @@ function prepare(root: THREE.Object3D) {
 }
 
 /** textures with an offset/repeat (rear panels) are baked into their own canvas, so every format shows them right */
-function bakeTransforms(root: THREE.Object3D) {
+export function bakeTransforms(root: THREE.Object3D) {
   root.traverse((o) => {
     const mats = (o as THREE.Mesh).material;
     for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) {

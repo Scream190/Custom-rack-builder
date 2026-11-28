@@ -495,3 +495,18 @@ tr.bad-row td { color: #fca5a5; }
 .tl-info { flex: none; display: flex; align-items: center; gap: 6px; max-width: 46%; font-size: 12px; }
 .tl-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .tl-empty { white-space: nowrap; }
+/* case designer: context menu, shortcuts, measure readout */
+.ctx-menu { position: absolute; z-index: 9; min-width: 190px; padding: 4px 0; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45); font-size: 12px; }
+.ctx-menu button { display: block; width: 100%; text-align: left; padding: 5px 12px; background: none; border: 0; color: var(--text); cursor: pointer; }
+.ctx-menu button:hover { background: rgba(255, 255, 255, 0.06); }
+.ctx-menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+.view3d-help { position: absolute; right: 12px; top: 48px; z-index: 8; width: 300px; padding: 8px 10px; background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; font-size: 12px; }
+.view3d-help-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.view3d-help table { width: 100%; border-collapse: collapse; }
+.view3d-help td { padding: 2px 0; vertical-align: top; }
+.view3d-help td:first-child { width: 42%; padding-right: 8px; }
+.view3d-help kbd { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; padding: 1px 5px; border: 1px solid var(--line); border-radius: 3px; background: var(--bg); white-space: nowrap; }
+.view3d-measure { position: absolute; left: 12px; bottom: 46px; z-index: 6; padding: 6px 9px; background: rgba(13, 15, 18, 0.9); border: 1px solid #3b4048; border-radius: 3px; font-size: 12px; line-height: 1.45; font-variant-numeric: tabular-nums; pointer-events: none; }
+.view3d-file { position: absolute; top: 10px; right: 10px; z-index: 6; }
+.view3d-file .btn { height: 26px; font-size: 12px; }
+.case-view .view3d-btns { right: 110px; }
