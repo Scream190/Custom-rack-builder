@@ -112,6 +112,260 @@ export function baseInner(c: FlightCase) {
   return { x0: dd.left, x1: c.inner.l - dd.right, y0: dd.front, y1: c.inner.w - dd.back };
 }
 
+/** outer size without castors (mm) */
+export function shellSize(c: FlightCase) {
+  const boxes = caseBoxes(c);
+  return { L: Math.max(...boxes.map((b) => b.x1)), W: Math.max(...boxes.map((b) => b.y1)), H: Math.max(...boxes.map((b) => b.z1)), boxes };
+}
+/** width of a face in face coordinates */
+export const faceSpan = (c: FlightCase, face: CaseFace) => { const s = shellSize(c); return face === 'front' || face === 'back' || face === 'top' || face === 'bottom' ? s.L : s.W; };
+/** face coordinates -> outer coordinates (x along, y front to back, z up) */
+export function faceToOuter(c: FlightCase, face: CaseFace, u: number, z: number): [number, number, number] {
+  const { L, W, H } = shellSize(c);
+  switch (face) {
+    case 'front': return [u, 0, z];
+    case 'back': return [L - u, W, z];
+    case 'left': return [0, W - u, z];
+    case 'right': return [L, u, z];
+    case 'top': return [u, z, H];
+    default: return [u, z, 0];
+  }
+}
+/** outer coordinates -> face coordinates */
+export function outerToFace(c: FlightCase, face: CaseFace, x: number, y: number, z: number): { u: number; z: number } {
+  const { L, W } = shellSize(c);
+  switch (face) {
+    case 'front': return { u: x, z };
+    case 'back': return { u: L - x, z };
+    case 'left': return { u: W - y, z };
+    case 'right': return { u: y, z };
+    default: return { u: x, z: y };
+  }
+}
+export const LATCH_KINDS: HardwareKind[] = ['butterfly', 'butterfly-small', 'draw-latch', 'hinge', 'piano-hinge'];
+/** span of a shell on a face (u range; on top/bottom the x range) */
+function uRangeOf(c: FlightCase, bx: CaseBox, face: CaseFace): [number, number] {
+  const { L, W } = shellSize(c);
+  switch (face) {
+    case 'front': case 'top': case 'bottom': return [bx.x0, bx.x1];
+    case 'back': return [L - bx.x1, L - bx.x0];
+    case 'left': return [W - bx.y1, W - bx.y0];
+    default: return [bx.y0, bx.y1];
+  }
+}
+/** the shells whose panel forms this face (top: closed tops at full height) */
+function shellsOnFace(c: FlightCase, face: CaseFace): CaseBox[] {
+  const { L, W, H, boxes } = shellSize(c);
+  const e = 0.5;
+  const on = (b: CaseBox) => (face === 'front' ? b.y0 < e : face === 'back' ? b.y1 > W - e : face === 'left' ? b.x0 < e : face === 'right' ? b.x1 > L - e : face === 'top' ? b.z1 > H - e : b.z0 < e);
+  return boxes.filter((b) => on(b) && !b.open.includes(face));
+}
+/** where a hand-placed or spread piece of hardware sits: seam it bridges and its range */
+export interface HwInstance { i: number; k: number; kind: HardwareKind; face: CaseFace; seam?: CaseSeam; u: number; z: number; vertical?: boolean }
+/**
+ * Every piece of hardware with its position in face coordinates. Hand-placed pieces keep `at`; the others are spread
+ * evenly: latches and hinges along their seam, handles and labels over the base (or the door on that face).
+ */
+export function hardwareInstances(c: FlightCase): HwInstance[] {
+  const out: HwInstance[] = [];
+  const { H, boxes } = shellSize(c);
+  const lid = boxes.find((b) => b.role === 'lid');
+  const zs = lid ? lid.z0 : H;
+  const closeH = 20;
+  c.hardware.forEach((h, i) => {
+    if (h.kind.startsWith('castor') || h.kind === 'skid' || h.kind === 'foot' || h.kind === 'lid-stay' || h.face === 'bottom') return;
+    const latch = LATCH_KINDS.includes(h.kind);
+    const seam = latch ? h.seam ?? 'lid' : undefined;
+    const n = h.at?.length ?? h.count;
+    if (latch && seam && seam !== 'lid') {
+      const door = boxes.find((b) => b.role === 'door' && b.side === seam);
+      if (!door || h.face === seam) return;
+      if (h.face === 'top') {
+        // seam runs across the top: position along it, depth = the seam line
+        const along = seam === 'front' || seam === 'back';
+        const pos = seam === 'front' ? door.y1 : seam === 'back' ? door.y0 : seam === 'left' ? door.x1 : door.x0;
+        const span = along ? shellSize(c).L : shellSize(c).W;
+        for (let k = 0; k < n; k++) {
+          const a = h.at?.[k] ? (along ? h.at[k].u : h.at[k].z) : (span * (k + 1)) / (n + 1);
+          out.push({ i, k, kind: h.kind, face: 'top', seam, u: along ? a : pos, z: along ? pos : a, vertical: !along });
+        }
+        return;
+      }
+      const seamOuter: [number, number, number] = seam === 'front' ? [0, door.y1, 0] : seam === 'back' ? [0, door.y0, 0] : seam === 'left' ? [door.x1, 0, 0] : [door.x0, 0, 0];
+      const u = outerToFace(c, h.face, ...seamOuter).u;
+      for (let k = 0; k < n; k++) out.push({ i, k, kind: h.kind, face: h.face, seam, u, z: h.at?.[k]?.z ?? door.z0 + ((door.z1 - door.z0) * (k + 1)) / (n + 1), vertical: true });
+      return;
+    }
+    if (latch) {
+      if (!lid || h.face === 'top') return;
+      const lids = boxes.filter((b) => b.role === 'lid');
+      const u0 = Math.min(...lids.map((b) => uRangeOf(c, b, h.face)[0])), u1 = Math.max(...lids.map((b) => uRangeOf(c, b, h.face)[1]));
+      for (let k = 0; k < n; k++) out.push({ i, k, kind: h.kind, face: h.face, seam: 'lid', u: h.at?.[k]?.u ?? u0 + ((u1 - u0) * (k + 1)) / (n + 1), z: zs });
+      return;
+    }
+    if (h.at) { h.at.forEach((p, k) => out.push({ i, k, kind: h.kind, face: h.face, u: p.u, z: p.z })); return; }
+    if (h.kind === 'stack-cup') {
+      const { L, W } = shellSize(c);
+      const pts: [number, number][] = [[75, 75], [L - 75, 75], [75, W - 75], [L - 75, W - 75]];
+      pts.slice(0, Math.max(1, Math.min(4, n))).forEach(([u, z], k) => out.push({ i, k, kind: h.kind, face: 'top', u, z }));
+      return;
+    }
+    const shells = shellsOnFace(c, h.face);
+    const carrier = h.face === 'top' ? shells : [shells.find((b) => b.role === 'base') ?? shells.find((b) => b.role === 'door') ?? shells[0]].filter(Boolean);
+    let k = 0;
+    for (const bx of carrier) {
+      const [u0, u1] = uRangeOf(c, bx, h.face);
+      const top = bx.z1 - (bx.closing.includes('top') ? closeH : 0);
+      for (let j = 0; j < n; j++) {
+        const u = u0 + ((u1 - u0) * (j + 1)) / (n + 1);
+        const z = h.face === 'top' ? (bx.y0 + bx.y1) / 2 : h.kind === 'label' ? Math.min(top - 60, bx.z0 + 82) : h.kind.startsWith('dish') || h.kind === 'cable-gland' ? bx.z0 + (top - bx.z0) * 0.3 : bx.z0 + (top - bx.z0) * 0.52;
+        out.push({ i, k: k++, kind: h.kind, face: h.face, u, z });
+      }
+    }
+  });
+  return out;
+}
+/** turns the spread pieces of one hardware row into hand-placed ones (so a single piece can move) */
+export function pinHardware(c: FlightCase, i: number): CaseHardware[] {
+  const inst = hardwareInstances(c).filter((x) => x.i === i);
+  return c.hardware.map((h, j) => (j === i && !h.at ? { ...h, at: inst.map((x) => ({ u: Math.round(x.u), z: Math.round(x.z) })), count: inst.length } : h));
+}
+/** the face and seam a click on the outside lands on, for placing hardware: latches snap to the nearest seam */
+export function snapToSeam(c: FlightCase, face: CaseFace, u: number, z: number): { seam: CaseSeam; u: number; z: number } | null {
+  const { boxes } = shellSize(c);
+  const cand: { seam: CaseSeam; u: number; z: number; d: number }[] = [];
+  const lid = boxes.find((b) => b.role === 'lid');
+  if (lid && face !== 'top') cand.push({ seam: 'lid', u, z: lid.z0, d: Math.abs(z - lid.z0) });
+  for (const door of boxes.filter((b) => b.role === 'door')) {
+    if (door.side === face) continue;
+    const s = door.side!;
+    if (face === 'top') {
+      const along = s === 'front' || s === 'back';
+      const pos = s === 'front' ? door.y1 : s === 'back' ? door.y0 : s === 'left' ? door.x1 : door.x0;
+      cand.push({ seam: s, u: along ? u : pos, z: along ? pos : z, d: Math.abs((along ? z : u) - pos) });
+    } else {
+      const seamOuter: [number, number, number] = s === 'front' ? [0, door.y1, 0] : s === 'back' ? [0, door.y0, 0] : s === 'left' ? [door.x1, 0, 0] : [door.x0, 0, 0];
+      const su = outerToFace(c, face, ...seamOuter).u;
+      cand.push({ seam: s, u: su, z, d: Math.abs(u - su) });
+    }
+  }
+  cand.sort((a, b) => a.d - b.d);
+  return cand[0] ?? null;
+}
+
+// ------------------------------------------------------------------ direct editing (3D editor)
+
+const r5 = (n: number) => Math.round(n / 5) * 5;
+const clamp = (n: number, a: number, b: number) => Math.max(a, Math.min(b, n));
+export const PART_LABELS: Record<CasePartId, string> = { base: 'Unterteil', lid: 'Deckel', lid2: 'Deckelhälfte rechts', 'door-front': 'Tür vorne', 'door-back': 'Tür hinten', 'door-left': 'Tür links', 'door-right': 'Tür rechts' };
+export const partLabelOf = (c: FlightCase, id: CasePartId) => (id === 'lid' && c.lidSplit ? 'Deckelhälfte links' : PART_LABELS[id]);
+
+/**
+ * Push/pull on one face of a shell: `d` mm outwards along the face normal (negative = inwards). Faces of the base
+ * and lid change the inner size, the outer face of a door its depth, the top of the base (with a lid) and the
+ * underside of the lid move the lid seam. Returns the patch, rounded to `step` mm.
+ */
+export function pushPull(c: FlightCase, part: CasePartId, face: CaseFace, d: number, step = 5): Partial<FlightCase> {
+  const rd = (n: number) => Math.round(n / step) * step;
+  const bx = caseBoxes(c).find((b) => b.id === part);
+  if (!bx || face === 'bottom' && bx.role !== 'lid') return {};
+  const lid = hasLidPart(c);
+  const dd = doorDepths(c);
+  if (bx.role === 'door' && face === bx.side) {
+    const max = Math.round((face === 'front' || face === 'back' ? c.inner.w : c.inner.l) / 2);
+    return { doors: { ...c.doors, [face]: clamp(rd(dd[face] + d), 30, max) }, caseType: undefined };
+  }
+  if (face === 'front' || face === 'back') return { inner: { ...c.inner, w: Math.max(50, rd(c.inner.w + d)) } };
+  if (face === 'left' || face === 'right') return { inner: { ...c.inner, l: Math.max(50, rd(c.inner.l + d)) } };
+  if (face === 'bottom') return { lidH: clamp(rd(c.lidH + d), 20, c.inner.h - 20) };
+  // top
+  if (bx.role === 'base' && lid) return { lidH: clamp(rd(c.lidH - d), 20, c.inner.h - 20) };
+  const h = Math.max(lid ? c.lidH + 20 : 10, rd(c.inner.h + d));
+  return lid && bx.role !== 'base' ? { inner: { ...c.inner, h }, lidH: clamp(c.lidH + (h - c.inner.h), 20, h - 20) } : { inner: { ...c.inner, h } };
+}
+
+/**
+ * Splits the case where the user clicked on the outside (outer coordinates). Horizontal: a lid seam at that height
+ * (adds a lid when there is none). Vertical: a door on the nearer end; on the top in the middle it splits the lid
+ * into two halves (or joins them again).
+ */
+export function splitAt(c: FlightCase, face: CaseFace, x: number, y: number, z: number, vertical: boolean): Partial<FlightCase> | null {
+  const t = wallOf(c);
+  const { L, W } = shellSize(c);
+  if (!vertical) {
+    if (face === 'top' || face === 'bottom') return null;
+    const lidH = clamp(r5(c.inner.h + t - z), 20, c.inner.h - 20);
+    return { lidKind: c.lidKind === 'none' ? 'removable' : c.lidKind, lidH, caseType: undefined };
+  }
+  if (face === 'bottom') return null;
+  if (face === 'top' && hasLidPart(c) && Math.abs(x - L / 2) < L * 0.06) return { lidSplit: c.lidSplit ? undefined : true, caseType: undefined };
+  let side: Side, dist: number;
+  if (face === 'front' || face === 'back') { side = x < L / 2 ? 'left' : 'right'; dist = side === 'left' ? x : L - x; }
+  else if (face === 'left' || face === 'right') { side = y < W / 2 ? 'front' : 'back'; dist = side === 'front' ? y : W - y; }
+  else {
+    const cand: [Side, number][] = [['left', x], ['right', L - x], ['front', y], ['back', W - y]];
+    [side, dist] = cand.sort((a, b) => a[1] - b[1])[0];
+  }
+  const max = Math.round((side === 'front' || side === 'back' ? c.inner.w : c.inner.l) / 2);
+  const depth = clamp(r5(dist - t), 30, max);
+  const doors = { ...c.doors, [side]: depth };
+  // left/right doors win over front/back ones: a new front/back door replaces them
+  if (side === 'front' || side === 'back') { delete doors.left; delete doors.right; }
+  return { doors, caseType: undefined };
+}
+
+/** removes the selected component: one piece of hardware ('hw:i:k'), a hardware row ('hw:i'), the lid or a door */
+export function removeSelection(c: FlightCase, sel: string): Partial<FlightCase> | null {
+  const m = /^hw:(\d+)(?::(\d+))?$/.exec(sel);
+  if (m) {
+    const i = Number(m[1]), h = c.hardware[i];
+    if (!h) return null;
+    if (m[2] === undefined) return { hardware: c.hardware.filter((_, j) => j !== i) };
+    const k = Number(m[2]);
+    const next: CaseHardware | null = h.at ? (h.at.length > 1 ? { ...h, at: h.at.filter((_, j) => j !== k), count: h.at.length - 1 } : null) : h.count > 1 ? { ...h, count: h.count - 1 } : null;
+    return { hardware: next ? c.hardware.map((x, j) => (j === i ? next : x)) : c.hardware.filter((_, j) => j !== i) };
+  }
+  if (sel === 'part:lid' || sel === 'part:lid2') {
+    if (sel === 'part:lid2' || (c.lidSplit && sel === 'part:lid')) return { lidSplit: undefined, caseType: undefined };
+    return { lidKind: 'none', lidH: 0, lidSplit: undefined, caseType: undefined };
+  }
+  const door = /^part:door-(front|back|left|right)$/.exec(sel);
+  if (door) {
+    const doors = { ...c.doors };
+    delete doors[door[1] as Side];
+    return { doors, caseType: undefined };
+  }
+  return null;
+}
+
+/** moves one piece of hardware to a point on its face (face coordinates): latches only slide along their seam */
+export function moveHardware(c: FlightCase, i: number, k: number, u: number, z: number): CaseHardware[] {
+  const pinned = pinHardware(c, i);
+  const inst = hardwareInstances({ ...c, hardware: pinned }).find((x) => x.i === i && x.k === k);
+  const h = pinned[i];
+  if (!inst || !h?.at) return c.hardware;
+  const span = faceSpan(c, inst.face);
+  const { W, H } = shellSize(c);
+  const zMax = inst.face === 'top' ? W : H;
+  let p = { u: clamp(u, 20, span - 20), z: clamp(z, 20, zMax - 20) };
+  if (inst.seam === 'lid') p = { u: p.u, z: inst.z };
+  else if (inst.seam && inst.face !== 'top') p = { u: inst.u, z: p.z };
+  const at = h.at.map((q, j) => (j === k ? { u: Math.round(p.u), z: Math.round(p.z) } : q));
+  return pinned.map((x, j) => (j === i ? { ...x, at } : x));
+}
+
+/** adds one hand-placed piece of hardware where the user clicked (latches and hinges snap to the nearest seam) */
+export function placeHardware(c: FlightCase, kind: HardwareKind, face: CaseFace, u: number, z: number): CaseHardware[] | null {
+  if (!HARDWARE[kind].faces.includes(face)) return null;
+  if (LATCH_KINDS.includes(kind)) {
+    const s = snapToSeam(c, face, u, z);
+    if (!s) return null;
+    // a piece on a door seam seen from the top lies along that seam
+    return [...c.hardware, { kind, face, count: 1, seam: s.seam === 'lid' ? undefined : s.seam, at: [{ u: Math.round(s.u), z: Math.round(s.z) }] }];
+  }
+  return [...c.hardware, { kind, face, count: 1, at: [{ u: Math.round(u), z: Math.round(z) }] }];
+}
+
 /** construction presets after the case types of common case design software */
 export interface CaseType { id: string; label: string; note: string; apply: (c: FlightCase) => Partial<FlightCase> }
 const depthOf = (n: number) => Math.max(60, Math.round(n / 10) * 10);

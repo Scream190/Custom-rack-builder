@@ -23,7 +23,16 @@ export interface BuildResult {
  * Studio-style 3D viewer for physical builds (cases, rack cases): image-based lighting, soft shadows, ambient
  * occlusion in recesses, dark floor fading into the background. `build` fills a group that is in mm.
  */
-export function Scene3D({ build, deps, children }: { build: (root: THREE.Group) => BuildResult; deps: unknown[]; children?: ReactNode }) {
+/** handle for editors: camera, canvas, model root (mm scaled by S) and the orbit controls */
+export interface Scene3DApi { camera: THREE.PerspectiveCamera; dom: HTMLCanvasElement; content: THREE.Group; controls: OrbitControls }
+
+/**
+ * `frameKey`: when given, the camera is framed again only when this key changes (editors keep the view while the
+ * model grows under a push/pull drag); otherwise whenever the model size changes noticeably.
+ */
+export function Scene3D({ build, deps, children, interact, frameKey }: { build: (root: THREE.Group) => BuildResult; deps: unknown[]; children?: ReactNode; interact?: (api: Scene3DApi) => () => void; frameKey?: string }) {
+  const interactRef = useRef(interact);
+  interactRef.current = interact;
   const host = useRef<HTMLDivElement>(null);
   const ctxRef = useRef<{ scene: THREE.Scene; content: THREE.Group; camera: THREE.PerspectiveCamera; controls: OrbitControls; sun: THREE.DirectionalLight; ao: GTAOPass | null } | null>(null);
   const [failed, setFailed] = useState(false);
@@ -84,6 +93,7 @@ export function Scene3D({ build, deps, children }: { build: (root: THREE.Group) 
       composer.addPass(new OutputPass());
     } catch { composer = null; ao = null; }
     ctxRef.current = { scene, content, camera, controls, sun, ao };
+    const stopInteract = interactRef.current?.({ camera, dom: renderer.domElement, content, controls });
     let raf = 0;
     const loop = () => {
       controls.update();
@@ -100,6 +110,7 @@ export function Scene3D({ build, deps, children }: { build: (root: THREE.Group) 
     });
     ro.observe(el);
     return () => {
+      stopInteract?.();
       cancelAnimationFrame(raf);
       ro.disconnect();
       controls.dispose();
@@ -140,7 +151,7 @@ export function Scene3D({ build, deps, children }: { build: (root: THREE.Group) 
     if (scene.fog instanceof THREE.Fog) { scene.fog.near = size * 4; scene.fog.far = size * 12; }
     ao?.updateGtaoMaterial({ radius: Math.max(0.02, size * 0.06), distanceExponent: 1.5, thickness: Math.max(0.02, size * 0.05), scale: 1, samples: 16 });
     // keep the user's camera unless the model changed size noticeably
-    const key = [res.size.x, res.size.y, res.size.z, res.zShift ?? 0].map((x) => Math.round(x / 10)).join('|') + (res.steep ? '|s' : '');
+    const key = frameKey ?? [res.size.x, res.size.y, res.size.z, res.zShift ?? 0].map((x) => Math.round(x / 10)).join('|') + (res.steep ? '|s' : '');
     if (key !== lastSize.current) {
       lastSize.current = key;
       const zShift = (res.zShift ?? 0) * S;

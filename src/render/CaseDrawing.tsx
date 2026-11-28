@@ -1,5 +1,5 @@
 import type { CaseFace, FlightCase, Project } from '../model/types';
-import { baseInner, caseBoxes, caseDims, footprint, isDrawer, usableArea, type CaseBox } from '../model/cases';
+import { baseInner, caseBoxes, caseDims, footprint, hardwareInstances, isDrawer, usableArea, type CaseBox } from '../model/cases';
 import { shade } from './DeviceFace';
 import { cutoutOutline, outlinePath } from '../model/inlay';
 
@@ -63,9 +63,6 @@ function DimV({ y1, y2, x, label, ink }: { y1: number; y2: number; x: number; la
     </g>
   );
 }
-
-/** positions of `count` items spread evenly along a span */
-const spread = (from: number, to: number, count: number) => Array.from({ length: count }, (_, i) => from + ((to - from) * (i + 1)) / (count + 1));
 
 /** gradients and patterns used by the case drawing (ids are shared; identical definitions may appear twice) */
 export function CaseDefs() {
@@ -233,7 +230,6 @@ function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: nu
   const d = caseDims(c);
   const { rects, H: Hc } = faceRects(c, face);
   const Y = (z: number) => Hc - z;
-  const hw = c.hardware.filter((h) => h.face === face);
   const castors = c.hardware.filter((h) => h.kind === 'castor' || h.kind === 'castor-braked').reduce((n, h) => n + h.count, 0);
   const braked = c.hardware.filter((h) => h.kind === 'castor-braked').reduce((n, h) => n + h.count, 0);
   const leg = c.profile === 'alu35' ? 35 : c.profile === 'alu30' ? 30 : 0;
@@ -244,43 +240,34 @@ function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: nu
   const zs = lidRects.length ? lidRects[0].z0 : Hc;
   const items: JSX.Element[] = [];
   const at = (key: string, x: number, y: number, el: JSX.Element, rot = 0) => items.push(<g key={key} transform={`translate(${x},${y})${rot ? ` rotate(${rot})` : ''}`}>{el}</g>);
-  // the rectangle that carries handles, labels and dishes on this face: the base, else the door on this face
-  const carrier = rects.find((r) => r.box.role === 'base') ?? rects.find((r) => r.box.role === 'door') ?? rects[0];
-  hw.forEach((h, i) => {
-    const isLatch = h.kind === 'butterfly' || h.kind === 'butterfly-small' || h.kind === 'draw-latch';
-    const s = h.kind === 'butterfly' ? 1 : h.kind === 'draw-latch' ? 0.6 : 0.7;
-    const seam = h.seam ?? 'lid';
-    if ((isLatch || h.kind === 'hinge' || h.kind === 'piano-hinge') && seam !== 'lid') {
+  // positions come from hardwareInstances, so hand-placed pieces (3D editor) show at the same spot
+  for (const it of hardwareInstances(c)) {
+    if (it.face !== face) continue;
+    const key = `${it.i}-${it.k}`;
+    const isLatch = it.kind === 'butterfly' || it.kind === 'butterfly-small' || it.kind === 'draw-latch';
+    const s = it.kind === 'butterfly' ? 1 : it.kind === 'draw-latch' ? 0.6 : 0.7;
+    if (it.seam && it.seam !== 'lid') {
       // vertical door seam on this face
-      const door = rects.find((r) => r.box.role === 'door' && r.box.side === seam);
-      if (!door) return;
+      const door = rects.find((r) => r.box.role === 'door' && r.box.side === it.seam);
+      if (!door) continue;
       const doorRight = door.u1 > w - e;
-      const x = doorRight ? door.u0 : door.u1;
-      for (let k = 0; k < h.count; k++) {
-        const z = door.z0 + ((door.z1 - door.z0) * (k + 1)) / (h.count + 1);
-        if (isLatch) at(`${i}-${k}`, x, Y(z), <Latch s={s} keeper />, doorRight ? 90 : -90);
-        else at(`${i}-${k}`, x, Y(z), <HingeLeaf closeH={closeH} />, 90);
-      }
-      return;
+      if (isLatch) at(key, it.u, Y(it.z), <Latch s={s} keeper />, doorRight ? 90 : -90);
+      else at(key, it.u, Y(it.z), <HingeLeaf closeH={closeH} />, 90);
+      continue;
     }
-    if (isLatch || h.kind === 'hinge' || h.kind === 'piano-hinge') {
-      if (!lidRects.length) return;
-      const u0 = Math.min(...lidRects.map((r) => r.u0)), u1 = Math.max(...lidRects.map((r) => r.u1));
-      if (h.kind === 'piano-hinge') { items.push(<rect key={i} x={u0 + 20} y={Y(zs) - 5} width={u1 - u0 - 40} height={10} rx={5} fill="url(#cs-alu-h)" stroke={EDGE} strokeWidth={0.6} />); return; }
-      spread(u0, u1, h.count).forEach((x, k) => at(`${i}-${k}`, x, Y(zs), h.kind === 'hinge' ? <HingeLeaf closeH={closeH} /> : <Latch s={s} keeper />));
-      return;
+    if (it.seam === 'lid') {
+      if (it.kind === 'piano-hinge') {
+        const u0 = Math.min(...lidRects.map((r) => r.u0)), u1 = Math.max(...lidRects.map((r) => r.u1));
+        const half = Math.min(150, (u1 - u0) / 2 - 20);
+        items.push(<rect key={key} x={it.u - half} y={Y(zs) - 5} width={2 * half} height={10} rx={5} fill="url(#cs-alu-h)" stroke={EDGE} strokeWidth={0.6} />);
+      } else at(key, it.u, Y(zs), it.kind === 'hinge' ? <HingeLeaf closeH={closeH} /> : <Latch s={s} keeper />);
+      continue;
     }
-    if (!carrier) return;
-    const top = carrier.z1 - (carrier.box.closing.includes('top') ? closeH : 0);
-    const mid = carrier.z0 + (top - carrier.z0) * 0.5;
-    spread(carrier.u0, carrier.u1, h.count).forEach((x, k) => {
-      const key = `${i}-${k}`;
-      if (h.kind === 'handle-recessed') at(key, x, Y(mid), <RecessedHandle />);
-      else if (h.kind === 'handle-strap' || h.kind === 'handle-surface') at(key, x, Y(mid), <StrapHandle />);
-      else if (h.kind === 'label') at(key, x, Y(carrier.z0 + leg + 52), <LabelHolder />);
-      else if (h.kind.startsWith('dish') || h.kind === 'cable-gland') at(key, x, Y(carrier.z0 + (top - carrier.z0) * 0.3), <Dish kind={h.kind} />);
-    });
-  });
+    if (it.kind === 'handle-recessed') at(key, it.u, Y(it.z), <RecessedHandle />);
+    else if (it.kind === 'handle-strap' || it.kind === 'handle-surface') at(key, it.u, Y(it.z), <StrapHandle />);
+    else if (it.kind === 'label') at(key, it.u, Y(it.z), <LabelHolder />);
+    else if (it.kind.startsWith('dish') || it.kind === 'cable-gland') at(key, it.u, Y(it.z), <Dish kind={it.kind} />);
+  }
 
   // aluminium angles along the outer border of the face, closing profiles along the seams between shells
   const strips: JSX.Element[] = [];

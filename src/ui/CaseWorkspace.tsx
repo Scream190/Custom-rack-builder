@@ -1,12 +1,12 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useStore } from '../model/store';
 import type { CaseFace, CaseHardware, CaseSeam, FlightCase, HardwareKind, Project } from '../model/types';
-import { applyCaseType, autoHardware, caseBom, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, HARDWARE, hasDoors, LID_LABELS, newCase, newDrawerInlay, SEAM_LABELS } from '../model/cases';
+import { applyCaseType, autoHardware, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, moveHardware, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
 import { panelMaterial, PANEL_MATERIALS, partLabel, partsForKind, partsInGroup, profileBySku, profileLabel, profilesFor } from '../library/caseHardware';
 import { caseList, foamMaterial, FOAM_MATERIALS, inlayThickness } from '../model/inlay';
 import { formatLength } from '../model/geometry';
 import { CaseSheet, sheetLayout } from '../render/CaseDrawing';
-import { Case3D } from '../three/Case3D';
+import { Case3D, type CaseEdit, type CaseTool } from '../three/Case3D';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Splitter } from './Splitter';
 import { DEFAULT_LAYOUT, getLayout, setLayout, useLayout } from '../model/layout';
@@ -47,7 +47,7 @@ export function openCaseInlay(c: FlightCase) {
 const KINDS = Object.keys(HARDWARE) as HardwareKind[];
 const seamKinds: HardwareKind[] = ['butterfly', 'butterfly-small', 'draw-latch', 'hinge', 'piano-hinge'];
 
-function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
+function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; edit?: CaseEdit }) {
   const ro = useStore((s) => s.readOnly);
   const set = (patch: Partial<FlightCase>) => st().updateCase(c.id, patch);
   const d = caseDims(c);
@@ -73,6 +73,7 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
         </dl>
         {d.castorH ? <div className="muted small">Höhe inklusive {d.castorH} mm Rollen.</div> : null}
         {warnings.length ? <div className="warn-box">{warnings.map((w, i) => <div key={i} className="warn">{w.text}</div>)}</div> : null}
+        {edit?.selected ? <SelectionBox c={c} edit={edit} /> : null}
 
         <Section id="case.inner" title="Innenmaße" defaultOpen summary={`${c.inner.l} × ${c.inner.w} × ${c.inner.h} mm`}>
         <div className="row gap8">
@@ -201,6 +202,98 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
   );
 }
 
+// ------------------------------------------------------------------ editor: selection, component tree
+
+/** what is selected in the 3D editor, with its own fields (position of a piece, depth of a door, ...) */
+function SelectionBox({ c, edit }: { c: FlightCase; edit: CaseEdit }) {
+  const ro = useStore((s) => s.readOnly);
+  const set = (patch: Partial<FlightCase>) => st().updateCase(c.id, patch);
+  const sel = edit.selected!;
+  const del = () => { const p = removeSelection(c, sel); if (p) { set(p); edit.select(null); } };
+  const hw = /^hw:(\d+)(?::(\d+))?$/.exec(sel);
+  if (hw) {
+    const i = Number(hw[1]), h = c.hardware[i];
+    if (!h) return null;
+    const k = hw[2] === undefined ? null : Number(hw[2]);
+    const inst = k === null ? null : hardwareInstances(c).find((x) => x.i === i && x.k === k);
+    const n = h.at?.length ?? h.count;
+    const span = faceSpan(c, h.face);
+    const where = FACE_LABELS[h.face] + (h.seam && h.seam !== 'lid' ? ` (${SEAM_LABELS[h.seam]})` : '');
+    return (
+      <div className="case-sel">
+        <div><b>{HARDWARE[h.kind].label}</b> <span className="muted small">{k !== null ? `${where}, Stück ${k + 1} von ${n}` : `${where}, ${n} Stück`}</span></div>
+        {inst ? (
+          <div className="row gap8">
+            <Field label={h.face === 'top' ? 'von links (mm)' : 'von der linken Kante (mm)'}><NumberInput value={Math.round(inst.u)} min={0} max={Math.round(span)} onChange={(v) => set({ hardware: moveHardware(c, i, k!, v, inst.z) })} /></Field>
+            <Field label={h.face === 'top' ? 'von vorne (mm)' : 'Höhe (mm)'}><NumberInput value={Math.round(inst.z)} min={0} onChange={(v) => set({ hardware: moveHardware(c, i, k!, inst.u, v) })} /></Field>
+          </div>
+        ) : null}
+        {!ro ? (
+          <div className="btn-group">
+            {h.at ? <button className="btn sm" onClick={() => set({ hardware: c.hardware.map((x, j) => (j === i ? { ...x, at: undefined, count: x.at!.length } : x)) })} title="Handgesetzte Positionen verwerfen und die Teile wieder gleichmäßig verteilen">Gleichmäßig verteilen</button> : null}
+            {k !== null ? <button className="btn sm" onClick={() => edit.select(`hw:${i}`)} title="Alle Teile dieser Zeile auswählen">Ganze Zeile</button> : null}
+            <button className="btn sm danger" onClick={del} title="Ausgewähltes löschen (Entf)">{k !== null ? 'Stück löschen' : 'Zeile löschen'}</button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
+  const part = sel.startsWith('part:') ? (sel.slice(5) as CasePartId) : null;
+  const bx = part ? caseBoxes(c).find((b) => b.id === part) : null;
+  if (!part || !bx) return null;
+  const dd = doorDepths(c);
+  return (
+    <div className="case-sel">
+      <div><b>{partLabelOf(c, part)}</b> <span className="muted small">{`außen ${Math.round(bx.x1 - bx.x0)} × ${Math.round(bx.y1 - bx.y0)} × ${Math.round(bx.z1 - bx.z0)} mm`}</span></div>
+      {bx.role === 'door' && bx.side ? <Field label="Tiefe innen (mm)"><NumberInput value={dd[bx.side]} min={30} max={Math.round((bx.side === 'front' || bx.side === 'back' ? c.inner.w : c.inner.l) / 2)} onChange={(v) => set({ doors: { ...c.doors, [bx.side!]: Math.max(30, Math.round(v)) }, caseType: undefined })} /></Field> : null}
+      {bx.role === 'lid' ? <Field label="Deckelhöhe innen (mm)"><NumberInput value={c.lidH} min={20} max={c.inner.h - 20} onChange={(v) => set({ lidH: v })} /></Field> : null}
+      {bx.role === 'base' ? <div className="muted small">Maße ändern: an den Pfeilen ziehen oder unter Innenmaße eintragen.</div> : null}
+      {!ro && bx.role !== 'base' ? <div className="btn-group"><button className="btn sm danger" onClick={del} title="Ausgewähltes löschen (Entf)">{bx.role === 'lid' ? (c.lidSplit ? 'Teilung aufheben' : 'Deckel entfernen') : 'Tür entfernen'}</button></div> : null}
+    </div>
+  );
+}
+
+const Eye = ({ off }: { off: boolean }) => (
+  <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" aria-hidden="true">
+    <path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8Z" />
+    {off ? <path d="M2.5 13.5 13.5 2.5" /> : <circle cx="8" cy="8" r="2" />}
+  </svg>
+);
+
+/** component browser: shells, hardware rows (and pieces), foam; with visibility toggles */
+function CaseTree({ c, edit, setHidden }: { c: FlightCase; edit: CaseEdit; setHidden: (h: Set<string>) => void }) {
+  const toggle = (k: string) => { const h = new Set(edit.hidden); if (h.has(k)) h.delete(k); else h.add(k); setHidden(h); };
+  const insts = hardwareInstances(c);
+  const selRow = /^hw:(\d+)/.exec(edit.selected ?? '')?.[1];
+  const node = (key: string, label: string, sel: string | null, sub = false, eyeKey?: string) => (
+    <div key={key} className={'node' + (sub ? ' sub' : '') + (sel && edit.selected === sel ? ' sel' : '') + (eyeKey && edit.hidden.has(eyeKey) ? ' off' : '')} onClick={() => sel && edit.select(sel)}>
+      {eyeKey ? <button className="eye" title={edit.hidden.has(eyeKey) ? 'Einblenden' : 'Ausblenden'} aria-label={edit.hidden.has(eyeKey) ? 'Einblenden' : 'Ausblenden'} onClick={(e) => { e.stopPropagation(); toggle(eyeKey); }}><Eye off={edit.hidden.has(eyeKey)} /></button> : <span className="eye" />}
+      <span className="nm" title={label}>{label}</span>
+    </div>
+  );
+  return (
+    <div className="case-tree" aria-label="Bauteile">
+      <h4>Körper</h4>
+      {caseBoxes(c).map((b) => node(b.id, partLabelOf(c, b.id), `part:${b.id}`, false, `part:${b.id}`))}
+      <h4>Beschläge</h4>
+      {c.hardware.map((h, i) => {
+        if (h.kind.startsWith('castor')) return null;
+        const pieces = insts.filter((x) => x.i === i);
+        const n = h.at?.length ?? h.count;
+        return [
+          node(`hw${i}`, `${HARDWARE[h.kind].label}, ${FACE_LABELS[h.face]}${h.seam && h.seam !== 'lid' ? ` (${SEAM_LABELS[h.seam]})` : ''}, ${n} ×`, `hw:${i}`, false, `hw:${i}`),
+          ...(selRow === String(i) && pieces.length > 1 ? pieces.map((p) => node(`hw${i}:${p.k}`, `Stück ${p.k + 1}${h.at ? '' : ', verteilt'}`, `hw:${i}:${p.k}`, true)) : []),
+        ];
+      })}
+      <h4>Einlage</h4>
+      {node('foam', 'Schaumstoff', null, false, 'foam')}
+    </div>
+  );
+}
+
+/** hardware the placement tool offers (things that sit on the outside and can be clicked onto a face) */
+const PLACEABLE = (Object.keys(HARDWARE) as HardwareKind[]).filter((k) => !['castor', 'castor-braked', 'skid', 'foot', 'lid-stay'].includes(k) && HARDWARE[k].faces.some((f) => f !== 'bottom'));
+
 // ------------------------------------------------------------------ parts list
 
 /** cut lengths grouped: "4 × 618, 2 × 800" */
@@ -249,9 +342,29 @@ export function CaseWorkspace() {
   const activeId = useStore((s) => s.activeCaseId);
   const ro = useStore((s) => s.readOnly);
   const layout = useLayout();
-  const [view, setView] = useState<'drawing' | '3d'>('drawing');
+  const [view, setView] = useState<'drawing' | '3d'>('3d');
+  const [tool, setTool] = useState<CaseTool>('select');
+  const [selected, select] = useState<string | null>(null);
+  const [hidden, setHidden] = useState<Set<string>>(() => new Set());
   const cases = caseList(project);
   const c = cases.find((x) => x.id === activeId) ?? cases[0];
+  const edit: CaseEdit | undefined = c ? { tool, setTool, selected, select, hidden, readOnly: ro } : undefined;
+  useEffect(() => { select(null); setTool('select'); }, [c?.id]);
+  // keyboard: Del removes the selection, Esc ends a tool or clears the selection
+  useEffect(() => {
+    if (view !== '3d' || !c) return;
+    const onKey = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'SELECT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (e.key === 'Escape') { if (tool !== 'select') setTool('select'); else select(null); }
+      else if ((e.key === 'Delete' || e.key === 'Backspace') && selected && !ro) {
+        const p = removeSelection(c, selected);
+        if (p) { st().updateCase(c.id, p); select(null); e.preventDefault(); }
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [view, c, tool, selected, ro]);
   if (!c) {
     return (
       <main className="workspace">
@@ -272,17 +385,35 @@ export function CaseWorkspace() {
               { id: '3d', label: '3D', title: 'Räumliche Ansicht, mit der Maus drehen und zoomen' },
             ]} />
           </ToolGroup>
+          {view === '3d' && !ro ? (
+            <ToolGroup label="Werkzeug">
+              <Seg value={tool.startsWith('place:') ? ('place' as CaseTool) : tool} onChange={(v) => setTool(v === ('place' as CaseTool) ? (`place:${PLACEABLE[0]}` as CaseTool) : v)} options={[
+                { id: 'select', label: 'Auswählen', title: 'Auswählen, Beschläge verschieben, an den Pfeilen Maße ziehen (Esc)' },
+                { id: 'seam-h', label: 'Fuge waagrecht', title: 'Case waagrecht teilen: Klick auf eine Seitenwand setzt die Deckelfuge' },
+                { id: 'seam-v', label: 'Fuge senkrecht', title: 'Case senkrecht teilen: Klick nahe einem Ende setzt eine Tür, in der Deckelmitte wird der Deckel geteilt' },
+              ]} />
+              <select className={tool.startsWith('place:') ? 'active' : ''} value={tool.startsWith('place:') ? tool.slice(6) : ''} onChange={(e) => setTool(e.target.value ? (`place:${e.target.value}` as CaseTool) : 'select')} title="Beschlag wählen und auf die Außenseite klicken">
+                <option value="">Beschlag setzen …</option>
+                {PLACEABLE.map((k) => <option key={k} value={k}>{HARDWARE[k].label}</option>)}
+              </select>
+            </ToolGroup>
+          ) : null}
           {!ro ? (
             <ToolGroup>
               <button className="btn sm" onClick={() => openCaseInlay(c)} title="Schaumstoff und Ausschnitte dieses Cases im Einlagen-Designer bearbeiten">Einlage bearbeiten</button>
             </ToolGroup>
           ) : null}
           <span className="spacer" />
-          <ShowMenu list="Stückliste" />
+          <ShowMenu list="Stückliste" library="Bauteile" />
         </Toolbar>
         <div className="stage">
           <ErrorBoundary resetKey={view + c.id}>
-            {view === '3d' ? <Case3D c={c} /> : (
+            {view === '3d' ? (
+              <div className="case-edit">
+                {layout.showLibrary ? <CaseTree c={c} edit={edit!} setHidden={setHidden} /> : null}
+                <div className="case-view"><Case3D c={c} edit={edit} /></div>
+              </div>
+            ) : (
               <SheetCanvas c={c} size={{ x: -90, y: -40, w: L.w + 130, h: L.h + 60 }} fitKey={`${c.id}:${Math.round(L.w)}:${Math.round(L.h)}`} editable={false}
                 hint="Mausrad zoomt, Ziehen verschiebt, Doppelklick passt ein. Ausschnitte bearbeitest du im Einlagen-Designer.">
                 {() => <CaseSheet c={c} />}
@@ -295,7 +426,7 @@ export function CaseWorkspace() {
       {layout.showInspector ? (
         <>
           <Splitter dir="x" sign={-1} value={layout.inspectorW} min={240} max={640} onChange={(v) => setLayout({ inspectorW: v })} onReset={() => setLayout({ inspectorW: DEFAULT_LAYOUT.inspectorW })} />
-          <div className="col" style={{ width: layout.inspectorW }}><CaseInspector c={c} project={project} /></div>
+          <div className="col" style={{ width: layout.inspectorW }}><CaseInspector c={c} project={project} edit={view === '3d' ? edit : undefined} /></div>
         </>
       ) : null}
     </main>

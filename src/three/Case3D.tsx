@@ -1,33 +1,238 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import type { CaseFace, CaseItem, FlightCase } from '../model/types';
-import { baseInner, caseBoxes, caseDims, footprint, hasDoors, isDrawer, usableArea, wallOf, type CaseBox, type CasePartId } from '../model/cases';
+import type { CaseFace, CaseItem, FlightCase, HardwareKind } from '../model/types';
+import { useStore } from '../model/store';
+import { baseInner, caseBoxes, caseDims, faceToOuter, footprint, hardwareInstances, hasDoors, isDrawer, moveHardware, outerToFace, placeHardware, pushPull, shellSize, splitAt, usableArea, wallOf, type CasePartId } from '../model/cases';
 import { cutoutOutline, outlineBox } from '../model/inlay';
 import { Builder, FOAM_MM, boxGeo, faceBasis, inlayGeo, makeMats, v3, type FaceKey } from './caseParts';
-import { Scene3D, type BuildResult } from './Scene3D';
+import { Scene3D, type BuildResult, type Scene3DApi } from './Scene3D';
 
-/** 3D preview of a flight case (lid open or closed) or of a foam inlay in its container. */
-export function Case3D({ c }: { c: FlightCase }) {
-  const [open, setOpen] = useState(true);
+/** editor tools: select and drag, split the case (horizontal = lid seam, vertical = door), place a piece of hardware */
+export type CaseTool = 'select' | 'seam-h' | 'seam-v' | `place:${HardwareKind}`;
+/** editor state owned by the workspace (shared with the component tree and the inspector) */
+export interface CaseEdit {
+  tool: CaseTool;
+  setTool: (t: CaseTool) => void;
+  selected: string | null;
+  select: (s: string | null) => void;
+  hidden: Set<string>;
+  readOnly?: boolean;
+}
+
+const TOOL_HINTS: Record<string, string> = {
+  select: 'Klicken wählt aus, Beschläge mit der Maus verschieben, an den Pfeilen einer Schale ziehen ändert die Maße (Strg: 1-mm-Schritte). Entf löscht, Esc hebt die Auswahl auf.',
+  'seam-h': 'Auf eine Seitenwand klicken: Dort wird waagrecht geteilt (Deckelfuge). Esc beendet.',
+  'seam-v': 'Auf eine Seitenwand oder den Deckel klicken: Am näheren Ende entsteht eine Tür, in der Deckelmitte wird der Deckel geteilt. Esc beendet.',
+  place: 'Auf die Außenseite klicken, um den Beschlag zu setzen. Verschlüsse und Scharniere rasten an der nächsten Fuge ein. Esc beendet.',
+};
+
+/** 3D preview of a flight case (lid open or closed) or of a foam inlay in its container; with `edit` a direct editor. */
+export function Case3D({ c, edit }: { c: FlightCase; edit?: CaseEdit }) {
+  const [open, setOpen] = useState(!edit);
+  const [fit, setFit] = useState(0);
+  const cRef = useRef(c); cRef.current = c;
+  const editRef = useRef(edit); editRef.current = edit;
+  const openRef = useRef(open); openRef.current = open;
   const doors = hasDoors(c);
   const lidToggle = !isDrawer(c) && c.kind !== 'inlay' && (c.lidKind !== 'none' || doors);
   const what = doors ? (c.lidKind !== 'none' ? 'Deckel und Türen' : 'Türen') : 'Deckel';
+  const view: CaseView | undefined = edit ? { hidden: edit.hidden, selected: edit.selected } : undefined;
+  const hint = edit && !edit.readOnly ? TOOL_HINTS[edit.tool.startsWith('place:') ? 'place' : edit.tool] : null;
   return (
-    <Scene3D build={(root) => buildCase(root, c, open)} deps={[c, open]}>
-      {lidToggle ? (
-        <button className="btn sm view3d-btn" onClick={() => setOpen(!open)} title={open ? `${what} aufsetzen und das Case geschlossen zeigen` : `${what} abnehmen bzw. aufklappen und das Innere zeigen`}>
-          {open ? `${what} schließen` : `${what} öffnen`}
-        </button>
-      ) : null}
+    <Scene3D build={(root) => buildCase(root, c, open, view)} deps={[c, open, edit?.selected, edit?.hidden]}
+      interact={edit ? (api) => caseEditor(api, cRef, editRef, openRef) : undefined}
+      frameKey={edit ? `${c.id}:${open}:${fit}` : undefined}>
+      <div className="view3d-btns">
+        {lidToggle ? (
+          <button className="btn sm" onClick={() => setOpen(!open)} title={open ? `${what} aufsetzen und das Case geschlossen zeigen` : `${what} abnehmen bzw. aufklappen und das Innere zeigen`}>
+            {open ? `${what} schließen` : `${what} öffnen`}
+          </button>
+        ) : null}
+        {edit ? <button className="btn sm" onClick={() => setFit(fit + 1)} title="Kamera auf das ganze Case ausrichten">Einpassen</button> : null}
+      </div>
+      {hint ? <div className="view3d-hint">{hint}</div> : null}
     </Scene3D>
   );
+}
+
+type Tag = { grip?: { part: CasePartId; face: CaseFace }; hw?: { i: number; k: number }; part?: CasePartId; group?: THREE.Object3D };
+function tagOf(o: THREE.Object3D | null): Tag | null {
+  for (let x = o; x; x = x.parent) {
+    if (x.userData.grip) return { grip: x.userData.grip };
+    if (x.userData.hw) return { hw: x.userData.hw };
+    if (x.userData.partGroup) return { part: x.userData.partGroup, group: x };
+  }
+  return null;
+}
+
+/**
+ * Pointer handling of the case editor: picking, dragging hardware over its face, push/pull grips, split and
+ * placement tools. Works on refs so the scene keeps one set of listeners while the case changes under it.
+ */
+function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { current: CaseEdit | undefined }, openRef: { current: boolean }) {
+  const { dom, camera, content, controls } = api;
+  const ray = new THREE.Raycaster();
+  const ndc = new THREE.Vector2();
+  const setRay = (e: PointerEvent) => {
+    const r = dom.getBoundingClientRect();
+    ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+    ray.setFromCamera(ndc, camera);
+  };
+  const hitsOf = (e: PointerEvent) => { setRay(e); return ray.intersectObject(content, true).filter((h) => h.object instanceof THREE.Mesh && h.object.visible); };
+  /** the nearest tagged object under the pointer; grips win because they are drawn on top */
+  const pick = (e: PointerEvent, only?: (t: Tag) => boolean) => {
+    const hits = hitsOf(e);
+    const grip = hits.find((h) => h.object.userData.grip);
+    if (grip && !only) return { hit: grip, tag: { grip: grip.object.userData.grip } as Tag };
+    for (const h of hits) {
+      const tag = tagOf(h.object);
+      if (tag && !tag.grip && (!only || only(tag))) return { hit: h, tag };
+    }
+    return null;
+  };
+  /** a hit on a shell -> outer coordinates and the outside face it lies on (null for inner faces) */
+  const faceHit = (h: THREE.Intersection, group: THREE.Object3D) => {
+    const c = cRef.current;
+    const inv = group.matrixWorld.clone().invert();
+    const p = h.point.clone().applyMatrix4(inv);
+    if (!h.face) return null;
+    const n = h.face.normal.clone().transformDirection(h.object.matrixWorld).transformDirection(inv);
+    const ax = Math.abs(n.x), ay = Math.abs(n.y), az = Math.abs(n.z);
+    const face: CaseFace = ay >= ax && ay >= az ? (n.y > 0 ? 'top' : 'bottom') : ax >= az ? (n.x > 0 ? 'right' : 'left') : n.z > 0 ? 'front' : 'back';
+    const { L, W, H } = shellSize(c);
+    const x = p.x + L / 2, y = W / 2 - p.z, z = p.y;
+    const off = face === 'front' ? y : face === 'back' ? W - y : face === 'left' ? x : face === 'right' ? L - x : face === 'top' ? H - z : z;
+    if (Math.abs(off) > 12) return null;
+    return { face, x, y, z };
+  };
+  const update = (patch: Partial<FlightCase>, key: string) => useStore.getState().updateCase(cRef.current.id, patch, key);
+
+  let drag: null | { kind: 'hw'; i: number; k: number; face: CaseFace } | { kind: 'grip'; part: CasePartId; face: CaseFace; c0: FlightCase; origin: THREE.Vector3; axis: THREE.Vector3; scale: number } = null;
+  let down: { x: number; y: number; id: number } | null = null;
+  let moved = false;
+  let pending: PointerEvent | null = null;
+  let raf = 0;
+  let nDrag = 0, key = '';
+
+  const onDown = (e: PointerEvent) => {
+    const ed = editRef.current;
+    if (!ed || e.button !== 0) return;
+    down = { x: e.clientX, y: e.clientY, id: e.pointerId };
+    moved = false;
+    if (ed.readOnly || ed.tool !== 'select') return;
+    const p = pick(e);
+    if (!p) return;
+    if (p.tag.grip && !openRef.current) {
+      const obj = p.hit.object.parent!;
+      const origin = obj.getWorldPosition(new THREE.Vector3());
+      const axis = new THREE.Vector3(0, 1, 0).applyQuaternion(obj.getWorldQuaternion(new THREE.Quaternion())).normalize();
+      const scale = new THREE.Vector3().setFromMatrixScale(obj.parent!.matrixWorld).x;
+      drag = { kind: 'grip', ...p.tag.grip, c0: cRef.current, origin, axis, scale };
+    } else if (p.tag.hw) {
+      const inst = hardwareInstances(cRef.current).find((x) => x.i === p.tag.hw!.i && x.k === p.tag.hw!.k);
+      if (!inst) return;
+      ed.select(`hw:${inst.i}:${inst.k}`);
+      drag = { kind: 'hw', i: inst.i, k: inst.k, face: inst.face };
+    } else return;
+    key = `drag:case:${cRef.current.id}:${Date.now()}:${++nDrag}`;
+    controls.enabled = false;
+    dom.setPointerCapture(e.pointerId);
+    e.stopImmediatePropagation();
+  };
+
+  const applyDrag = (e: PointerEvent) => {
+    const c = cRef.current;
+    if (!drag) return;
+    if (drag.kind === 'grip') {
+      setRay(e);
+      // closest point on the grip axis to the pointer ray
+      const w0 = drag.origin.clone().sub(ray.ray.origin);
+      const a = drag.axis, b = ray.ray.direction;
+      const ab = a.dot(b), denom = 1 - ab * ab;
+      if (denom < 1e-4) return;
+      const s = (ab * w0.dot(b) - w0.dot(a)) / denom;
+      const mm = s / drag.scale;
+      update(pushPull(drag.c0, drag.part, drag.face, mm, e.ctrlKey || e.metaKey ? 1 : 5), key);
+      return;
+    }
+    const p = pick(e, (t) => !!t.part);
+    if (!p?.tag.group) return;
+    const f = faceHit(p.hit, p.tag.group);
+    if (!f || f.face !== drag.face) return;
+    const uv = outerToFace(c, f.face, f.x, f.y, f.z);
+    update({ hardware: moveHardware(c, drag.i, drag.k, uv.u, uv.z) }, key);
+  };
+
+  const onMove = (e: PointerEvent) => {
+    if (down && Math.hypot(e.clientX - down.x, e.clientY - down.y) > 4) moved = true;
+    if (drag) {
+      pending = e;
+      if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (pending) applyDrag(pending); pending = null; });
+      return;
+    }
+    // hover feedback (cursor only)
+    const ed = editRef.current;
+    if (!ed || down || ed.readOnly) return;
+    if (ed.tool !== 'select') { dom.style.cursor = 'crosshair'; return; }
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      const p = pick(e);
+      dom.style.cursor = p?.tag.grip && !openRef.current ? 'ns-resize' : p?.tag.hw ? 'grab' : '';
+    });
+  };
+
+  const onUp = (e: PointerEvent) => {
+    const ed = editRef.current;
+    const wasDrag = drag;
+    drag = null;
+    if (wasDrag) { controls.enabled = true; try { dom.releasePointerCapture(e.pointerId); } catch { /* already released */ } }
+    const click = down && !moved && e.button === 0;
+    down = null;
+    if (!ed || !click || wasDrag) return;
+    const c = cRef.current;
+    if (ed.tool === 'select') {
+      const p = pick(e);
+      if (!p) { ed.select(null); return; }
+      if (p.tag.hw) ed.select(`hw:${p.tag.hw.i}:${p.tag.hw.k}`);
+      else if (p.tag.part) ed.select(`part:${p.tag.part}`);
+      return;
+    }
+    if (ed.readOnly) return;
+    const p = pick(e, (t) => !!t.part);
+    if (!p?.tag.group) return;
+    const f = faceHit(p.hit, p.tag.group);
+    if (!f) return;
+    if (ed.tool === 'seam-h' || ed.tool === 'seam-v') {
+      const patch = splitAt(c, f.face, f.x, f.y, f.z, ed.tool === 'seam-v');
+      if (patch) update(patch, '');
+      return;
+    }
+    const kind = ed.tool.slice(6) as HardwareKind;
+    const uv = outerToFace(c, f.face, f.x, f.y, f.z);
+    const hw = placeHardware(c, kind, f.face, uv.u, uv.z);
+    if (hw) { update({ hardware: hw }, ''); ed.select(`hw:${hw.length - 1}:0`); }
+  };
+
+  dom.addEventListener('pointerdown', onDown, { capture: true });
+  dom.addEventListener('pointermove', onMove);
+  dom.addEventListener('pointerup', onUp);
+  return () => {
+    cancelAnimationFrame(raf);
+    dom.removeEventListener('pointerdown', onDown, { capture: true });
+    dom.removeEventListener('pointermove', onMove);
+    dom.removeEventListener('pointerup', onUp);
+  };
 }
 
 const ITEM_TONES = ['#26292e', '#33373d', '#1f2125', '#3b4047', '#2c3036', '#41464d'];
 
 /** builds the model into `root` (mm) */
-export function buildCase(root: THREE.Group, c: FlightCase, open: boolean): BuildResult {
+/** what the editor shows: hidden components ('part:base', 'hw:3', 'foam') and the selection (outlined) */
+export interface CaseView { hidden?: Set<string>; selected?: string | null }
+
+export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?: CaseView): BuildResult {
   const d = caseDims(c);
   const mats = makeMats(c.color, c.foam.color);
   const B = new Builder(mats);
@@ -54,17 +259,21 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean): Buil
     const g = new THREE.Group();
     g.position.y = y0;
     groups.set(bx.id, g);
+    g.userData.partGroup = bx.id;
+    if (view?.hidden?.has(`part:${bx.id}`)) continue;
     const sh = B.shell(g, { ...shellOpts, size: [bx.x1 - bx.x0, bx.z1 - bx.z0, bx.y1 - bx.y0], open: bx.open.map((f) => FK[f]), closing: bx.closing.map((f) => FK[f]) });
     sh.position.copy(P((bx.x0 + bx.x1) / 2, (bx.y0 + bx.y1) / 2, (bx.z0 + bx.z1) / 2));
+    sh.userData.part = bx.id;
   }
   const base = groups.get('base')!;
   root.add(base);
   const baseBox = boxes[0];
   const drawers = c.drawers ?? [];
+  const foamOn = !view?.hidden?.has('foam');
   if (drawers.length) buildDrawers(base, c, t, open, B);
-  else addFoam(base, c, 'body', t, d.bodyInner, B);
+  else if (foamOn) addFoam(base, c, 'body', t, d.bodyInner, B);
   const lidBox = boxes.find((b) => b.id === 'lid');
-  if (lidBox) {
+  if (lidBox && foamOn) {
     // lid foam hangs from the ceiling: lid groups get their origin at the split for addFoam
     const lg = new THREE.Group();
     lg.position.y = lidBox.z0;
@@ -78,25 +287,6 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean): Buil
     return boxes.find((b) => x >= b.x0 - e && x <= b.x1 + e && y >= b.y0 - e && y <= b.y1 + e && z >= b.z0 - e && z <= b.z1 + e) ?? baseBox;
   };
   const groupAt = (x: number, y: number, z: number) => groups.get(partAt(x, y, z).id)!;
-  /** point on a face: u = position across the face (0..span), z = height; returns outer coordinates */
-  const onFace = (face: CaseFace, u: number, z: number): [number, number, number] => {
-    switch (face) {
-      case 'front': return [u, 0, z];
-      case 'back': return [L - u, W, z];
-      case 'left': return [0, W - u, z];
-      case 'right': return [L, u, z];
-      default: return [u, W / 2, d.H - y0];
-    }
-  };
-  /** span of a shell along a face (u range) */
-  const uRange = (bx: CaseBox, face: CaseFace): [number, number] => {
-    switch (face) {
-      case 'front': case 'top': case 'bottom': return [bx.x0, bx.x1];
-      case 'back': return [L - bx.x1, L - bx.x0];
-      case 'left': return [W - bx.y1, W - bx.y0];
-      default: return [bx.y0, bx.y1];
-    }
-  };
   const frameAt = (g: THREE.Object3D, face: CaseFace, pt: [number, number, number], vDir?: THREE.Vector3) => {
     const { n, u, v } = faceBasis(face);
     const vv = vDir ?? v;
@@ -105,105 +295,49 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean): Buil
   };
   const Hc = d.H - y0;
   const zs = lidBox ? lidBox.z0 : Hc;
-  // the shell whose face carries handles and labels on this face: the base where it reaches the face, else the door there
-  const carrier = (face: CaseFace) => {
-    const reaches = (b: CaseBox) => (face === 'front' ? b.y0 < 1 : face === 'back' ? b.y1 > W - 1 : face === 'left' ? b.x0 < 1 : face === 'right' ? b.x1 > L - 1 : b.z1 > Hc - 1);
-    if (face === 'top') return boxes.filter((b) => !b.open.includes('top') && reaches(b));
-    return [reaches(baseBox) ? baseBox : boxes.find((b) => b.role === 'door' && b.side === face) ?? baseBox];
-  };
-
-  for (const h of c.hardware) {
-    if (h.kind.startsWith('castor') || h.kind === 'skid' || h.kind === 'lid-stay') continue;
-    if (h.kind === 'foot') continue;
-    if (h.kind === 'stack-cup') {
-      const tops = carrier('top');
-      if (!tops.length) continue;
-      const pts: [number, number][] = [[75, 75], [L - 75, 75], [75, W - 75], [L - 75, W - 75]];
-      for (const [x, y] of pts.slice(0, Math.max(1, h.count))) {
-        const g = groupAt(x, y, Hc);
-        B.stackCup(B.frame(g, P(x, y, Hc), v3(1, 0, 0), v3(0, 0, -1)));
+  for (const it of hardwareInstances(c)) {
+    if (view?.hidden?.has(`hw:${it.i}`)) continue;
+    const tag = <T extends THREE.Object3D>(g: T) => { g.userData.hw = { i: it.i, k: it.k }; return g; };
+    const pt = faceToOuter(c, it.face, it.u, it.z);
+    const s = it.kind === 'butterfly' ? 1 : it.kind === 'draw-latch' ? 0.6 : 0.7;
+    if (it.kind === 'stack-cup') { B.stackCup(tag(B.frame(groupAt(...pt), P(...pt), v3(1, 0, 0), v3(0, 0, -1)))); continue; }
+    const latch = it.kind === 'butterfly' || it.kind === 'butterfly-small' || it.kind === 'draw-latch';
+    if (it.seam && it.seam !== 'lid') {
+      const door = boxes.find((b) => b.role === 'door' && b.side === it.seam);
+      if (!door) continue;
+      const sm = it.seam;
+      const toDoor = sm === 'front' ? v3(0, 0, 1) : sm === 'back' ? v3(0, 0, -1) : sm === 'left' ? v3(-1, 0, 0) : v3(1, 0, 0);
+      if (latch) {
+        const bodyPt: [number, number, number] = [pt[0] - toDoor.x * 30, pt[1] + toDoor.z * 30, pt[2] - (it.face === 'top' ? 1 : 0)];
+        B.butterflyLatch(tag(frameAt(groupAt(...bodyPt), it.face, pt, toDoor)), s);
+        B.latchKeeper(tag(frameAt(groups.get(door.id)!, it.face, pt, toDoor)), s);
+      } else B.add(tag(frameAt(groups.get(door.id)!, it.face, pt, toDoor)), boxGeo(60, 44, 3), mats.chrome, 0, 0, 1.5);
+      continue;
+    }
+    if (it.seam === 'lid') {
+      const below = groupAt(pt[0], pt[1], zs - 30), above = groupAt(pt[0], pt[1], zs + 30);
+      if (it.kind === 'piano-hinge') {
+        const a = faceToOuter(c, it.face, it.u - 150, zs), b = faceToOuter(c, it.face, it.u + 150, zs);
+        tag(B.rod(below, P(...a), P(...b), 4.5, mats.chrome, 14));
+      } else if (it.kind === 'hinge') {
+        const gb = tag(frameAt(below, it.face, pt)), ga = tag(frameAt(above, it.face, pt));
+        B.add(gb, boxGeo(60, 22, 3), mats.chrome, 0, -11 - closeH, 1.5);
+        B.add(gb, new THREE.CylinderGeometry(4.2, 4.2, 60, 14), mats.chrome, 0, 0, 6).rotation.z = Math.PI / 2;
+        B.add(ga, boxGeo(60, 22, 3), mats.chrome, 0, 11 + closeH, 1.5);
+      } else {
+        B.butterflyLatch(tag(frameAt(below, it.face, [pt[0], pt[1], zs - closeH - 2])), s);
+        B.latchKeeper(tag(frameAt(above, it.face, [pt[0], pt[1], zs + closeH + 2])), s);
       }
       continue;
     }
-    const isLatch = h.kind === 'butterfly' || h.kind === 'butterfly-small' || h.kind === 'draw-latch';
-    const s = h.kind === 'butterfly' ? 1 : h.kind === 'draw-latch' ? 0.6 : 0.7;
-    const seam = h.seam ?? 'lid';
-    if ((isLatch || h.kind === 'hinge' || h.kind === 'piano-hinge') && seam !== 'lid') {
-      // vertical seam of a door: on the side faces the latches run up the seam, on the top they run across
-      const door = boxes.find((b) => b.role === 'door' && b.side === seam);
-      if (!door || h.face === seam) continue;
-      const toDoor = seam === 'front' ? v3(0, 0, 1) : seam === 'back' ? v3(0, 0, -1) : seam === 'left' ? v3(-1, 0, 0) : v3(1, 0, 0);
-      const seamPos = seam === 'front' ? door.y1 : seam === 'back' ? door.y0 : seam === 'left' ? door.x1 : door.x0;
-      for (let k = 0; k < h.count; k++) {
-        const f = (k + 1) / (h.count + 1);
-        let pt: [number, number, number];
-        if (h.face === 'top') {
-          const along = seam === 'front' || seam === 'back' ? L * f : W * f;
-          pt = seam === 'front' || seam === 'back' ? [along, seamPos, Hc] : [seamPos, along, Hc];
-        } else {
-          const z = door.z1 * f;
-          pt = h.face === 'left' ? [0, seamPos, z] : h.face === 'right' ? [L, seamPos, z] : h.face === 'front' ? [seamPos, 0, z] : [seamPos, W, z];
-        }
-        if (isLatch) {
-          const bodyPt: [number, number, number] = [pt[0] - toDoor.x * 30, pt[1] + toDoor.z * 30, pt[2]];
-          B.butterflyLatch(frameAt(groupAt(...bodyPt), h.face, pt, toDoor), s);
-          B.latchKeeper(frameAt(groups.get(door.id)!, h.face, pt, toDoor), s);
-        } else {
-          const g = frameAt(groups.get(door.id)!, h.face, pt, toDoor);
-          B.add(g, boxGeo(60, 44, 3), mats.chrome, 0, 0, 1.5);
-        }
-      }
-      continue;
-    }
-    if (isLatch || h.kind === 'hinge' || h.kind === 'piano-hinge') {
-      if (!lidBox || h.face === 'top' || h.face === 'bottom') continue;
-      // horizontal seam under the lid: spread over the part of the face the lid covers
-      const lids = boxes.filter((b) => b.role === 'lid');
-      const u0 = Math.min(...lids.map((b) => uRange(b, h.face)[0])), u1 = Math.max(...lids.map((b) => uRange(b, h.face)[1]));
-      if (h.kind === 'piano-hinge') {
-        const a = onFace(h.face, u0 + 20, zs), b = onFace(h.face, u1 - 20, zs);
-        B.rod(groupAt(a[0], a[1], zs - 30), P(...a), P(...b), 4.5, mats.chrome, 14);
-        continue;
-      }
-      for (let k = 0; k < h.count; k++) {
-        const u = u0 + ((u1 - u0) * (k + 1)) / (h.count + 1);
-        const pt = onFace(h.face, u, zs);
-        const below = groupAt(pt[0], pt[1], zs - 30), above = groupAt(pt[0], pt[1], zs + 30);
-        if (h.kind === 'hinge') {
-          const gb = frameAt(below, h.face, pt), ga = frameAt(above, h.face, pt);
-          B.add(gb, boxGeo(60, 22, 3), mats.chrome, 0, -11 - closeH, 1.5);
-          B.add(gb, new THREE.CylinderGeometry(4.2, 4.2, 60, 14), mats.chrome, 0, 0, 6).rotation.z = Math.PI / 2;
-          B.add(ga, boxGeo(60, 22, 3), mats.chrome, 0, 11 + closeH, 1.5);
-        } else {
-          B.butterflyLatch(frameAt(below, h.face, [pt[0], pt[1], zs - closeH - 2]), s);
-          B.latchKeeper(frameAt(above, h.face, [pt[0], pt[1], zs + closeH + 2]), s);
-        }
-      }
-      continue;
-    }
-    // handles, labels, dishes: spread over the carrying shell, at the height of its middle
-    for (const bx of carrier(h.face)) {
-      const [u0, u1] = h.face === 'top' ? [bx.x0, bx.x1] : uRange(bx, h.face);
-      const lowTop = bx.z1 - (bx.closing.includes('top') ? closeH : 0);
-      for (let k = 0; k < h.count; k++) {
-        const u = u0 + ((u1 - u0) * (k + 1)) / (h.count + 1);
-        if (h.face === 'top') {
-          const g = groups.get(bx.id)!;
-          const fr = B.frame(g, P(u, (bx.y0 + bx.y1) / 2, Hc), v3(1, 0, 0), v3(0, 0, -1));
-          if (h.kind === 'handle-recessed') B.recessedHandle(fr);
-          else if (h.kind === 'handle-strap' || h.kind === 'handle-surface') B.strapHandle(fr);
-          else if (h.kind === 'label') B.labelHolder(fr);
-          else B.dish(fr, h.kind);
-          continue;
-        }
-        const zMid = h.kind === 'label' ? Math.min(lowTop - 60, 95) : bx.z0 + (lowTop - bx.z0) * 0.52;
-        const fr = frameAt(groups.get(bx.id)!, h.face, onFace(h.face, u, zMid));
-        if (h.kind === 'handle-recessed') B.recessedHandle(fr);
-        else if (h.kind === 'handle-strap' || h.kind === 'handle-surface') B.strapHandle(fr);
-        else if (h.kind === 'label') B.labelHolder(fr);
-        else B.dish(fr, h.kind);
-      }
-    }
+    // handles, labels, dishes: in the shell under the point
+    const inside: [number, number, number] = it.face === 'top' ? [pt[0], pt[1], pt[2] - 1] : pt;
+    const g = groupAt(...inside);
+    const fr = tag(it.face === 'top' ? B.frame(g, P(...pt), v3(1, 0, 0), v3(0, 0, -1)) : frameAt(g, it.face, pt));
+    if (it.kind === 'handle-recessed') B.recessedHandle(fr);
+    else if (it.kind === 'handle-strap' || it.kind === 'handle-surface') B.strapHandle(fr);
+    else if (it.kind === 'label') B.labelHolder(fr);
+    else B.dish(fr, it.kind);
   }
 
   // castors / skids / feet
@@ -265,6 +399,51 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean): Buil
       else { g.position.x += depth + 120; g.position.z -= W + 160; }
     }
     root.add(g);
+  }
+  // selection: outline of the selected shell or hardware piece, push/pull grips on a selected shell
+  if (view?.selected) {
+    root.updateMatrixWorld(true);
+    const sel = view.selected;
+    const hits: THREE.Object3D[] = [];
+    root.traverse((o) => {
+      const hw = o.userData.hw as { i: number; k: number } | undefined;
+      if (hw && (sel === `hw:${hw.i}` || sel === `hw:${hw.i}:${hw.k}`)) hits.push(o);
+      if (o.userData.part && sel === `part:${o.userData.part}`) hits.push(o);
+    });
+    if (hits.length) {
+      const box = new THREE.Box3();
+      for (const o of hits) box.expandByObject(o);
+      const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+      box.applyMatrix4(inv);
+      box.expandByScalar(4);
+      const helper = new THREE.Box3Helper(box, new THREE.Color('#22d3ee'));
+      helper.userData.overlay = true;
+      root.add(helper);
+    }
+    const part = sel.startsWith('part:') ? boxes.find((b) => `part:${b.id}` === sel) : null;
+    if (part && !open) {
+      const gripMat = new THREE.MeshBasicMaterial({ color: '#22d3ee', depthTest: false, transparent: true, opacity: 0.95 });
+      const faces: [CaseFace, THREE.Vector3, [number, number, number]][] = [
+        ['top', v3(0, 1, 0), [(part.x0 + part.x1) / 2, (part.y0 + part.y1) / 2, part.z1]],
+        ['front', v3(0, 0, 1), [(part.x0 + part.x1) / 2, part.y0, (part.z0 + part.z1) / 2]],
+        ['back', v3(0, 0, -1), [(part.x0 + part.x1) / 2, part.y1, (part.z0 + part.z1) / 2]],
+        ['left', v3(-1, 0, 0), [part.x0, (part.y0 + part.y1) / 2, (part.z0 + part.z1) / 2]],
+        ['right', v3(1, 0, 0), [part.x1, (part.y0 + part.y1) / 2, (part.z0 + part.z1) / 2]],
+      ];
+      if (part.role === 'lid') faces.push(['bottom', v3(0, -1, 0), [(part.x0 + part.x1) / 2, (part.y0 + part.y1) / 2, part.z0]]);
+      for (const [face, n, at] of faces) {
+        const g = new THREE.Group();
+        g.position.copy(P(...at)).add(n.clone().multiplyScalar(45)).setY(P(...at).y + y0 + n.y * 45);
+        g.quaternion.setFromUnitVectors(v3(0, 1, 0), n);
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(14, 34, 20), gripMat);
+        cone.position.y = 17;
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(3, 3, 40, 10), gripMat);
+        stem.position.y = -12;
+        for (const m of [cone, stem]) { m.renderOrder = 10; m.userData.grip = { part: part.id, face }; g.add(m); }
+        g.userData.overlay = true;
+        root.add(g);
+      }
+    }
   }
   B.finish();
   // set-aside doors widen the scene

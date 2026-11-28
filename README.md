@@ -367,6 +367,22 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
   Profilquerschnitt und Nieten, Hybrid-Schließprofil mit Fuge, Kugelecken mit Flanschen, gedrückte Schalen für
   Butterflyverschlüsse und Klappgriffe, Lenkrollen mit gerundetem Reifen, Nabe, Drehkranz, Gabel und Bremspedal. In 3D mit
   Umgebungsspiegelung, weichen Schatten und Kontaktschatten in Vertiefungen (Ambient Occlusion).
+- **Direkt in 3D konstruieren:** Der Case-Designer öffnet in 3D. Links der Bauteilbaum (Körper, Beschläge mit den
+  einzelnen Stücken, Schaumstoff), jedes Teil per Auge aus- und einblendbar; Klick im Baum oder im Modell wählt aus, die
+  Auswahl wird umrahmt und rechts mit ihren eigenen Feldern gezeigt (Position eines Beschlags in mm, Tiefe einer Tür,
+  Deckelhöhe). Werkzeuge in der Leiste:
+  - *Auswählen:* Beschläge mit der Maus auf ihrer Seite verschieben (Verschlüsse und Scharniere gleiten nur entlang ihrer
+    Fuge). An den Pfeilen einer ausgewählten Schale ziehen ändert die Maße (Push/Pull in 5-mm-Schritten, mit Strg 1 mm):
+    Seiten ändern das Innenmaß, die Oberseite des Unterteils und die Unterseite des Deckels verschieben die Deckelfuge,
+    die Außenseite einer Tür ihre Tiefe. Entf löscht die Auswahl, Esc hebt sie auf.
+  - *Fuge waagrecht:* Klick auf eine Seitenwand setzt dort die Deckelfuge (ein Case ohne Deckel bekommt einen).
+  - *Fuge senkrecht:* Klick nahe einem Ende setzt dort eine Tür, Klick in die Deckelmitte teilt den Deckel (oder fügt die
+    Hälften wieder zusammen).
+  - *Beschlag setzen:* Beschlag wählen und auf die Außenseite klicken; Verschlüsse rasten an der nächsten Fuge ein.
+
+  Von Hand gesetzte Beschläge behalten ihre Position (`at` in Seitenkoordinaten) und erscheinen genauso in der
+  Maßzeichnung und im PDF; *Gleichmäßig verteilen* setzt eine Zeile wieder zurück. Ein Zug mit der Maus ist ein
+  Rückgängig-Schritt. Die Kamera bleibt beim Bearbeiten stehen, *Einpassen* richtet sie neu aus.
 - **Bauformen:** Truhe 50/50, flacher Deckel, flache Wanne (hohe Haube), Eintür-, Doppeltür- und Dreifach-Case,
   Klappdeckel geteilt (Clamshell), Rack-Case mit Deckel oben und Türen vorne/hinten, Production-Case mit Fachböden und
   Schubladen-Case. Jede Bauform setzt Deckel, Türen und Verschlüsse; danach lässt sich alles einzeln ändern: Türen auf jeder

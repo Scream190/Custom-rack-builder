@@ -1,5 +1,5 @@
 // Case designer checks. Run: npm run test:cases
-import { applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, HARDWARE, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
+import { applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, moveHardware, newCase, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
 import { HARDWARE_PARTS, PROFILES, profileBySku, profilesFor, rackStripLength, rackStripSku } from '../src/library/caseHardware';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
@@ -202,6 +202,66 @@ console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRA
   ok(bars([3800, 190, 3800], 4000) === 2 && bars([3800, 3800, 300], 4000) === 3 && bars([1000, 1000, 1000], 4000) === 1, 'stock bars: first fit decreasing with saw cut');
   ok(HARDWARE_PARTS.every((h) => !h.as || h.as.every((k) => k in HARDWARE)), 'library parts map to hardware kinds of the designer');
   console.log(`case types: ${results.join(' | ')}`);
+}
+
+// ------------------------------------------------------------------ direct editing (3D editor)
+{
+  const c = newCase('Edit');
+  const t = c.panel + 2;
+  // face coordinates round-trip
+  for (const face of ['front', 'back', 'left', 'right', 'top'] as const) {
+    const p = faceToOuter(c, face, 123, 45), q = outerToFace(c, face, ...p);
+    ok(Math.abs(q.u - 123) < 1e-6 && Math.abs(q.z - 45) < 1e-6, `face coordinates round-trip on ${face}`);
+  }
+  // pinning keeps every position, moving a lid latch keeps it on the seam
+  const inst = hardwareInstances(c);
+  const fi = c.hardware.findIndex((h) => h.kind === 'butterfly' && h.face === 'front');
+  const pinned = { ...c, hardware: pinHardware(c, fi) };
+  const same = hardwareInstances(pinned).filter((x) => x.i === fi).every((x, k) => { const y = inst.filter((z) => z.i === fi)[k]; return Math.abs(x.u - y.u) < 1 && Math.abs(x.z - y.z) < 1; });
+  ok(same && !!pinned.hardware[fi].at, 'pinning a hardware row keeps the positions');
+  const moved = { ...c, hardware: moveHardware(c, fi, 0, 150, 30) };
+  const m0 = hardwareInstances(moved).find((x) => x.i === fi && x.k === 0)!;
+  const lidZ = caseBoxes(c).find((b) => b.role === 'lid')!.z0;
+  ok(Math.round(m0.u) === 150 && m0.z === lidZ, `a lid latch slides along the seam only (u ${m0.u}, z ${m0.z})`);
+  const hi = c.hardware.findIndex((h) => h.kind === 'handle-recessed');
+  const handle = hardwareInstances({ ...c, hardware: moveHardware(c, hi, 0, 200, 120) }).find((x) => x.i === hi && x.k === 0)!;
+  ok(handle.u === 200 && handle.z === 120, 'a handle moves freely on its face');
+  // placing: a latch snaps to the lid seam, a label stays where clicked
+  const placed = placeHardware(c, 'butterfly-small', 'front', 300, lidZ - 25)!;
+  ok(placed.length === c.hardware.length + 1 && placed.at(-1)!.at![0].z === Math.round(lidZ), 'a placed latch snaps to the lid seam');
+  ok(placeHardware(c, 'stack-cup', 'front', 100, 100) === null, 'hardware is not placed on a face it cannot sit on');
+  const lab = placeHardware(c, 'label', 'right', 100, 80)!;
+  ok(hardwareInstances({ ...c, hardware: lab }).some((x) => x.kind === 'label' && x.face === 'right' && x.u === 100 && x.z === 80), 'a placed label keeps its position');
+  // push/pull
+  ok(pushPull(c, 'base', 'right', 47).inner?.l === c.inner.l + 45, 'pulling the right face lengthens the case (5 mm steps)');
+  ok(pushPull(c, 'base', 'right', 47, 1).inner?.l === c.inner.l + 47, 'pulling with 1 mm steps');
+  ok(pushPull(c, 'base', 'top', 20).lidH === c.lidH - 20, 'pulling the top of the base raises the lid seam');
+  const lt = pushPull(c, 'lid', 'top', 30);
+  ok(lt.inner?.h === c.inner.h + 30 && lt.lidH === c.lidH + 30, 'pulling the lid top makes the lid deeper');
+  ok(pushPull(c, 'lid', 'bottom', 10).lidH === c.lidH + 10, 'pulling the lid underside lowers the seam');
+  ok(pushPull(c, 'base', 'front', -10000).inner?.w === 50, 'push stops at the minimum size');
+  // splitting: a vertical click near the left end of the front adds a left door, a horizontal one sets the lid seam
+  const { L, H } = shellSize(c);
+  const sv = splitAt(c, 'front', 200, 0, 100, true)!;
+  ok(sv.doors?.left === Math.round((200 - t) / 5) * 5 && caseBoxes({ ...c, ...sv }).some((b) => b.id === 'door-left'), `vertical split near the left end adds a left door (${sv.doors?.left} mm)`);
+  ok(splitAt(c, 'top', L / 2, 100, H, true)?.lidSplit === true, 'vertical split in the middle of the lid splits the lid');
+  const crate = { ...c, lidKind: 'none' as const, lidH: 0 };
+  const sh = splitAt(crate, 'front', 100, 0, 200, false)!;
+  const after = { ...crate, ...sh };
+  const seamZ = caseBoxes(after).find((b) => b.role === 'lid')!.z0;
+  ok(sh.lidKind === 'removable' && Math.abs(seamZ - 200) <= 5, `horizontal split adds a lid with its seam where clicked (${seamZ})`);
+  // seams of a door case: latches snap to the door seam on the side faces
+  const door = { ...c, ...sv } as typeof c;
+  const s = snapToSeam(door, 'back', shellSize(door).L - (sv.doors!.left + t) - 10, 60);
+  ok(s?.seam === 'left', `snap on the back near the door picks the door seam (${s?.seam})`);
+  // removing
+  const r1 = removeSelection(c, `hw:${fi}:0`)!;
+  ok(r1.hardware![fi].count === c.hardware[fi].count - 1, 'deleting one spread piece lowers the count');
+  ok(removeSelection(c, `hw:${fi}`)!.hardware!.length === c.hardware.length - 1, 'deleting a row');
+  ok(removeSelection(door, 'part:door-left')!.doors?.left === undefined, 'deleting a door');
+  ok(removeSelection(c, 'part:lid')!.lidKind === 'none' && removeSelection(c, 'part:base') === null, 'deleting the lid, the base stays');
+  ok(removeSelection({ ...c, lidSplit: true }, 'part:lid2')!.lidSplit === undefined, 'deleting a lid half joins the halves');
+  console.log(`3D editor: push/pull, split, place, move, delete ok`);
 }
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }

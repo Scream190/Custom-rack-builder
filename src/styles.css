@@ -267,6 +267,23 @@ input.bad { border-color: var(--danger); color: #fca5a5; }
 .parts-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 28px; padding: 0 6px 8px; }
 .parts-grid table { width: auto; flex: 0 0 auto; }
 .view3d-btn { position: absolute; top: 10px; left: 10px; z-index: 5; }
+.view3d-btns { position: absolute; top: 10px; left: 10px; z-index: 5; display: flex; gap: 6px; }
+.view3d-hint { position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 5; color: #9aa1ab; font-size: 12px; pointer-events: none; text-shadow: 0 1px 2px #000; }
+/* case editor: component browser next to the 3D view */
+.case-edit { position: absolute; inset: 0; display: flex; }
+.case-edit > .case-view { position: relative; flex: 1; min-width: 0; }
+.case-tree { width: 220px; flex: none; overflow: auto; border-right: 1px solid var(--line); background: var(--panel); font-size: 12px; padding: 6px 0; }
+.case-tree h4 { margin: 8px 10px 2px; font-size: 11px; font-weight: 600; color: var(--muted); }
+.case-tree .node { display: flex; align-items: center; gap: 4px; padding: 2px 6px 2px 10px; cursor: pointer; }
+.case-tree .node:hover { background: var(--hover, rgba(255,255,255,.04)); }
+.case-tree .node.sel { background: rgba(34, 211, 238, .14); }
+.case-tree .node.off .nm { opacity: .45; }
+.case-tree .node .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.case-tree .node.sub { padding-left: 24px; }
+.case-tree .eye { border: 0; background: none; color: var(--muted); cursor: pointer; padding: 0 2px; font-size: 12px; width: 20px; }
+.case-tree .eye:hover { color: var(--text); }
+.case-sel { border: 1px solid var(--line); border-radius: 3px; padding: 8px; margin-bottom: 10px; }
+.case-sel .row { flex-wrap: wrap; }
 
 /* ---------------------------------------------------------------- shell: workspaces, object bar, tool bar */
 .topbar { padding: 0 12px; min-height: 48px; row-gap: 6px; }

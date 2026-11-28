@@ -406,6 +406,12 @@ export interface CaseHardware {
   sku?: string;
   /** split the latch or hinge bridges: the lid (default) or the door on that side */
   seam?: CaseSeam;
+  /**
+   * placed by hand: one position per piece in face coordinates (mm, castors excluded). u = across the face from the left
+   * as seen from outside (top face: from the left end), z = height from the bottom (top face: from the front edge).
+   * Latches use only the coordinate along their seam. Without `at` the pieces are spread evenly (`count`).
+   */
+  at?: { u: number; z: number }[];
 }
 /** 'lid' = horizontal split under the top lid, the others = vertical split of the door on that side */
 export type CaseSeam = 'lid' | 'front' | 'back' | 'left' | 'right';

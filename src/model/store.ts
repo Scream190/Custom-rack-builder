@@ -336,7 +336,8 @@ export const useStore = create<State>((set, get) => {
         fn(next);
         next.updatedAt = new Date().toISOString();
         const now = Date.now();
-        const merge = coalesceKey && lastEdit.key === coalesceKey && now - lastEdit.t < 1500 && s.past.length > 0;
+        // keys starting with 'drag:' belong to one pointer drag: merged however slow the frames are
+        const merge = coalesceKey && lastEdit.key === coalesceKey && (coalesceKey.startsWith('drag:') || now - lastEdit.t < 1500) && s.past.length > 0;
         lastEdit = { key: coalesceKey, t: now };
         if (merge) return { project: next, future: [] };
         return { project: next, past: [...s.past.slice(-99), s.project], future: [] };
