@@ -1,5 +1,5 @@
 import type { CaseItem, FlightCase } from '../model/types';
-import { caseDims, footprint, isDrawer, usableArea } from '../model/cases';
+import { baseInner, caseDims, footprint, isDrawer, usableArea } from '../model/cases';
 import { cutDepth, cutoutOutline, foamMaterial, FOAM_MATERIALS, inlayThickness, outlineBox, outlinePath } from '../model/inlay';
 import { shade } from './DeviceFace';
 import { CaseDefs, fitLabel } from './CaseDrawing';
@@ -74,6 +74,8 @@ export function InlaySheet(props: InlaySheetProps) {
   const container = isDrawer(c) ? 'Schublade' : c.kind === 'inlay' ? 'Behälter' : layer === 'lid' ? 'Deckel' : 'Unterteil';
   const d = !isDrawer(c) && c.kind !== 'inlay' ? caseDims(c) : null;
   const wall = d ? (d.L - c.inner.l) / 2 : 0;
+  // foam of a flight case lies in the base (doors excluded); a lid over the whole case carries foam everywhere
+  const fr = d && !(layer === 'lid' && c.doors?.span === 'body') ? baseInner(c) : { x0: 0, x1: c.inner.l, y0: 0, y1: W };
 
   return (
     <g>
@@ -84,13 +86,14 @@ export function InlaySheet(props: InlaySheetProps) {
         : isDrawer(c) ? <rect x={X(-3)} y={top.y - 3} width={c.inner.l + 6} height={W + 6} fill="#1a1b1e" stroke="#4b5057" strokeWidth={1} />
           : <rect x={X(-4)} y={top.y - 4} width={c.inner.l + 8} height={W + 8} fill="none" stroke={ink} strokeOpacity={0.5} strokeWidth={1} strokeDasharray="10 6" />}
       {/* foam */}
-      <rect x={X(0)} y={top.y} width={c.inner.l} height={W} fill={foam} stroke={shade(foam, 0.4)} strokeWidth={1} />
-      <rect x={X(0)} y={top.y} width={c.inner.l} height={W} fill="url(#cs-foam)" pointerEvents="none" />
+      {d && (fr.x0 > 0 || fr.y0 > 0 || fr.x1 < c.inner.l || fr.y1 < W) ? <rect x={X(0)} y={top.y} width={c.inner.l} height={W} fill="#1c1e22" /> : null}
+      <rect x={X(fr.x0)} y={Y(fr.y1)} width={fr.x1 - fr.x0} height={fr.y1 - fr.y0} fill={foam} stroke={shade(foam, 0.4)} strokeWidth={1} />
+      <rect x={X(fr.x0)} y={Y(fr.y1)} width={fr.x1 - fr.x0} height={fr.y1 - fr.y0} fill="url(#cs-foam)" pointerEvents="none" />
       {c.foam.sides > 0 ? <rect x={X(area.x0)} y={Y(area.y1)} width={area.x1 - area.x0} height={area.y1 - area.y0} fill="none" stroke={shade(foam, 0.5)} strokeWidth={1} strokeDasharray="8 6" pointerEvents="none" /> : null}
       {layer === 'body' ? c.dividers.map((dv, i) => (
         dv.axis === 'x'
           ? <rect key={i} x={X(0)} y={Y(dv.pos) - 3.5} width={c.inner.l} height={7} fill="#c8a77a" />
-          : <rect key={i} x={X(dv.pos) - 3.5} y={top.y} width={7} height={W} fill="#c8a77a" />
+          : dv.axis === 'y' ? <rect key={i} x={X(dv.pos) - 3.5} y={top.y} width={7} height={W} fill="#c8a77a" /> : null
       )) : null}
       {/* cut-outs */}
       {items.map((it) => {

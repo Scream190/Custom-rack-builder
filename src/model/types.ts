@@ -394,10 +394,27 @@ export interface ProjectSettings {
 export type CaseFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
 export type HardwareKind =
   | 'butterfly' | 'butterfly-small' | 'handle-recessed' | 'handle-strap' | 'stack-cup' | 'hinge' | 'label'
-  | 'castor' | 'castor-braked' | 'skid';
+  | 'castor' | 'castor-braked' | 'skid'
+  | 'draw-latch' | 'lid-stay' | 'piano-hinge' | 'foot' | 'dish-vent' | 'dish-connector' | 'cable-gland' | 'handle-surface';
 /** PE = polyethylene (closed cell, firm), PU = polyurethane (open cell, soft), EVA = ethylene vinyl acetate (dense, smooth) */
 export type FoamMaterial = 'PE' | 'PU' | 'EVA';
-export interface CaseHardware { kind: HardwareKind; face: CaseFace; count: number }
+export interface CaseHardware {
+  kind: HardwareKind;
+  face: CaseFace;
+  count: number;
+  /** manufacturer part (src/library/caseHardware.ts) */
+  sku?: string;
+  /** split the latch or hinge bridges: the lid (default) or the door on that side */
+  seam?: CaseSeam;
+}
+/** 'lid' = horizontal split under the top lid, the others = vertical split of the door on that side */
+export type CaseSeam = 'lid' | 'front' | 'back' | 'left' | 'right';
+/** doors: inner depth per side in mm (0 or missing = no door). Doors on front/back and on left/right do not mix. */
+export interface CaseDoors {
+  front?: number; back?: number; left?: number; right?: number;
+  /** 'full' = doors run the whole height (the lid sits between them), 'body' = doors end under a lid over the whole case */
+  span?: 'full' | 'body';
+}
 
 /** something packed into the case: a foam cut-out (x/y = left-front corner in the inner space, mm) */
 export interface CaseItem {
@@ -464,9 +481,19 @@ export interface FlightCase {
   castorSize: 75 | 100 | 125;
   foam: { bottom: number; lid: number; sides: number; color: string; material?: FoamMaterial };
   items: CaseItem[];
-  /** compartment walls in the inner space: axis 'x' = wall parallel to the length at y = pos */
-  dividers: { axis: 'x' | 'y'; pos: number }[];
+  /** compartment walls in the inner space: axis 'x' = wall parallel to the length at y = pos, 'z' = shelf at height pos */
+  dividers: { axis: 'x' | 'y' | 'z'; pos: number }[];
   notes?: string;
+  /** construction preset the case was started from (see CASE_TYPES) */
+  caseType?: string;
+  /** doors on the sides (vertical splits) */
+  doors?: CaseDoors;
+  /** the top lid is split in the middle into two halves (clamshell) */
+  lidSplit?: boolean;
+  /** drawers stacked from the inner bottom of the base, front heights in mm (pulled out to the front) */
+  drawers?: { h: number }[];
+  /** chosen parts: panel material id, edge profile, closing profile and ball corner part numbers */
+  parts?: { panel?: string; edge?: string; closing?: string; corner?: string };
 }
 
 export interface Project {

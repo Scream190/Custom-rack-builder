@@ -416,6 +416,19 @@ export class Builder {
     for (const sx of [-1, 1]) this.hwRivet(g, sx * 42, 0, 3);
   }
 
+  /** recessed dish: vents, connector cut-outs or a cable gland */
+  dish(g: THREE.Object3D, kind: string) {
+    const { mats } = this;
+    const big = kind === 'dish-connector';
+    const w = big ? 120 : kind === 'cable-gland' ? 70 : 100, h = big ? 80 : 70;
+    this.add(g, dishGeo(w, h, 8), mats.chrome, 0, 0, -1.2);
+    this.add(g, new THREE.ShapeGeometry(roundedRect(w - 18, h - 18, 5)), mats.recess, 0, 0, 3.3);
+    if (kind === 'dish-vent') for (let k = -3; k <= 3; k++) this.add(g, boxGeo(6, h - 30, 1), mats.chrome, k * 11, 0, 3.6);
+    else if (kind === 'dish-connector') for (const x of [-26, 26]) { const m = this.add(g, new THREE.CylinderGeometry(13, 13, 3, 24), mats.black, x, 0, 4.5); m.rotation.x = Math.PI / 2; }
+    else { const m = this.add(g, new THREE.CylinderGeometry(16, 18, 8, 24), mats.rubber, 0, 0, 5); m.rotation.x = Math.PI / 2; }
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) this.hwRivet(g, sx * (w / 2 - 7), sy * (h / 2 - 7), 3);
+  }
+
   /** stacking cup on a top face (bowl goes into the panel) */
   stackCup(g: THREE.Object3D) {
     const pts = [v3(0, -6), v3(26, -6), v3(34, -3), v3(40, 0.6), v3(45, 1.4), v3(48, 0)].map((q) => new THREE.Vector2(q.x, q.y));

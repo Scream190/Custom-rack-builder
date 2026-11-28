@@ -1,5 +1,6 @@
 // Case designer checks. Run: npm run test:cases
-import { caseBom, caseDims, caseWarnings, drawerInner, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
+import { applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, HARDWARE, newCase, newDrawerInlay, packItems, ITEM_PRESETS } from '../src/model/cases';
+import { HARDWARE_PARTS, PROFILES, profileBySku, profilesFor, rackStripLength, rackStripSku } from '../src/library/caseHardware';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
 import { inlayContainer } from '../src/model/inlay';
@@ -149,6 +150,59 @@ for (const k of CUTOUT_KINDS) ok(CUTOUT_LIBRARY.some((t) => t.kind === k), `cut-
 const wirelessBrands = [...new Set(BUILTIN_DEVICES.filter((t) => /UHF Empfänger|IEM Sender/.test(t.category) && t.manufacturer !== 'Generisch').map((t) => t.manufacturer))];
 const covered = wirelessBrands.filter((m) => CUTOUT_LIBRARY.some((t) => t.man === m && /sender|Empfänger/.test(t.kind)));
 console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRARY.filter((t) => t.source.startsWith('Datenblatt')).length} after data sheet), wireless brands covered ${covered.length}/${wirelessBrands.length}${covered.length < wirelessBrands.length ? ` (missing: ${wirelessBrands.filter((m) => !covered.includes(m)).join(', ')})` : ''}`);
+
+// case types (construction presets after common case design software), parts library
+{
+  const base = newCase('Typen');
+  base.inner = { l: 700, w: 500, h: 600 };
+  const results: string[] = [];
+  for (const ty of CASE_TYPES) {
+    const c = { ...base, ...applyCaseType(base, ty.id) } as typeof base;
+    const d = caseDims(c), b = caseBom(c), boxes = caseBoxes(c);
+    const t = 7 + 2;
+    ok(d.L === 700 + 2 * t && d.W === 500 + 2 * t, `${ty.id}: outer size ${d.L} × ${d.W} (doors lie inside the inner size)`);
+    const w = caseWarnings(c);
+    ok(w.length === 0, `${ty.id}: warnings ${w.map((x) => x.text).join('; ')}`);
+    // shells tile the outer box without overlap
+    const vol = boxes.reduce((s, bx) => s + (bx.x1 - bx.x0) * (bx.y1 - bx.y0) * (bx.z1 - bx.z0), 0);
+    const outer = d.L * d.W * (d.H - d.castorH);
+    ok(Math.abs(vol - outer) / outer < 1e-6, `${ty.id}: shells fill the case (${Math.round(vol / 1e6)} vs ${Math.round(outer / 1e6)} dm³)`);
+    for (let i = 0; i < boxes.length; i++) for (let j = i + 1; j < boxes.length; j++) {
+      const a = boxes[i], o = boxes[j];
+      const ov = Math.min(a.x1, o.x1) - Math.max(a.x0, o.x0) > 0.5 && Math.min(a.y1, o.y1) - Math.max(a.y0, o.y0) > 0.5 && Math.min(a.z1, o.z1) - Math.max(a.z0, o.z0) > 0.5;
+      ok(!ov, `${ty.id}: ${a.id} overlaps ${o.id}`);
+    }
+    // every seam gets latches, the hardware names the seam it bridges
+    for (const bx of boxes.filter((x) => x.role === 'door')) ok(c.hardware.some((h) => h.seam === bx.side && h.kind === 'butterfly'), `${ty.id}: latches on the ${bx.side} door seam`);
+    ok(b.profiles.some((p) => /Schließprofil/.test(p.name)) === boxes.length > 1, `${ty.id}: closing profile only with more than one shell`);
+    ok(b.profiles.every((p) => !p.pieces || Math.abs(p.pieces.reduce((s, x) => s + x, 0) / 1000 - p.length * (p.name.endsWith('(Paar)') ? 2 : 1)) < 0.05), `${ty.id}: cut lengths add up to the profile length`);
+    ok(!!b.sheets && b.sheets.count >= 1, `${ty.id}: sheet estimate`);
+    results.push(`${ty.label} ${boxes.length} Teile ${b.weight.case} kg`);
+  }
+  const triple = { ...base, ...applyCaseType(base, 'triple-door') } as typeof base;
+  const balls = caseBom(triple).hardware.find((h) => h.label === 'Kugelecke')?.count;
+  ok(balls === 12, `triple case: 12 ball corners (8 on the doors, 4 on the lid), got ${balls}`);
+  const clam = { ...base, ...applyCaseType(base, 'clamshell') } as typeof base;
+  ok(caseBoxes(clam).filter((b) => b.role === 'lid').length === 2 && caseSeams(caseBoxes(clam)).length === 3, 'clamshell: two hood halves, three seams (two to the base, one between the halves)');
+  const drawerCase = { ...base, ...applyCaseType(base, 'drawer-case') } as typeof base;
+  const db = caseBom(drawerCase);
+  ok((drawerCase.drawers?.length ?? 0) >= 3 && db.hardware.some((h) => h.sku && /^R24\d\dZ$/.test(h.sku)), `drawer case: drawers on Penn Elcom slides (${db.hardware.map((h) => h.sku).filter(Boolean).join(', ')})`);
+  ok(caseWarnings({ ...drawerCase, drawers: [{ h: 400 }, { h: 400 }] }).some((w) => /Schubladen zusammen/.test(w.text)), 'drawers higher than the body are reported');
+  // a lid case without doors keeps the old geometry exactly
+  const plain = newCase('Alt');
+  ok(caseBoxes(plain).length === 2 && caseBom(plain).panels.length === 6, 'plain lid case: base and lid, six panel sizes as before');
+  // tongue and groove closing profile gives both halves, an edge profile from the library its part number
+  const tg = { ...plain, parts: { closing: '3018', edge: 'E2390' } };
+  const tb = caseBom(tg);
+  ok(tb.profiles.some((p) => p.sku === '3018') && tb.profiles.some((p) => p.sku === '3019') && tb.profiles.some((p) => p.sku === 'E2390'), `tongue and groove pair and edge profile by part number: ${tb.profiles.map((p) => p.sku).join(', ')}`);
+  ok(caseWarnings({ ...tg, panel: 12 }).some((w) => /Profil E2390/.test(w.text)), 'a profile that does not take the panel is reported');
+  ok(profilesFor('double', 7).every((p) => p.panel![0] <= 7 && p.panel![1] >= 7) && profilesFor('double', 7).length >= 5, 'double angles are filtered by panel thickness');
+  ok(PROFILES.filter((p) => p.mate).every((p) => profileBySku(p.mate)?.mate === p.sku), 'every tongue has its groove and back');
+  ok(rackStripLength(12) === 536.6 && rackStripLength(14) === 625.5 && rackStripSku(13) === 'R0863-14', 'rack strip length 44.45 mm per unit + 3.2 mm');
+  ok(bars([3800, 190, 3800], 4000) === 2 && bars([3800, 3800, 300], 4000) === 3 && bars([1000, 1000, 1000], 4000) === 1, 'stock bars: first fit decreasing with saw cut');
+  ok(HARDWARE_PARTS.every((h) => !h.as || h.as.every((k) => k in HARDWARE)), 'library parts map to hardware kinds of the designer');
+  console.log(`case types: ${results.join(' | ')}`);
+}
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }
 console.log('case designer: ok');

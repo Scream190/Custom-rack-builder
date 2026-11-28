@@ -451,3 +451,7 @@ tr.bad-row td { color: #fca5a5; }
 .chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 3px; padding: 2px 7px; font-size: 11.5px; cursor: pointer; color: var(--text); }
 .chip:hover { border-color: #4a525e; }
 .chip.on { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+
+/* case designer: construction presets */
+.case-types { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+.case-types .btn.active { border-color: var(--accent); color: var(--accent); }

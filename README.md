@@ -357,15 +357,33 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
 - **Flightcases frei gestalten:** Innenmaß (L × B × H), Deckel (abnehmbar, Scharnierdeckel, Teleskop- bzw. Stülpdeckel oder ohne)
   mit Deckelhöhe, Plattenstärke, Kantenprofil (Alu 30 / 35 mm oder ohne), Laminatfarbe, Kugelecken. Außenmaß und Gewicht
   stehen oben in den Eigenschaften und werden aus Innenmaß, Platten, Profilen, Schaum und Rollen berechnet.
-- **Beschläge pro Seite:** Butterflyverschlüsse groß/klein, Klappgriffe, Riemengriffe, Scharniere, Stapelschalen,
-  Etikettenhalter, Gleitkufen, Lenkrollen mit und ohne Bremse (75, 100, 125 mm). *Passend zur Größe setzen* schlägt eine
-  übliche Bestückung vor.
+- **Beschläge pro Seite:** Butterflyverschlüsse groß/klein, Spannverschlüsse, Klappgriffe, Riemen- und Aufschraubgriffe,
+  Scharniere, Klavierband, Deckelstützen, Stapelschalen, Etikettenhalter, Einbauschalen mit Lüftung oder für Steckverbinder,
+  Kabeldurchführungen, Gummifüße, Gleitkufen, Lenkrollen mit und ohne Bremse (75, 100, 125 mm). Verschlüsse sitzen an der
+  Fuge, die sie überbrücken (Deckel oder Tür), und lassen sich einem Artikel aus der Bibliothek zuordnen. *Passend zur Größe
+  setzen* schlägt eine übliche Bestückung vor.
 - **Ansichten:** Maßzeichnung (Innenansicht, Vorder- und Seitenansicht mit Beschlägen) und 3D (Deckel auf/zu,
   Scharnierdeckel klappt auf). Dargestellt wie ein gebautes Case: Laminat mit Hammerschlag-Struktur, Alu-Winkelprofile mit
   Profilquerschnitt und Nieten, Hybrid-Schließprofil mit Fuge, Kugelecken mit Flanschen, gedrückte Schalen für
   Butterflyverschlüsse und Klappgriffe, Lenkrollen mit gerundetem Reifen, Nabe, Drehkranz, Gabel und Bremspedal. In 3D mit
   Umgebungsspiegelung, weichen Schatten und Kontaktschatten in Vertiefungen (Ambient Occlusion).
-- **Stückliste:** Plattenzuschnitte, Profillängen, Beschläge, Schaumteile mit Plattenaufbau, Gewicht und Volumen.
+- **Bauformen:** Truhe 50/50, flacher Deckel, flache Wanne (hohe Haube), Eintür-, Doppeltür- und Dreifach-Case,
+  Klappdeckel geteilt (Clamshell), Rack-Case mit Deckel oben und Türen vorne/hinten, Production-Case mit Fachböden und
+  Schubladen-Case. Jede Bauform setzt Deckel, Türen und Verschlüsse; danach lässt sich alles einzeln ändern: Türen auf jeder
+  Seite mit eigener Innentiefe (vorne/hinten oder links/rechts), Türen über die ganze Höhe oder unter einem durchgehenden
+  Deckel, Deckel in der Mitte geteilt, Schubladen mit Fronthöhe, Fachböden. Intern besteht jedes Case aus Teilkörpern
+  (Unterteil, Deckel, Türen), daraus entstehen Zeichnung, 3D, Zuschnitt, Profile und Kugelecken. Rack-Cases und Shockmounts
+  baust du weiter im Rack-Designer.
+- **Teilebibliothek** (`src/library/caseHardware.ts`): Plattenmaterialien mit Stärken und Tafelformaten, Kantenprofile
+  (Doppelwinkel, Einfachwinkel), Schließprofile (Hybrid, Nut und Feder als Paar), Kugelecken, Eckwinkel, Griffe,
+  Verschlüsse, Scharniere und Deckelstützen, Rollen, Einbauschalen, Gummifüße, Schubladenauszüge und Rackschienen von
+  Penn Elcom und Adam Hall mit Artikelnummer und Maßen. Profile werden nach der gewählten Plattenstärke gefiltert; passt
+  ein Profil nicht zur Platte, warnt die App. Quelle: Teiledatenbank von AutoCase 3D Case Design (Datenstand 2024),
+  übernommen sind nur Artikelnummern, Typen und Maße, keine Preise, Zeichnungen oder 3D-Modelle. Profilgewichte sind aus
+  dem Querschnitt geschätzt.
+- **Stückliste:** Plattenzuschnitte je Teilkörper mit Tafelbedarf (5 % Verschnitt), Profile mit Zuschnittlängen und Anzahl
+  Stangen, Beschläge mit Artikelnummer, Schubladenauszüge passend zur Tiefe, Schaumteile mit Plattenaufbau, Gewicht und
+  Volumen.
 - Den Schaumstoff gestaltest du im Einlagen-Designer (*Einlage bearbeiten*).
 
 ### Einlagen-Designer (Schaumstoff-Zuschnitte)

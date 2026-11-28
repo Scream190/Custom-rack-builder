@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useStore } from '../model/store';
-import type { CaseFace, CaseHardware, FlightCase, HardwareKind, Project } from '../model/types';
-import { autoHardware, caseBom, caseDims, caseWarnings, FACE_LABELS, HARDWARE, LID_LABELS, newCase, newDrawerInlay } from '../model/cases';
+import type { CaseFace, CaseHardware, CaseSeam, FlightCase, HardwareKind, Project } from '../model/types';
+import { applyCaseType, autoHardware, caseBom, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, HARDWARE, hasDoors, LID_LABELS, newCase, newDrawerInlay, SEAM_LABELS } from '../model/cases';
+import { panelMaterial, PANEL_MATERIALS, partLabel, partsForKind, partsInGroup, profileBySku, profileLabel, profilesFor } from '../library/caseHardware';
 import { caseList, foamMaterial, FOAM_MATERIALS, inlayThickness } from '../model/inlay';
 import { formatLength } from '../model/geometry';
 import { CaseSheet, sheetLayout } from '../render/CaseDrawing';
@@ -44,6 +45,7 @@ export function openCaseInlay(c: FlightCase) {
 // ------------------------------------------------------------------ properties
 
 const KINDS = Object.keys(HARDWARE) as HardwareKind[];
+const seamKinds: HardwareKind[] = ['butterfly', 'butterfly-small', 'draw-latch', 'hinge', 'piano-hinge'];
 
 function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
   const ro = useStore((s) => s.readOnly);
@@ -55,6 +57,8 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
   const setCastors = (n: number) => set({ hardware: [...c.hardware.filter((h) => !h.kind.startsWith('castor')), ...(n ? [{ kind: 'castor' as const, face: 'bottom' as const, count: n / 2 }, { kind: 'castor-braked' as const, face: 'bottom' as const, count: n / 2 }] : [])] });
   const setHw = (i: number, p: Partial<CaseHardware>) => set({ hardware: c.hardware.map((h, j) => (j === i ? { ...h, ...p } : h)) });
   const nItems = c.items.length;
+  const dd = doorDepths(c);
+  const seams: CaseSeam[] = [...(c.lidKind !== 'none' ? ['lid' as const] : []), ...(['front', 'back', 'left', 'right'] as const).filter((s) => dd[s] > 0)];
   return (
     <aside className="panel inspector">
       <div className="insp">
@@ -78,6 +82,35 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
         </div>
 
         </Section>
+        <Section id="case.type" title="Bauform" defaultOpen summary={CASE_TYPES.find((x) => x.id === c.caseType)?.label ?? (hasDoors(c) ? 'mit Türen' : c.lidKind === 'none' ? 'ohne Deckel' : 'mit Deckel')}>
+        <div className="case-types">
+          {CASE_TYPES.map((ty) => (
+            <button key={ty.id} disabled={ro} className={'btn sm' + (c.caseType === ty.id ? ' active' : '')} title={ty.note} onClick={() => set(applyCaseType(c, ty.id))}>{ty.label}</button>
+          ))}
+        </div>
+        <div className="muted small">Setzt Deckel, Türen und Beschläge passend. Innenmaße bleiben. Rack-Cases (auch Shockmount) baust du im Rack-Designer. Türen: Innentiefe in mm, 0 = keine Tür.</div>
+        <div className="row gap8">
+          {(['front', 'back', 'left', 'right'] as const).map((s) => (
+            <Field key={s} label={`${SEAM_LABELS[s]} (mm)`}><NumberInput value={c.doors?.[s] ?? 0} min={0} max={Math.round((s === 'front' || s === 'back' ? c.inner.w : c.inner.l) / 2)} onChange={(v) => set({ doors: { ...c.doors, [s]: Math.max(0, Math.round(v)) || undefined }, caseType: undefined })} /></Field>
+          ))}
+        </div>
+        {hasDoors(c) && c.lidKind !== 'none' ? (
+          <Field label="Türen und Deckel"><select disabled={ro} value={c.doors?.span ?? 'full'} onChange={(e) => set({ doors: { ...c.doors, span: e.target.value as 'full' | 'body' } })}>
+            <option value="full">Türen über die ganze Höhe, Deckel dazwischen</option>
+            <option value="body">Deckel über alles, Türen darunter</option>
+          </select></Field>
+        ) : null}
+        {c.lidKind !== 'none' ? <label className="check"><input disabled={ro} type="checkbox" checked={!!c.lidSplit} onChange={(e) => set({ lidSplit: e.target.checked || undefined })} /> Deckel in der Mitte geteilt (zwei Hälften)</label> : null}
+        <div className="muted small">Schubladen im Unterteil{c.drawers?.length ? `: ${c.drawers.length}` : ': keine'}</div>
+        {(c.drawers ?? []).map((dr, i) => (
+          <div key={i} className="hw-row">
+            <label className="inline-field">{`Schublade ${i + 1}, Fronthöhe (mm)`} <NumberInput value={dr.h} min={40} max={600} onChange={(v) => set({ drawers: (c.drawers ?? []).map((x, j) => (j === i ? { h: Math.max(40, Math.round(v)) } : x)) })} style={{ width: 64 }} /></label>
+            {!ro ? <button className="icon-btn" title="Schublade entfernen" aria-label="Entfernen" onClick={() => set({ drawers: (c.drawers ?? []).filter((_, j) => j !== i) })}>✕</button> : null}
+          </div>
+        ))}
+        {!ro ? <button className="btn sm" onClick={() => set({ drawers: [...(c.drawers ?? []), { h: 120 }] })} title="Schublade auf Auszügen ins Unterteil einsetzen">Schublade hinzufügen</button> : null}
+
+        </Section>
         <Section id="case.lid" title="Deckel" defaultOpen summary={c.lidKind === 'none' ? 'ohne' : `${LID_LABELS[c.lidKind]}, ${c.lidH} mm`}>
         <div className="row gap8">
           <Field label="Art" grow={2}><select disabled={ro} value={c.lidKind} onChange={(e) => { const k = e.target.value as FlightCase['lidKind']; set({ lidKind: k, lidH: k === 'none' ? 0 : c.lidH || 100 }); }}>
@@ -89,11 +122,38 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
         </Section>
         <Section id="case.build" title="Bauweise" summary={`${String(c.panel).replace('.', ',')} mm, ${c.profile === 'none' ? 'ohne Profil' : c.profile === 'alu30' ? 'Alu 30' : 'Alu 35'}${c.cornerBalls ? ', Kugelecken' : ''}`}>
         <div className="row gap8">
-          <Field label="Platte"><select disabled={ro} value={c.panel} onChange={(e) => set({ panel: Number(e.target.value) })}>{[5, 6.5, 7, 9, 10, 12, 15].map((t) => <option key={t} value={t}>{String(t).replace('.', ',')} mm</option>)}</select></Field>
-          <Field label="Kantenprofil"><select disabled={ro} value={c.profile} onChange={(e) => set({ profile: e.target.value as FlightCase['profile'] })}><option value="alu30">Alu 30 × 30</option><option value="alu35">Alu 35 × 35</option><option value="none">ohne</option></select></Field>
+          <Field label="Material" grow={2}><select disabled={ro} value={c.parts?.panel ?? ''} onChange={(e) => {
+            const m = panelMaterial(e.target.value);
+            const panel = m ? m.thicknesses.reduce((a, b) => (Math.abs(b - c.panel) < Math.abs(a - c.panel) ? b : a)) : c.panel;
+            set({ parts: { ...c.parts, panel: m?.id }, panel });
+          }}>
+            <option value="">allgemein (Multiplex)</option>
+            {PANEL_MATERIALS.map((m) => <option key={m.id} value={m.id}>{m.label} ({m.maker})</option>)}
+          </select></Field>
+          <Field label="Platte"><select disabled={ro} value={c.panel} onChange={(e) => set({ panel: Number(e.target.value) })}>{(panelMaterial(c.parts?.panel)?.thicknesses ?? [5, 6.5, 7, 9, 10, 12, 15]).map((t) => <option key={t} value={t}>{String(t).replace('.', ',')} mm</option>)}</select></Field>
           <Field label="Laminat"><input disabled={ro} type="color" value={c.color} onChange={(e) => set({ color: e.target.value })} title="Farbe des Laminats" /></Field>
         </div>
+        <Field label="Kantenprofil"><select disabled={ro} value={c.parts?.edge ? `sku:${c.parts.edge}` : c.profile} onChange={(e) => {
+          const v = e.target.value;
+          if (v.startsWith('sku:')) { const pr = profileBySku(v.slice(4))!; set({ parts: { ...c.parts, edge: pr.sku }, profile: Math.max(...pr.legs) >= 33 ? 'alu35' : 'alu30' }); }
+          else set({ parts: { ...c.parts, edge: undefined }, profile: v as FlightCase['profile'] });
+        }}>
+          <option value="alu30">Alu 30 × 30 (allgemein)</option><option value="alu35">Alu 35 × 35 (allgemein)</option><option value="none">ohne</option>
+          <optgroup label={`Doppelwinkel für ${String(c.panel).replace('.', ',')} mm`}>{profilesFor('double', c.panel).map((p) => <option key={p.sku} value={`sku:${p.sku}`}>{profileLabel(p)}</option>)}</optgroup>
+          <optgroup label="Einfachwinkel">{profilesFor('single', c.panel).map((p) => <option key={p.sku} value={`sku:${p.sku}`}>{profileLabel(p)}</option>)}</optgroup>
+          {c.parts?.edge && !profilesFor(['double', 'single'], c.panel).some((p) => p.sku === c.parts?.edge) ? <option value={`sku:${c.parts.edge}`}>{profileLabel(profileBySku(c.parts.edge)!)} (passt nicht zur Platte)</option> : null}
+        </select></Field>
+        <Field label="Schließprofil (Deckel- und Türfuge)"><select disabled={ro} value={c.parts?.closing ?? ''} onChange={(e) => set({ parts: { ...c.parts, closing: e.target.value || undefined } })}>
+          <option value="">Hybrid (allgemein)</option>
+          <optgroup label={`Hybrid für ${String(c.panel).replace('.', ',')} mm`}>{profilesFor('hybrid', c.panel).map((p) => <option key={p.sku} value={p.sku}>{profileLabel(p)}</option>)}</optgroup>
+          <optgroup label="Nut und Feder (Paar)">{profilesFor('tongue', c.panel).map((p) => <option key={p.sku} value={p.sku}>{`${p.maker} ${p.sku} + ${p.mate}: Nut-Feder-Paar, Platte ${String(p.panel![0]).replace('.', ',')} bis ${String(p.panel![1]).replace('.', ',')} mm`}</option>)}</optgroup>
+          {c.parts?.closing && ![...profilesFor('hybrid', c.panel), ...profilesFor('tongue', c.panel)].some((p) => p.sku === c.parts?.closing) ? <option value={c.parts.closing}>{profileLabel(profileBySku(c.parts.closing)!)} (passt nicht zur Platte)</option> : null}
+        </select></Field>
         <label className="check"><input disabled={ro} type="checkbox" checked={c.cornerBalls} onChange={(e) => set({ cornerBalls: e.target.checked })} /> Kugelecken an allen Außenecken</label>
+        {c.cornerBalls ? <Field label="Kugelecke"><select disabled={ro} value={c.parts?.corner ?? ''} onChange={(e) => set({ parts: { ...c.parts, corner: e.target.value || undefined } })}>
+          <option value="">allgemein</option>
+          {partsInGroup('corner').map((p) => <option key={p.sku} value={p.sku}>{partLabel(p)}</option>)}
+        </select></Field> : null}
 
         </Section>
         <Section id="case.castors" title="Rollen" summary={castors ? `${castors} × ${c.castorSize} mm` : 'keine'}>
@@ -112,6 +172,8 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
               </select>
               <label className="inline-field">Seite <select disabled={ro} value={h.face} onChange={(e) => setHw(i, { face: e.target.value as CaseFace })}>{HARDWARE[h.kind].faces.map((f) => <option key={f} value={f}>{FACE_LABELS[f]}</option>)}</select></label>
               <label className="inline-field">Stück <NumberInput value={h.count} min={1} max={12} onChange={(v) => setHw(i, { count: Math.max(1, Math.round(v)) })} style={{ width: 52 }} /></label>
+              {seamKinds.includes(h.kind) && seams.length > 1 ? <label className="inline-field">Fuge <select disabled={ro} value={h.seam ?? 'lid'} onChange={(e) => setHw(i, { seam: e.target.value === 'lid' ? undefined : (e.target.value as CaseSeam) })}>{seams.map((s) => <option key={s} value={s}>{SEAM_LABELS[s]}</option>)}</select></label> : null}
+              {partsForKind(h.kind).length ? <label className="inline-field">Artikel <select disabled={ro} value={h.sku ?? ''} onChange={(e) => setHw(i, { sku: e.target.value || undefined })}><option value="">allgemein</option>{partsForKind(h.kind).map((p) => <option key={p.sku} value={p.sku}>{partLabel(p)}</option>)}</select></label> : null}
               {!ro ? <button className="icon-btn" title={`${HARDWARE[h.kind].label} entfernen`} aria-label="Entfernen" onClick={() => set({ hardware: c.hardware.filter((_, j) => j !== i) })}>✕</button> : null}
             </div>
           )))}
@@ -141,6 +203,13 @@ function CaseInspector({ c, project }: { c: FlightCase; project: Project }) {
 
 // ------------------------------------------------------------------ parts list
 
+/** cut lengths grouped: "4 × 618, 2 × 800" */
+function cutList(pieces: number[]) {
+  const m = new Map<number, number>();
+  for (const p of pieces) m.set(p, (m.get(p) ?? 0) + 1);
+  return [...m.entries()].sort((a, b) => b[0] - a[0]).map(([l, n]) => `${n} × ${l}`).join(', ');
+}
+
 export function PartsList({ c, project }: { c: FlightCase; project: Project }) {
   const [open, setOpen] = useState(true);
   const b = caseBom(c, project);
@@ -154,15 +223,16 @@ export function PartsList({ c, project }: { c: FlightCase; project: Project }) {
         <div className="cable-table-wrap parts-grid">
           {b.panels.length ? (
             <table className="cable-table"><thead><tr><th>Platte ({String(c.panel).replace('.', ',')} mm)</th><th>Stk.</th><th>Zuschnitt (mm)</th></tr></thead>
-              <tbody>{b.panels.map((p) => <tr key={p.name}><td>{p.name}</td><td>{p.count}</td><td>{Math.round(p.a)} × {Math.round(p.b)}</td></tr>)}</tbody></table>
+              <tbody>{b.panels.map((p, i) => <tr key={i}><td>{p.name}</td><td>{p.count}</td><td>{Math.round(p.a)} × {Math.round(p.b)}</td></tr>)}
+                {b.sheets ? <tr><td className="muted">{b.sheets.material} {kg(b.sheets.thickness)} mm, {kg(b.sheets.area)} m²</td><td>{b.sheets.count}</td><td className="muted">Tafeln {b.sheets.size[0]} × {b.sheets.size[1]}, 5 % Verschnitt</td></tr> : null}</tbody></table>
           ) : null}
           {b.profiles.length ? (
-            <table className="cable-table"><thead><tr><th>Profil</th><th>Länge</th></tr></thead>
-              <tbody>{b.profiles.map((p) => <tr key={p.name}><td>{p.name}</td><td>{formatLength(p.length)}</td></tr>)}</tbody></table>
+            <table className="cable-table"><thead><tr><th>Profil</th><th>Länge</th><th>Zuschnitt (mm)</th><th>Stangen</th></tr></thead>
+              <tbody>{b.profiles.map((p) => <tr key={p.name}><td>{p.name}</td><td>{formatLength(p.length)}</td><td className="muted">{p.pieces ? cutList(p.pieces) : ''}</td><td>{p.bars ? `${p.bars} × ${profileBySku(p.sku)?.stock ?? 4} m` : ''}</td></tr>)}</tbody></table>
           ) : null}
           {b.hardware.length ? (
             <table className="cable-table"><thead><tr><th>Beschlag</th><th>Stk.</th></tr></thead>
-              <tbody>{b.hardware.map((h) => <tr key={h.label}><td>{h.label}</td><td>{h.count}</td></tr>)}</tbody></table>
+              <tbody>{b.hardware.map((h, i) => <tr key={i}><td>{h.label}</td><td>{h.count}</td></tr>)}</tbody></table>
           ) : null}
           <table className="cable-table"><thead><tr><th>Schaumstoff</th><th>Maß (mm)</th><th>Stärke</th><th>aus Platten</th></tr></thead>
             <tbody>{b.foam.map((f) => <tr key={f.name}><td>{f.name}</td><td>{Math.round(f.a)} × {Math.round(f.b)}</td><td>{Math.round(f.t)} mm</td><td className="muted">{f.stack ?? ''}</td></tr>)}</tbody></table>

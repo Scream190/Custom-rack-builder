@@ -1,4 +1,5 @@
-import type { CaseFace, CaseHardware, CaseItem, DeviceTemplate, FlightCase, HardwareKind, Project } from './types';
+import type { CaseFace, CaseHardware, CaseItem, CaseSeam, DeviceTemplate, FlightCase, HardwareKind, Project } from './types';
+import { footHeight, hardwarePart, panelMaterial, profileBySku, profileKgPerM, sheetOf, slideFor } from '../library/caseHardware';
 import { faceWidth, U } from './geometry';
 import { uid } from './util';
 import { cutDepth, FOAM_MATERIALS, foamStack, formatStack, type ShapeKind } from './inlay';
@@ -25,7 +26,121 @@ export const HARDWARE: Record<HardwareKind, { label: string; weight: number; fac
   castor: { label: 'Lenkrolle', weight: 0.8, faces: ['bottom'] },
   'castor-braked': { label: 'Lenkrolle mit Bremse', weight: 0.9, faces: ['bottom'] },
   skid: { label: 'Gleitkufe', weight: 0.15, faces: ['bottom'] },
+  'draw-latch': { label: 'Spannverschluss', weight: 0.15, faces: ['front', 'back', 'left', 'right', 'top'] },
+  'lid-stay': { label: 'Deckelstütze', weight: 0.15, faces: ['back', 'front', 'left', 'right'] },
+  'piano-hinge': { label: 'Klavierband (Meterware)', weight: 0.4, faces: ['back', 'front', 'left', 'right'] },
+  foot: { label: 'Gummifuß', weight: 0.05, faces: ['bottom'] },
+  'dish-vent': { label: 'Einbauschale mit Lüftung', weight: 0.2, faces: ['front', 'back', 'left', 'right', 'top'] },
+  'dish-connector': { label: 'Einbauschale für Steckverbinder', weight: 0.25, faces: ['front', 'back', 'left', 'right'] },
+  'cable-gland': { label: 'Kabeldurchführung in Schale', weight: 0.15, faces: ['front', 'back', 'left', 'right'] },
+  'handle-surface': { label: 'Aufschraubgriff', weight: 0.25, faces: ['front', 'back', 'left', 'right', 'top'] },
 };
+
+export const SEAM_LABELS: Record<CaseSeam, string> = { lid: 'Deckel', front: 'Tür vorne', back: 'Tür hinten', left: 'Tür links', right: 'Tür rechts' };
+const SIDES = ['front', 'back', 'left', 'right'] as const;
+type Side = (typeof SIDES)[number];
+
+/** door depths (inner, mm) with doors on left/right taking precedence over front/back */
+export function doorDepths(c: Pick<FlightCase, 'doors'>): Record<Side, number> {
+  const d = c.doors ?? {};
+  const pos = (v?: number) => (v && v > 0 ? v : 0);
+  const x = pos(d.left) + pos(d.right) > 0;
+  return { left: pos(d.left), right: pos(d.right), front: x ? 0 : pos(d.front), back: x ? 0 : pos(d.back) };
+}
+export const hasDoors = (c: Pick<FlightCase, 'doors'>) => Object.values(doorDepths(c)).some((v) => v > 0);
+export const hasLidPart = (c: Pick<FlightCase, 'lidKind' | 'lidH'>) => c.lidKind !== 'none' && c.lidH > 0;
+/** wall thickness: panel plus what the edge profile adds */
+export const wallOf = (c: Pick<FlightCase, 'panel' | 'profile'>) => c.panel + (c.profile === 'alu30' ? 2 : c.profile === 'alu35' ? 2.5 : 0);
+
+export type CasePartId = 'base' | 'lid' | 'lid2' | 'door-front' | 'door-back' | 'door-left' | 'door-right';
+/** one shell of the case in outer coordinates (x along the length, y front to back, z up from the bottom, castors excluded) */
+export interface CaseBox {
+  id: CasePartId;
+  role: 'base' | 'lid' | 'door';
+  side?: Side;
+  x0: number; x1: number; y0: number; y1: number; z0: number; z1: number;
+  /** faces without a panel (towards the neighbouring part, or the open top of a crate) */
+  open: CaseFace[];
+  /** open faces that carry a closing profile */
+  closing: CaseFace[];
+}
+
+/**
+ * The case as shells: base, optional top lid (split into two halves for a clamshell) and doors on the sides.
+ * `t` = wall thickness (panel + profile for the outer size, panel alone for the cutting list).
+ */
+export function caseBoxes(c: FlightCase, t = wallOf(c)): CaseBox[] {
+  const dd = doorDepths(c);
+  const lid = hasLidPart(c), doors = hasDoors(c);
+  const topWall = lid || doors;
+  const L = c.inner.l + 2 * t, W = c.inner.w + 2 * t, H = c.inner.h + t + (topWall ? t : 0);
+  const span = c.doors?.span === 'body' && lid ? 'body' : 'full';
+  const zs = lid ? H - (c.lidH + t) : H;
+  const out = (s: Side) => (dd[s] ? dd[s] + t : 0);
+  const cx0 = out('left'), cx1 = L - out('right'), cy0 = out('front'), cy1 = W - out('back');
+  const boxes: CaseBox[] = [];
+  const baseOpen: CaseFace[] = [];
+  if (lid || !doors) baseOpen.push('top');
+  for (const s of SIDES) if (dd[s]) baseOpen.push(s);
+  boxes.push({ id: 'base', role: 'base', x0: cx0, x1: cx1, y0: cy0, y1: cy1, z0: 0, z1: zs, open: baseOpen, closing: baseOpen.filter((f) => f !== 'top' || lid) });
+  const opposite: Record<Side, Side> = { front: 'back', back: 'front', left: 'right', right: 'left' };
+  for (const s of SIDES) {
+    if (!dd[s]) continue;
+    const z1 = span === 'body' ? zs : H;
+    const open: CaseFace[] = [opposite[s]];
+    if (span === 'body') open.push('top');
+    const b = { x0: s === 'right' ? cx1 : 0, x1: s === 'left' ? cx0 : L, y0: s === 'back' ? cy1 : 0, y1: s === 'front' ? cy0 : W };
+    // front/back doors span the full length, left/right doors the full width
+    if (s === 'front' || s === 'back') { b.x0 = 0; b.x1 = L; }
+    else { b.y0 = 0; b.y1 = W; }
+    boxes.push({ id: `door-${s}` as CasePartId, role: 'door', side: s, ...b, z0: 0, z1, open, closing: open });
+  }
+  if (lid) {
+    const lx0 = span === 'body' ? 0 : cx0, lx1 = span === 'body' ? L : cx1, ly0 = span === 'body' ? 0 : cy0, ly1 = span === 'body' ? W : cy1;
+    if (c.lidSplit) {
+      const mid = (lx0 + lx1) / 2;
+      boxes.push({ id: 'lid', role: 'lid', x0: lx0, x1: mid, y0: ly0, y1: ly1, z0: zs, z1: H, open: ['bottom', 'right'], closing: ['bottom', 'right'] });
+      boxes.push({ id: 'lid2', role: 'lid', x0: mid, x1: lx1, y0: ly0, y1: ly1, z0: zs, z1: H, open: ['bottom', 'left'], closing: ['bottom', 'left'] });
+    } else boxes.push({ id: 'lid', role: 'lid', x0: lx0, x1: lx1, y0: ly0, y1: ly1, z0: zs, z1: H, open: ['bottom'], closing: ['bottom'] });
+  }
+  return boxes;
+}
+
+/** inner space of the base (inner coordinates), i.e. without the doors */
+export function baseInner(c: FlightCase) {
+  const dd = doorDepths(c);
+  return { x0: dd.left, x1: c.inner.l - dd.right, y0: dd.front, y1: c.inner.w - dd.back };
+}
+
+/** construction presets after the case types of common case design software */
+export interface CaseType { id: string; label: string; note: string; apply: (c: FlightCase) => Partial<FlightCase> }
+const depthOf = (n: number) => Math.max(60, Math.round(n / 10) * 10);
+export const CASE_TYPES: CaseType[] = [
+  { id: 'trunk-5050', label: 'Truhe 50/50', note: 'waagrecht in der Mitte geteilt', apply: (c) => ({ lidKind: c.lidKind === 'none' ? 'removable' : c.lidKind, lidH: Math.round(c.inner.h / 2), doors: undefined, lidSplit: false }) },
+  { id: 'shallow-lid', label: 'Flacher Deckel', note: 'tiefe Wanne, flacher Deckel oben', apply: (c) => ({ lidKind: c.lidKind === 'none' ? 'removable' : c.lidKind, lidH: depthOf(c.inner.h * 0.25), doors: undefined, lidSplit: false }) },
+  { id: 'shallow-base', label: 'Flache Wanne', note: 'flacher Boden, hohe Haube zum Abheben', apply: (c) => ({ lidKind: 'removable', lidH: Math.round(c.inner.h * 0.75), doors: undefined, lidSplit: false }) },
+  { id: 'single-door', label: 'Eintür-Case', note: 'Deckel als Tür an der Vorderseite', apply: (c) => ({ lidKind: 'none', lidH: 0, doors: { front: depthOf(c.inner.w * 0.2), span: 'full' }, lidSplit: false, drawers: undefined }) },
+  { id: 'double-door', label: 'Doppeltür-Case', note: 'Türen vorne und hinten', apply: (c) => ({ lidKind: 'none', lidH: 0, doors: { front: depthOf(c.inner.w * 0.15), back: depthOf(c.inner.w * 0.15), span: 'full' }, lidSplit: false }) },
+  { id: 'triple-door', label: 'Dreifach-Case', note: 'Türen vorne und hinten, Deckel dazwischen', apply: (c) => ({ lidKind: 'removable', lidH: depthOf(c.inner.h * 0.2), doors: { front: depthOf(c.inner.w * 0.15), back: depthOf(c.inner.w * 0.15), span: 'full' }, lidSplit: false }) },
+  { id: 'clamshell', label: 'Klappdeckel geteilt', note: 'flache Wanne, Haube in der Mitte geteilt', apply: (c) => ({ lidKind: 'removable', lidH: Math.round(c.inner.h * 0.7), doors: undefined, lidSplit: true }) },
+  { id: 'rack-lids', label: 'Rack-Case mit Deckeln', note: 'durchgehender Deckel oben, darunter Türen vorne und hinten', apply: (c) => ({ lidKind: 'removable', lidH: depthOf(c.inner.h * 0.15), doors: { front: depthOf(c.inner.w * 0.12), back: depthOf(c.inner.w * 0.12), span: 'body' }, lidSplit: false }) },
+  { id: 'production', label: 'Production-Case', note: 'Arbeitsplatz-Case mit Türen vorne und hinten und Fachböden', apply: (c) => ({ lidKind: 'none', lidH: 0, doors: { front: depthOf(c.inner.w * 0.12), back: depthOf(c.inner.w * 0.12), span: 'full' }, lidSplit: false, dividers: [...c.dividers.filter((d) => d.axis !== 'z'), { axis: 'z', pos: Math.round(c.inner.h / 3) }, { axis: 'z', pos: Math.round((c.inner.h * 2) / 3) }] }) },
+  { id: 'drawer-case', label: 'Schubladen-Case', note: 'Tür vorne, innen Schubladen auf Auszügen', apply: (c) => {
+    const inH = c.inner.h - 30;
+    const n = Math.max(1, Math.min(6, Math.floor(inH / 120)));
+    return { lidKind: 'none', lidH: 0, doors: { front: depthOf(c.inner.w * 0.1), span: 'full' }, lidSplit: false, drawers: Array.from({ length: n }, () => ({ h: Math.floor(inH / n) })) };
+  } },
+];
+export const caseTypeOf = (id?: string) => CASE_TYPES.find((t) => t.id === id);
+/** applies a preset and sets fitting hardware (castors stay) */
+export function applyCaseType(c: FlightCase, id: string): Partial<FlightCase> {
+  const ty = caseTypeOf(id);
+  if (!ty) return {};
+  const patch: Partial<FlightCase> = { ...ty.apply(c), caseType: id };
+  if (!('drawers' in patch)) patch.drawers = undefined;
+  const next = { ...c, ...patch };
+  return { ...patch, hardware: [...autoHardware(next), ...c.hardware.filter((h) => h.kind.startsWith('castor') || h.kind === 'foot' || h.kind === 'skid')] };
+}
 
 const castorWeight = (size: number) => (size <= 75 ? 0.5 : size <= 100 ? 0.8 : 1.1);
 /** plywood (birch, laminated) and aluminium estimates */
@@ -38,9 +153,21 @@ const BALL_CORNER_KG = 0.12;
 export const isDrawer = (c: FlightCase) => c.kind === 'drawer';
 
 /** sensible hardware for a case of this size */
-export function autoHardware(c: Pick<FlightCase, 'inner' | 'lidKind' | 'lidH'>): CaseHardware[] {
+export function autoHardware(c: Pick<FlightCase, 'inner' | 'lidKind' | 'lidH'> & Partial<Pick<FlightCase, 'doors' | 'lidSplit'>>): CaseHardware[] {
+  const dd = doorDepths(c);
+  if (Object.values(dd).some((v) => v > 0)) return doorHardware(c, dd);
   if (c.lidKind === 'none' || c.lidH <= 0) {
     return [{ kind: 'handle-recessed', face: 'left', count: 1 }, { kind: 'handle-recessed', face: 'right', count: 1 }];
+  }
+  if (c.lidSplit) {
+    // two hood halves: latches along the front and back of each half, one on each end
+    const per = c.inner.l > 900 ? 2 : 1;
+    return [
+      { kind: 'butterfly', face: 'front', count: 2 * per }, { kind: 'butterfly', face: 'back', count: 2 * per },
+      { kind: 'butterfly', face: 'left', count: 1 }, { kind: 'butterfly', face: 'right', count: 1 },
+      // the base is low: handles between the latches on the long sides, not under the end latches
+      { kind: 'handle-recessed', face: 'front', count: 1 }, { kind: 'handle-recessed', face: 'back', count: 1 },
+    ];
   }
   const long = c.inner.l > 800 ? 3 : c.inner.l > 450 ? 2 : 1;
   const short = c.inner.w > 500 ? 2 : 1;
@@ -54,6 +181,31 @@ export function autoHardware(c: Pick<FlightCase, 'inner' | 'lidKind' | 'lidH'>):
   }
   out.push({ kind: 'handle-recessed', face: 'left', count: 1 }, { kind: 'handle-recessed', face: 'right', count: 1 });
   if (c.inner.l > 1000) out.push({ kind: 'handle-recessed', face: 'front', count: 1 });
+  out.push({ kind: 'stack-cup', face: 'top', count: 4 });
+  return out;
+}
+
+/** latches at every door seam, handles on the faces without doors, stacking cups on top */
+function doorHardware(c: Pick<FlightCase, 'inner' | 'lidKind' | 'lidH'> & Partial<Pick<FlightCase, 'doors'>>, dd: Record<Side, number>): CaseHardware[] {
+  const out: CaseHardware[] = [];
+  const lid = c.lidKind !== 'none' && c.lidH > 0;
+  const span = c.doors?.span === 'body' && lid ? 'body' : 'full';
+  const tall = c.inner.h > 700 ? 2 : 1;
+  const across = (n: number) => (n > 500 ? 2 : 1);
+  for (const s of SIDES) {
+    if (!dd[s]) continue;
+    const sideFaces: CaseFace[] = s === 'front' || s === 'back' ? ['left', 'right'] : ['front', 'back'];
+    for (const f of sideFaces) out.push({ kind: 'butterfly', face: f, count: tall, seam: s });
+    // the top face carries the seam too when the door runs the full height
+    if (span === 'full') out.push({ kind: 'butterfly', face: 'top', count: across(s === 'front' || s === 'back' ? c.inner.l : c.inner.w), seam: s });
+  }
+  if (lid) {
+    const xDoors = dd.left + dd.right > 0;
+    const faces: CaseFace[] = span === 'body' ? ['front', 'back', 'left', 'right'] : xDoors ? ['front', 'back'] : ['left', 'right'];
+    for (const f of faces) out.push({ kind: 'butterfly', face: f, count: f === 'front' || f === 'back' ? across(c.inner.l) : 1, seam: 'lid' });
+  }
+  const handleFaces: CaseFace[] = dd.left + dd.right > 0 ? ['front', 'back'] : ['left', 'right'];
+  for (const f of handleFaces) out.push({ kind: 'handle-recessed', face: f, count: c.inner.l > 1000 && (f === 'front' || f === 'back') ? 2 : 1 });
   out.push({ kind: 'stack-cup', face: 'top', count: 4 });
   return out;
 }
@@ -103,22 +255,26 @@ export interface CaseDims {
 }
 export function caseDims(c: FlightCase): CaseDims {
   if (isDrawer(c)) return { L: c.inner.l, W: c.inner.w, H: c.inner.h, bodyH: c.inner.h, lidH: 0, castorH: 0, bodyInner: c.inner.h };
-  const extra = c.profile === 'alu30' ? 2 : c.profile === 'alu35' ? 2.5 : 0;
-  const t = c.panel + extra;
-  const hasLid = c.lidKind !== 'none' && c.lidH > 0;
+  const t = wallOf(c);
+  const hasLid = hasLidPart(c);
+  const topWall = hasLid || hasDoors(c);
   const bodyInner = c.inner.h - (hasLid ? c.lidH : 0);
   const castors = c.hardware.filter((h) => h.kind === 'castor' || h.kind === 'castor-braked').reduce((n, h) => n + h.count, 0);
-  const castorH = castors ? c.castorSize + 25 : c.hardware.some((h) => h.kind === 'skid') ? 12 : 0;
-  const bodyH = bodyInner + t;
+  const feet = c.hardware.find((h) => h.kind === 'foot');
+  const castorH = castors ? c.castorSize + 25 : c.hardware.some((h) => h.kind === 'skid') ? 12 : feet ? footHeight(feet.sku) : 0;
+  // the base carries the top panel itself when doors close the case without a lid
+  const bodyH = bodyInner + t + (topWall && !hasLid ? t : 0);
   const lidH = hasLid ? c.lidH + t : 0;
   return { L: c.inner.l + 2 * t, W: c.inner.w + 2 * t, H: bodyH + lidH + castorH, bodyH, lidH, castorH, bodyInner };
 }
 
-/** usable area for foam cut-outs (inside the side foam) */
+/** usable area for foam cut-outs (inside the side foam of the base, doors excluded) */
 export function usableArea(c: FlightCase) {
   const s = c.foam.sides;
-  return { x0: s, y0: s, x1: c.inner.l - s, y1: c.inner.w - s };
+  const b = baseInner(c);
+  return { x0: b.x0 + s, y0: b.y0 + s, x1: b.x1 - s, y1: b.y1 - s };
 }
+
 
 /** height available for an item of the given layer (cut depth) */
 export function depthAvailable(c: FlightCase, layer: CaseItem['layer']): number {
@@ -189,6 +345,20 @@ export function caseWarnings(c: FlightCase): CaseWarning[] {
     if (a.x < b.x + fb.l - 0.5 && b.x < a.x + fa.l - 0.5 && a.y < b.y + fb.w - 0.5 && b.y < a.y + fa.w - 0.5) out.push({ itemId: a.id, text: `${a.name} und ${b.name} überlappen` });
   }
   if (!isDrawer(c) && c.lidKind !== 'none' && c.lidH >= c.inner.h) out.push({ text: 'Deckel ist so hoch wie das ganze Case' });
+  if (isDrawer(c) || c.kind === 'inlay') return out;
+  const dd = doorDepths(c), bi = baseInner(c);
+  if (bi.x1 - bi.x0 < 60 || bi.y1 - bi.y0 < 60) out.push({ text: 'Die Türen sind zusammen fast so tief wie das Case, für den Innenraum bleibt kaum Platz' });
+  const d0 = c.doors ?? {};
+  if ((d0.left || d0.right) && (d0.front || d0.back)) out.push({ text: 'Türen vorne/hinten und links/rechts lassen sich nicht kombinieren, es gelten die Türen links/rechts' });
+  if (c.drawers?.length) {
+    const sum = c.drawers.reduce((s, x) => s + x.h, 0);
+    if (sum > caseDims(c).bodyInner + 0.5) out.push({ text: `Schubladen zusammen ${sum} mm hoch, im Unterteil sind nur ${Math.round(caseDims(c).bodyInner)} mm Platz` });
+    if (!slideFor(bi.y1 - bi.y0 - 15)) out.push({ text: `Kein Schubladenauszug passt in ${Math.round(bi.y1 - bi.y0)} mm Tiefe (kürzester 310 mm)` });
+    if (!dd.front && !dd.back) out.push({ text: 'Schubladen ohne Tür vorne: die Fronten liegen hinter der Vorderwand' });
+  }
+  for (const h of c.hardware) if (h.seam && h.seam !== 'lid' && !dd[h.seam]) out.push({ text: `${HARDWARE[h.kind].label}: ${SEAM_LABELS[h.seam]} gibt es nicht mehr` });
+  const edge = profileBySku(c.parts?.edge), closing = profileBySku(c.parts?.closing);
+  for (const pr of [edge, closing]) if (pr?.panel && (c.panel < pr.panel[0] - 0.01 || c.panel > pr.panel[1] + 0.01)) out.push({ text: `Profil ${pr.sku} ist für ${String(pr.panel[0]).replace('.', ',')} bis ${String(pr.panel[1]).replace('.', ',')} mm Platte, gewählt sind ${String(c.panel).replace('.', ',')} mm` });
   return out;
 }
 
@@ -196,8 +366,11 @@ export function caseWarnings(c: FlightCase): CaseWarning[] {
 
 export interface CaseBom {
   panels: { name: string; count: number; a: number; b: number }[];
-  profiles: { name: string; length: number }[];
-  hardware: { label: string; count: number }[];
+  /** length in m; pieces = cut lengths in mm; bars = stock bars needed */
+  profiles: { name: string; length: number; sku?: string; pieces?: number[]; bars?: number }[];
+  hardware: { label: string; count: number; sku?: string }[];
+  /** sheets of panel material needed (area plus 5 % waste, no nesting) */
+  sheets?: { material: string; thickness: number; size: [number, number]; count: number; area: number };
   /** stack = how the thickness is made up from standard sheets */
   foam: { name: string; a: number; b: number; t: number; stack?: string }[];
   /** case = empty case incl. foam, foam = foam alone */
@@ -224,52 +397,183 @@ export function caseBom(c: FlightCase, project?: Project): CaseBom {
     const w = Math.max(0, foamVol) * density;
     return { panels: [], profiles: [], hardware: [], foam: foamParts, weight: { case: round1(w), contents: round1(contents), total: round1(w + contents), foam: round1(w) }, volume: 0 };
   }
-  const p = c.panel, L = c.inner.l + 2 * p, Wd = c.inner.w + 2 * p;
-  const hasLid = c.lidKind !== 'none' && c.lidH > 0;
-  const panels: CaseBom['panels'] = [
-    { name: 'Boden', count: 1, a: L, b: Wd },
-    { name: 'Front-/Rückwand Unterteil', count: 2, a: L, b: d.bodyInner },
-    { name: 'Seitenwand Unterteil', count: 2, a: c.inner.w, b: d.bodyInner },
-  ];
-  if (hasLid) panels.push(
-    { name: 'Deckelplatte', count: 1, a: L, b: Wd },
-    { name: 'Front-/Rückwand Deckel', count: 2, a: L, b: c.lidH },
-    { name: 'Seitenwand Deckel', count: 2, a: c.inner.w, b: c.lidH },
-  );
-  else panels.push({ name: 'Abdeckung oben', count: 0, a: L, b: Wd });
-  const plyArea = panels.reduce((s, x) => s + x.count * area(x.a, x.b), 0);
-  const plyKg = plyArea * (p / 1000) * PLY_DENSITY;
-  const Lm = d.L / 1000, Wm = d.W / 1000;
-  const profiles: CaseBom['profiles'] = [];
-  if (c.profile !== 'none') {
-    profiles.push({ name: `Kantenprofil ${c.profile === 'alu30' ? '30 × 30' : '35 × 35'} mm senkrecht`, length: round2(4 * (d.bodyH + d.lidH) / 1000) });
-    profiles.push({ name: 'Kantenprofil waagerecht (Boden und Deckel)', length: round2(2 * 2 * (Lm + Wm)) });
+  const p = c.panel;
+  const hasLid = hasLidPart(c);
+  const boxes = caseBoxes(c, p);
+  // panels of every shell: top/bottom full size, front/back between them in height, sides fit between all others
+  const panelMap = new Map<string, { name: string; count: number; a: number; b: number }>();
+  const addPanel = (name: string, a: number, b: number) => {
+    if (a <= 0 || b <= 0) return;
+    const key = `${name}|${Math.round(a)}|${Math.round(b)}`;
+    const e0 = panelMap.get(key);
+    if (e0) e0.count++; else panelMap.set(key, { name, count: 1, a, b });
+  };
+  for (const bx of boxes) {
+    const closed = (f: CaseFace) => !bx.open.includes(f);
+    const lx = bx.x1 - bx.x0, ly = bx.y1 - bx.y0, lz = bx.z1 - bx.z0;
+    const zIn = lz - (closed('bottom') ? p : 0) - (closed('top') ? p : 0);
+    const yIn = ly - (closed('front') ? p : 0) - (closed('back') ? p : 0);
+    const n = panelNames(bx);
+    if (closed('bottom')) addPanel(n.bottom, lx, ly);
+    if (closed('top')) addPanel(n.top, lx, ly);
+    for (const f of ['front', 'back'] as const) if (closed(f)) addPanel(bx.role === 'door' && bx.side === f ? n.outer : n.fb, lx, zIn);
+    for (const f of ['left', 'right'] as const) if (closed(f)) addPanel(bx.role === 'door' && bx.side === f ? n.outer : n.lr, yIn, zIn);
   }
-  if (hasLid) profiles.push({ name: c.lidKind === 'telescope' ? 'Teleskop-Schließprofil (Paar)' : 'Schließprofil Hybrid (Paar)', length: round2(2 * (Lm + Wm)) });
-  const profKg = profiles.reduce((s, x) => s + x.length * (x.name.startsWith('Kanten') ? PROFILE_KG_M[c.profile] : CLOSING_KG_M * 2), 0);
-  const hw = new Map<string, number>();
+  const bi = baseInner(c);
+  for (const dv of c.dividers) {
+    if (dv.axis === 'x') addPanel('Trennwand längs', bi.x1 - bi.x0, d.bodyInner);
+    else if (dv.axis === 'y') addPanel('Trennwand quer', bi.y1 - bi.y0, d.bodyInner);
+    else addPanel('Fachboden', bi.x1 - bi.x0, bi.y1 - bi.y0);
+  }
+  const hw = new Map<string, { label: string; count: number; sku?: string }>();
+  const addHw = (label: string, count: number, sku?: string) => {
+    const k = label + (sku ?? '');
+    const e0 = hw.get(k);
+    if (e0) e0.count += count; else hw.set(k, { label, count, sku });
+  };
   let hwKg = 0;
+  // drawers on slides: front over the base width, box between the slides
+  const slide = slideFor(bi.y1 - bi.y0 - 15);
+  for (const dr of c.drawers ?? []) {
+    const wIn = bi.x1 - bi.x0, depth = slide ? slide.length : bi.y1 - bi.y0 - 20, boxW = wIn - 2 * 13.5, boxH = Math.max(20, dr.h - 15);
+    addPanel('Schubladenfront', wIn, dr.h);
+    addPanel('Schubladenboden', boxW, depth);
+    addPanel('Schubladenseite', depth, boxH);
+    addPanel('Schubladenseite', depth, boxH);
+    addPanel('Schubladenrückwand', boxW - 2 * p, boxH);
+    addHw(slide ? 'Schubladenauszug (Paar)' : 'Schubladenauszug (Paar), keiner passt in die Tiefe', 1, slide?.sku);
+    addHw('Schubladengriff', 1);
+    hwKg += 0.9;
+  }
+  const panels = [...panelMap.values()];
+  const plyArea = panels.reduce((s, x) => s + x.count * area(x.a, x.b), 0);
+  const pm = panelMaterial(c.parts?.panel);
+  const plyKg = plyArea * (p / 1000) * (pm?.density ?? PLY_DENSITY);
+  const sheet = sheetOf(c.parts?.panel);
+  const sheets = { material: pm ? pm.label : 'Multiplex', thickness: p, size: sheet, area: round2(plyArea), count: Math.max(1, Math.ceil((plyArea * 1.05) / ((sheet[0] * sheet[1]) / 1e6))) };
+
+  // profiles: edges where two closed faces meet, closing profiles at every seam
+  const t = wallOf(c);
+  const outerBoxes = caseBoxes(c, t);
+  const profiles: CaseBom['profiles'] = [];
+  const edge = profileBySku(c.parts?.edge);
+  if (c.profile !== 'none') {
+    const vert: number[] = [], hor: number[] = [];
+    for (const bx of outerBoxes) for (const e0 of boxEdges(bx)) (e0.axis === 'z' ? vert : hor).push(Math.round(e0.length));
+    const name = edge ? `Kantenprofil ${edge.maker} ${edge.sku}` : `Kantenprofil ${c.profile === 'alu30' ? '30 × 30' : '35 × 35'} mm`;
+    if (vert.length) profiles.push({ name: `${name} senkrecht`, sku: edge?.sku, length: round2(vert.reduce((a, b) => a + b, 0) / 1000), pieces: vert, bars: bars(vert, (edge?.stock ?? 4) * 1000) });
+    if (hor.length) profiles.push({ name: `${name} waagerecht`, sku: edge?.sku, length: round2(hor.reduce((a, b) => a + b, 0) / 1000), pieces: hor, bars: bars(hor, (edge?.stock ?? 4) * 1000) });
+  }
+  const closing = profileBySku(c.parts?.closing);
+  const seams = caseSeams(outerBoxes);
+  if (seams.length) {
+    const lens = seams.map((s) => Math.round(s.perimeter));
+    const total = round2(lens.reduce((a, b) => a + b, 0) / 1000);
+    // every seam is cut as four mitred pieces per half
+    const pieces = seams.flatMap((s) => [s.a, s.a, s.b, s.b].map(Math.round));
+    const stock = (closing?.stock ?? 4) * 1000;
+    if (closing && (closing.kind === 'tongue' || closing.kind === 'groove')) {
+      const mate = profileBySku(closing.mate);
+      const tongue = closing.kind === 'tongue' ? closing : mate, groove = closing.kind === 'groove' ? closing : mate;
+      if (tongue) profiles.push({ name: `Schließprofil Feder ${tongue.maker} ${tongue.sku}`, sku: tongue.sku, length: total, pieces, bars: bars(pieces, stock) });
+      if (groove) profiles.push({ name: `Schließprofil Nut ${groove.maker} ${groove.sku}`, sku: groove.sku, length: total, pieces, bars: bars(pieces, stock) });
+    } else {
+      const name = closing ? `Hybrid-Schließprofil ${closing.maker} ${closing.sku} (Paar)` : c.lidKind === 'telescope' && !hasDoors(c) ? 'Teleskop-Schließprofil (Paar)' : 'Schließprofil Hybrid (Paar)';
+      profiles.push({ name, sku: closing?.sku, length: total, pieces: [...pieces, ...pieces], bars: bars([...pieces, ...pieces], stock) });
+    }
+  }
+  const profKg = profiles.reduce((s, x) => {
+    const pr = profileBySku(x.sku);
+    if (pr) return s + x.length * profileKgPerM(pr) * (x.name.endsWith('(Paar)') ? 2 : 1);
+    return s + x.length * (x.name.startsWith('Kanten') ? PROFILE_KG_M[c.profile] : CLOSING_KG_M * 2);
+  }, 0);
   for (const h of c.hardware) {
     const info = HARDWARE[h.kind];
-    const label = h.kind.startsWith('castor') ? `${info.label} ${c.castorSize} mm` : info.label;
-    hw.set(label, (hw.get(label) ?? 0) + h.count);
+    const part = hardwarePart(h.sku);
+    const base = h.kind.startsWith('castor') ? `${info.label} ${c.castorSize} mm` : info.label;
+    const label = part ? `${base} (${part.maker} ${part.sku})` : h.seam && h.seam !== 'lid' ? `${base}, ${SEAM_LABELS[h.seam]}` : base;
+    addHw(label, h.count, h.sku);
     hwKg += h.count * (h.kind.startsWith('castor') ? castorWeight(c.castorSize) + (h.kind === 'castor-braked' ? 0.1 : 0) : info.weight);
   }
-  if (c.cornerBalls) { hw.set('Kugelecke', (hw.get('Kugelecke') ?? 0) + (hasLid ? 8 : 4)); hwKg += (hasLid ? 8 : 4) * BALL_CORNER_KG; }
-  if (hasLid && c.lidKind === 'hinged') { hw.set('Deckelhalter', 2); hwKg += 0.2; }
-  foamParts.push({ name: 'Boden-Schaum', a: c.inner.l, b: c.inner.w, t: c.foam.bottom, stack: stackNote(c.foam.bottom) });
-  if (c.foam.sides > 0) foamParts.push({ name: 'Randschaum (Streifen)', a: round2(2 * (c.inner.l + c.inner.w)), b: d.bodyInner, t: c.foam.sides });
+  if (c.cornerBalls) {
+    const n = outerBoxes.reduce((s, bx) => s + boxCorners(bx), 0);
+    const part = hardwarePart(c.parts?.corner);
+    addHw(part ? `Kugelecke (${part.maker} ${part.sku})` : 'Kugelecke', n, part?.sku);
+    hwKg += n * BALL_CORNER_KG;
+  }
+  if (hasLid && c.lidKind === 'hinged' && !c.hardware.some((h) => h.kind === 'lid-stay')) { addHw('Deckelhalter', 2); hwKg += 0.2; }
+  const fullFoam = { l: bi.x1 - bi.x0, w: bi.y1 - bi.y0 };
+  foamParts.push({ name: 'Boden-Schaum', a: fullFoam.l, b: fullFoam.w, t: c.foam.bottom, stack: stackNote(c.foam.bottom) });
+  if (c.foam.sides > 0) foamParts.push({ name: 'Randschaum (Streifen)', a: round2(2 * (fullFoam.l + fullFoam.w)), b: d.bodyInner, t: c.foam.sides });
   const bodyItems = c.items.filter((i) => i.layer === 'body'), lidItems = c.items.filter((i) => i.layer === 'lid');
-  if (bodyItems.length) { const t = Math.round(Math.max(...bodyItems.map(cutDepth))); foamParts.push({ name: 'Einlage Unterteil mit Ausschnitten', a: usable.x1 - usable.x0, b: usable.y1 - usable.y0, t, stack: stackNote(t) }); }
+  if (bodyItems.length) { const th = Math.round(Math.max(...bodyItems.map(cutDepth))); foamParts.push({ name: 'Einlage Unterteil mit Ausschnitten', a: usable.x1 - usable.x0, b: usable.y1 - usable.y0, t: th, stack: stackNote(th) }); }
   if (hasLid && c.foam.lid > 0) foamParts.push({ name: 'Deckel-Schaum', a: c.inner.l, b: c.inner.w, t: c.foam.lid, stack: stackNote(c.foam.lid) });
-  if (hasLid && lidItems.length) { const t = Math.round(Math.max(...lidItems.map(cutDepth))); foamParts.push({ name: 'Einlage Deckel mit Ausschnitten', a: usable.x1 - usable.x0, b: usable.y1 - usable.y0, t, stack: stackNote(t) }); }
+  if (hasLid && lidItems.length) { const th = Math.round(Math.max(...lidItems.map(cutDepth))); foamParts.push({ name: 'Einlage Deckel mit Ausschnitten', a: usable.x1 - usable.x0, b: usable.y1 - usable.y0, t: th, stack: stackNote(th) }); }
   const foamVol = foamParts.reduce((s, f) => s + (f.name.startsWith('Randschaum') ? (f.a / 1000) * (f.b / 1000) * (f.t / 1000) : area(f.a, f.b) * f.t / 1000), 0) - cut;
   const foamKg = Math.max(0, foamVol) * density;
   const caseKg = plyKg + profKg + hwKg + foamKg;
   return {
-    panels: panels.filter((x) => x.count > 0), profiles, hardware: [...hw.entries()].map(([label, count]) => ({ label, count })), foam: foamParts,
+    panels, profiles, hardware: [...hw.values()], foam: foamParts, sheets,
     weight: { case: round1(caseKg), contents: round1(contents), total: round1(caseKg + contents), foam: round1(foamKg) }, volume: Math.round((d.L * d.W * d.H) / 1e9 * 1000) / 1000,
   };
+}
+
+/** panel names per shell (German, as they appear in the cutting list) */
+function panelNames(bx: CaseBox) {
+  if (bx.role === 'lid') return { bottom: 'Deckel unten', top: 'Deckelplatte', fb: 'Front-/Rückwand Deckel', lr: 'Seitenwand Deckel', outer: '' };
+  if (bx.role === 'door') {
+    const s = SEAM_LABELS[bx.side!];
+    return { bottom: `${s}, Rand unten`, top: `${s}, Rand oben`, fb: `${s}, Rand`, lr: `${s}, Rand`, outer: `${s}, Außenplatte` };
+  }
+  return { bottom: 'Boden', top: 'Deckplatte', fb: 'Front-/Rückwand Unterteil', lr: 'Seitenwand Unterteil', outer: '' };
+}
+
+const FACE_AXIS: Record<CaseFace, ['x' | 'y' | 'z', number]> = { left: ['x', 0], right: ['x', 1], front: ['y', 0], back: ['y', 1], bottom: ['z', 0], top: ['z', 1] };
+/** the 12 edges of a shell where two closed faces meet (axis = direction of the edge) */
+export function boxEdges(bx: CaseBox): { axis: 'x' | 'y' | 'z'; length: number; a: CaseFace; b: CaseFace }[] {
+  const len = { x: bx.x1 - bx.x0, y: bx.y1 - bx.y0, z: bx.z1 - bx.z0 };
+  const faces: CaseFace[] = ['left', 'right', 'front', 'back', 'bottom', 'top'];
+  const out: { axis: 'x' | 'y' | 'z'; length: number; a: CaseFace; b: CaseFace }[] = [];
+  for (let i = 0; i < faces.length; i++) for (let j = i + 1; j < faces.length; j++) {
+    const [ai] = FACE_AXIS[faces[i]], [aj] = FACE_AXIS[faces[j]];
+    if (ai === aj) continue;
+    if (bx.open.includes(faces[i]) || bx.open.includes(faces[j])) continue;
+    const axis = (['x', 'y', 'z'] as const).find((k) => k !== ai && k !== aj)!;
+    out.push({ axis, length: len[axis], a: faces[i], b: faces[j] });
+  }
+  return out;
+}
+/** ball corners: vertices where three closed faces meet */
+export function boxCorners(bx: CaseBox): number {
+  let n = 0;
+  for (const fx of ['left', 'right'] as const) for (const fy of ['front', 'back'] as const) for (const fz of ['bottom', 'top'] as const) {
+    if (![fx, fy, fz].some((f) => bx.open.includes(f))) n++;
+  }
+  return n;
+}
+/** seams between shells (each counted once), with the size of the joint face */
+export function caseSeams(boxes: CaseBox[]): { part: CasePartId; face: CaseFace; a: number; b: number; perimeter: number }[] {
+  const out: { part: CasePartId; face: CaseFace; a: number; b: number; perimeter: number }[] = [];
+  for (const bx of boxes) {
+    if (bx.role === 'base') continue;
+    for (const f of bx.closing) {
+      if (bx.id === 'lid2' && (f === 'left' || f === 'right')) continue; // the middle seam of a clamshell is counted with the first half
+      const [ax] = FACE_AXIS[f];
+      const dims = ax === 'x' ? [bx.y1 - bx.y0, bx.z1 - bx.z0] : ax === 'y' ? [bx.x1 - bx.x0, bx.z1 - bx.z0] : [bx.x1 - bx.x0, bx.y1 - bx.y0];
+      out.push({ part: bx.id, face: f, a: dims[0], b: dims[1], perimeter: 2 * (dims[0] + dims[1]) });
+    }
+  }
+  return out;
+}
+/** stock bars needed for a list of cut lengths (first fit decreasing, 3 mm saw cut) */
+export function bars(pieces: number[], stock: number): number {
+  const free: number[] = [];
+  for (const pc of [...pieces].sort((a, b) => b - a)) {
+    const need = pc + 3;
+    const i = free.findIndex((f) => f >= need);
+    if (i >= 0) free[i] -= need; else free.push(Math.max(0, stock - need));
+  }
+  return free.length;
 }
 const round1 = (n: number) => Math.round(n * 10) / 10;
 const round2 = (n: number) => Math.round(n * 100) / 100;

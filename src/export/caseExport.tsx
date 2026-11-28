@@ -2,7 +2,15 @@ import { renderMarkup as renderToStaticMarkup, trPdf } from '../i18n/render';
 import { jsPDF } from 'jspdf';
 import 'svg2pdf.js';
 import type { FlightCase, Project } from '../model/types';
-import { caseBom, caseDims, footprint, isDrawer, LID_LABELS } from '../model/cases';
+import { caseBom, caseDims, caseTypeOf, doorDepths, footprint, isDrawer, LID_LABELS, SEAM_LABELS } from '../model/cases';
+import { panelMaterial, profileBySku } from '../library/caseHardware';
+
+/** cut lengths grouped: "4 × 618, 2 × 800" */
+const groupCuts = (pieces: number[]) => {
+  const m = new Map<number, number>();
+  for (const p of pieces) m.set(p, (m.get(p) ?? 0) + 1);
+  return [...m.entries()].sort((a, b) => b[0] - a[0]).map(([l, n]) => `${n} × ${l}`).join(', ');
+};
 import { CaseSheetSvg } from '../render/CaseDrawing';
 import { Dxf } from './panelExport';
 import { pdfSafe } from './render';
@@ -76,12 +84,26 @@ export async function exportCasesPdf(project: Project, cases: FlightCase[]): Pro
     };
     if (!isDrawer(c)) {
       line(`Innen ${c.inner.l} × ${c.inner.w} × ${c.inner.h} mm, außen ca. ${Math.round(d.L)} × ${Math.round(d.W)} × ${Math.round(d.H)} mm`, true);
-      line(`${LID_LABELS[c.lidKind]}${c.lidKind !== 'none' ? `, Deckelhöhe innen ${c.lidH} mm` : ''}; Platte ${String(c.panel).replace('.', ',')} mm; Profil ${c.profile === 'none' ? 'ohne' : c.profile === 'alu30' ? 'Alu 30 × 30' : 'Alu 35 × 35'}`);
+      line(`${caseTypeOf(c.caseType)?.label ? `${caseTypeOf(c.caseType)!.label}; ` : ''}${LID_LABELS[c.lidKind]}${c.lidKind !== 'none' ? `, Deckelhöhe innen ${c.lidH} mm${c.lidSplit ? ', geteilt' : ''}` : ''}; Platte ${String(c.panel).replace('.', ',')} mm${panelMaterial(c.parts?.panel) ? ` ${panelMaterial(c.parts?.panel)!.label}` : ''}; Profil ${c.parts?.edge ?? (c.profile === 'none' ? 'ohne' : c.profile === 'alu30' ? 'Alu 30 × 30' : 'Alu 35 × 35')}`);
+      const dd = doorDepths(c);
+      const doorText = (['front', 'back', 'left', 'right'] as const).filter((s) => dd[s]).map((s) => `${SEAM_LABELS[s]} ${dd[s]} mm`).join(', ');
+      if (doorText || c.drawers?.length) line([doorText && `Türen (Innentiefe): ${doorText}`, c.drawers?.length ? `${c.drawers.length} Schubladen (${c.drawers.map((x) => x.h).join(' / ')} mm)` : ''].filter(Boolean).join('; '));
     } else line(`Innenmaß der Schublade ${c.inner.l} × ${c.inner.w} × ${c.inner.h} mm`, true);
     line(`Gewicht ca. ${b.weight.total} kg (${b.weight.case} kg ${isDrawer(c) ? 'Schaum' : 'Case'}, ${b.weight.contents} kg Inhalt)${b.volume ? `, Volumen ${b.volume} m³` : ''}`);
     y += 3;
-    if (b.panels.length) { line('Plattenzuschnitt (ohne Fräszugaben)', true); for (const p of b.panels) line(`${p.count} ×  ${p.name}: ${Math.round(p.a)} × ${Math.round(p.b)} mm`); y += 3; }
-    if (b.profiles.length) { line('Profile', true); for (const p of b.profiles) line(`${p.name}: ${String(p.length).replace('.', ',')} m`); y += 3; }
+    if (b.panels.length) {
+      line('Plattenzuschnitt (ohne Fräszugaben)', true); for (const p of b.panels) line(`${p.count} ×  ${p.name}: ${Math.round(p.a)} × ${Math.round(p.b)} mm`);
+      if (b.sheets) line(`${b.sheets.material} ${String(b.sheets.thickness).replace('.', ',')} mm: ${String(b.sheets.area).replace('.', ',')} m², ${b.sheets.count} Tafel${b.sheets.count === 1 ? '' : 'n'} ${b.sheets.size[0]} × ${b.sheets.size[1]} mm (5 % Verschnitt)`);
+      y += 3;
+    }
+    if (b.profiles.length) {
+      line('Profile', true);
+      for (const p of b.profiles) {
+        line(`${p.name}: ${String(p.length).replace('.', ',')} m${p.bars ? `, ${p.bars} Stangen à ${profileBySku(p.sku)?.stock ?? 4} m` : ''}`);
+        if (p.pieces?.length) for (const t of doc.splitTextToSize(pdfSafe(`   Zuschnitt: ${groupCuts(p.pieces)} mm`), page.w - 2 * M)) line(t);
+      }
+      y += 3;
+    }
     if (b.hardware.length) { line('Beschläge', true); for (const h of b.hardware) line(`${h.count} ×  ${h.label}`); y += 3; }
     line('Schaumstoff', true); for (const f of b.foam) line(`${f.name}: ${Math.round(f.a)} × ${Math.round(f.b)} mm, ${Math.round(f.t)} mm stark${f.stack ? ` (${f.stack})` : ''}`); y += 3;
     if (c.items.length) {
