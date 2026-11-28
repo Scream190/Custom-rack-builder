@@ -428,6 +428,12 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
   auf der Schale, in die sie passen, mittig zwischen Profil und Verschlüssen; bei niedrigen Seiten wird ein flacher
   Riemengriff gesetzt, notfalls entfallen die Seitenverschlüsse; Stapelschalen sitzen in den Ecken der größten
   Deckfläche mit Abstand zu Profil und Fugen.
+- **Schubladen in 3D:** Schubladen sind eigene Teile im Bauteilbaum. Anklicken wählt aus, Ziehen an der Front ändert
+  die Fronthöhe (5-mm-Raster, höchstens bis der Platz im Unterteil voll ist), Doppelklick öffnet und schließt die
+  einzelne Schublade. Im Rechtsklick-Menü und im Auswahlbereich: öffnen/schließen, löschen, *Alle gleich hoch*.
+- **Bohrplan:** Die Ansicht *Bohrplan* zeigt jede Seite mit Beschlägen, die Teile nummeriert in ihrer üblichen
+  Außengröße, Ordinatenmaße der Mittelpunkte ab linker Kante und Unterkante (Deckel oben: ab Vorderkante) und eine
+  Liste aller Teile mit Artikel und Position. Im PDF-Export folgt der Bohrplan als eigenes Blatt nach der Zeichnung.
 - **Zeitleiste (Bearbeitungshistorie):** Unter der Ansicht steht wie in parametrischen CAD-Programmen jede Änderung an
   Maßen, Deckel, Türen, Schubladen, Einbauten, Beschlägen, Rollen und Bauweise als Schritt mit Symbol. Die Markierung
   (blauer Strich) zeigt, bis wohin die Konstruktion abgespielt ist: Ziehen oder die Pfeile rollen sie zurück, Doppelklick

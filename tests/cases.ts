@@ -2,7 +2,7 @@
 import { addDivider, dimChains, dividerGaps, dividerRange, moveDivider, spreadDividers, DIVIDER_T, applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, mirrorHardware, moveHardware, newCase, snapHardware, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
 import { deleteStep, describeSteps, isRolledBack, MAX_STEPS, recordStep, setMarker, timelineMarker, toggleStep } from '../src/model/timeline';
 import { brokenExprs, evalExpr, isFormula, setFieldExpr, setParams, unlinkOverridden } from '../src/model/params';
-import { hardwareClashes } from '../src/model/cases';
+import { drawerBottom, drawerFree, hardwareClashes, hardwarePlan, setDrawerHeight, spreadDrawers } from '../src/model/cases';
 import { HARDWARE_PARTS, PROFILES, profileBySku, profilesFor, rackStripLength, rackStripSku } from '../src/library/caseHardware';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
@@ -392,6 +392,31 @@ console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRA
   ok(hardwareClashes(seam).some((x) => /Fuge/.test(x.text)), 'a label over the lid seam is found');
   ok(caseWarnings(two).some((w) => /überschneiden sich/.test(w.text)), 'clashes appear in the warnings');
   console.log('parameters, formulas and interference check ok');
+}
+
+// ------------------------------------------------------------------ drawers in 3D, drilling plan
+{
+  const base = newCase('Drawers');
+  const dc = { ...base, ...applyCaseType(base, 'drawer-case') } as typeof base;
+  const body = caseDims(dc).bodyInner;
+  const n = dc.drawers!.length;
+  ok(drawerFree(dc) >= 30 && drawerFree(dc) < 30 + n + 1, `drawer case: drawers fill the base except the 30 mm reserve of the preset (${drawerFree(dc)} mm left)`);
+  const lower = { ...dc, drawers: setDrawerHeight(dc, 0, dc.drawers![0].h - 37) };
+  ok(lower.drawers![0].h === Math.round((dc.drawers![0].h - 37) / 5) * 5 && drawerFree(lower) > drawerFree(dc), 'a lower front frees space above (5 mm grid)');
+  ok(setDrawerHeight(lower, 1, 99999)[1].h === lower.drawers![1].h + drawerFree(lower), 'a drawer grows at most into the free space');
+  ok(setDrawerHeight(dc, 0, 5)[0].h === 40, 'a drawer front stays at least 40 mm');
+  ok(drawerBottom(dc, 2) === dc.drawers![0].h + dc.drawers![1].h, 'drawers stack from the floor');
+  const sp = spreadDrawers(lower)!;
+  ok(sp.every((d) => d.h === sp[0].h) && sp[0].h * n <= body, 'spreading makes all drawers the same height');
+  ok(removeSelection(dc, 'drw:1')!.drawers!.length === n - 1, 'deleting a drawer');
+  // drilling plan: every piece of hardware on the sides and the top, numbered through, positions as in hardwareInstances
+  const plan = hardwarePlan(base);
+  const pieces = plan.flatMap((f) => f.pieces);
+  const inst = hardwareInstances(base);
+  ok(pieces.length === inst.length && pieces.every((p, i) => p.n === i + 1), `plan lists every piece once, numbered (${pieces.length})`);
+  ok(plan.every((f) => f.pieces.every((p) => p.u > 0 && p.u < f.w && p.z > 0 && p.z < f.h)), 'all positions lie on their side');
+  ok(plan.map((f) => f.face).join(',') === 'front,back,left,right,top', `sides in workshop order (${plan.map((f) => f.face).join(',')})`);
+  console.log('drawers and drilling plan ok');
 }
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }

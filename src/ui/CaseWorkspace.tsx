@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../model/store';
 import type { CaseFace, CaseHardware, CaseSeam, FlightCase, HardwareKind, Project } from '../model/types';
-import { addDivider, applyCaseType, autoHardware, DIVIDER_LABELS, dividerGaps, dividerRange, spreadDividers, type DividerAxis, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
+import { addDivider, drawerBottom, drawerFree, setDrawerHeight, spreadDrawers, applyCaseType, autoHardware, DIVIDER_LABELS, dividerGaps, dividerRange, spreadDividers, type DividerAxis, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
 import { panelMaterial, PANEL_MATERIALS, partLabel, partsForKind, partsInGroup, profileBySku, profileLabel, profilesFor } from '../library/caseHardware';
 import { caseList, foamMaterial, FOAM_MATERIALS, inlayThickness } from '../model/inlay';
 import { formatLength } from '../model/geometry';
 import { CaseSheet, sheetLayout } from '../render/CaseDrawing';
+import { HardwarePlanSheet, hardwarePlanLayout } from '../render/HardwarePlan';
 import { Case3D, type CaseEdit, type CaseTool } from '../three/Case3D';
 import { CaseTimeline } from './CaseTimeline';
 import { isRolledBack, setMarker, timelineMarker } from '../model/timeline';
@@ -357,6 +358,25 @@ function SelectionBox({ c, edit }: { c: FlightCase; edit: CaseEdit }) {
       </div>
     );
   }
+  const drm = /^drw:(\d+)$/.exec(sel);
+  if (drm) {
+    const i = Number(drm[1]), dr = c.drawers?.[i];
+    if (!dr) return null;
+    const free = drawerFree(c);
+    return (
+      <div className="case-sel">
+        <div><b>{`Schublade ${i + 1}`}</b> <span className="muted small">{`unten ${drawerBottom(c, i)} mm über dem Boden, im Unterteil frei ${free} mm`}</span></div>
+        <Field label="Fronthöhe (mm)"><NumberInput value={dr.h} min={40} max={dr.h + Math.max(0, free)} onChange={(v) => set({ drawers: setDrawerHeight(c, i, v, 1) })} /></Field>
+        <div className="muted small">Doppelklick auf die Schublade öffnet und schließt sie, Ziehen an der Front ändert die Höhe.</div>
+        {!ro ? (
+          <div className="btn-group">
+            {(c.drawers?.length ?? 0) > 1 ? <button className="btn sm" onClick={() => set({ drawers: spreadDrawers(c) })} title="Alle Schubladen gleich hoch, sie füllen das Unterteil">Alle gleich hoch</button> : null}
+            <button className="btn sm danger" onClick={del} title="Ausgewähltes löschen (Entf)">Schublade löschen</button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
   const dvm = /^div:(\d+)$/.exec(sel);
   if (dvm) {
     const i = Number(dvm[1]), dv = c.dividers[i];
@@ -427,6 +447,8 @@ function CaseTree({ c, edit, setHidden }: { c: FlightCase; edit: CaseEdit; setHi
           ...(selRow === String(i) && pieces.length > 1 ? pieces.map((p) => node(`hw${i}:${p.k}`, `Stück ${p.k + 1}${h.at ? '' : ', verteilt'}`, `hw:${i}:${p.k}`, true)) : []),
         ];
       })}
+      {c.drawers?.length ? <h4>Schubladen</h4> : null}
+      {(c.drawers ?? []).map((d, i) => node(`drw${i}`, `Schublade ${i + 1}, ${d.h} mm`, `drw:${i}`, false, `drw:${i}`))}
       {c.dividers.length ? <h4>Einbauten</h4> : null}
       {c.dividers.map((dv, i) => node(`div${i}`, `${DIVIDER_LABELS[dv.axis]} ${c.dividers.slice(0, i + 1).filter((x) => x.axis === dv.axis).length}`, `div:${i}`, false, `div:${i}`))}
       <h4>Einlage</h4>
@@ -486,7 +508,7 @@ export function CaseWorkspace() {
   const activeId = useStore((s) => s.activeCaseId);
   const ro = useStore((s) => s.readOnly);
   const layout = useLayout();
-  const [view, setView] = useState<'drawing' | '3d'>('3d');
+  const [view, setView] = useState<'drawing' | '3d' | 'plan'>('3d');
   const [tool, setTool] = useState<CaseTool>('select');
   const [selected, select] = useState<string | null>(null);
   const [hidden, setHidden] = useState<Set<string>>(() => new Set());
@@ -526,6 +548,7 @@ export function CaseWorkspace() {
     );
   }
   const L = sheetLayout(c);
+  const PL = hardwarePlanLayout(c);
   return (
     <main className="workspace">
       <section className="center">
@@ -534,6 +557,7 @@ export function CaseWorkspace() {
             <Seg value={view} onChange={setView} options={[
               { id: 'drawing', label: 'Zeichnung', title: 'Maßzeichnung: Innenansicht, Vorder- und Seitenansicht' },
               { id: '3d', label: '3D', title: 'Räumliche Ansicht, mit der Maus drehen und zoomen' },
+              { id: 'plan', label: 'Bohrplan', title: 'Positionen aller Beschläge je Seite, zum Anreißen und Bohren in der Werkstatt' },
             ]} />
           </ToolGroup>
           {view === '3d' && ro ? (
@@ -592,6 +616,11 @@ export function CaseWorkspace() {
                   </div>
                 </div>
               </div>
+            ) : view === 'plan' ? (
+              <SheetCanvas size={{ x: -20, y: -10, w: Math.max(PL.w, 900) + 60, h: PL.h + 30 }} fitKey={`plan:${c.id}:${Math.round(PL.w)}:${Math.round(PL.h)}`} editable={false}
+                hint="Mausrad zoomt, Ziehen verschiebt, Doppelklick passt ein. Im PDF-Export als eigenes Blatt.">
+                {() => <HardwarePlanSheet c={c} />}
+              </SheetCanvas>
             ) : (
               <SheetCanvas c={c} size={{ x: -90, y: -40, w: L.w + 130, h: L.h + 60 }} fitKey={`${c.id}:${Math.round(L.w)}:${Math.round(L.h)}`} editable={false}
                 hint="Mausrad zoomt, Ziehen verschiebt, Doppelklick passt ein. Ausschnitte bearbeitest du im Einlagen-Designer.">

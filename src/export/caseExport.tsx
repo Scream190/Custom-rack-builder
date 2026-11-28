@@ -12,6 +12,7 @@ const groupCuts = (pieces: number[]) => {
   return [...m.entries()].sort((a, b) => b[0] - a[0]).map(([l, n]) => `${n} × ${l}`).join(', ');
 };
 import { CaseSheetSvg } from '../render/CaseDrawing';
+import { HardwarePlanSvg, hardwarePlanLayout } from '../render/HardwarePlan';
 import { Dxf } from './panelExport';
 import { pdfSafe } from './render';
 import { cutDepth, cutList, cutoutOutline, FOAM_MATERIALS, foamMaterial, inlayContainer, outlineBox } from '../model/inlay';
@@ -71,6 +72,16 @@ export async function exportCasesPdf(project: Project, cases: FlightCase[]): Pro
     const k = Math.min(avail.w / vb.width, avail.h / vb.height);
     try { await doc.svg(svg, { x: M + (avail.w - vb.width * k) / 2, y: M + 10, width: vb.width * k, height: vb.height * k }); } finally { svg.parentElement?.remove(); }
     doc.setFontSize(7); doc.setTextColor(150); doc.text(pdfSafe(`Maßstab ca. 1:${Math.round(1 / k)}`), M, page.h - 6);
+    // drilling plan: positions of all hardware per side
+    if (!isDrawer(c) && hardwarePlanLayout(c).count) {
+      doc.addPage();
+      head(`${c.name} – Bohrplan Beschläge`);
+      const ps = prepareSvg(renderToStaticMarkup(<HardwarePlanSvg c={c} />));
+      const pv = ps.viewBox.baseVal;
+      const pk = Math.min(avail.w / pv.width, avail.h / pv.height);
+      try { await doc.svg(ps, { x: M + (avail.w - pv.width * pk) / 2, y: M + 10, width: pv.width * pk, height: pv.height * pk }); } finally { ps.parentElement?.remove(); }
+      doc.setFontSize(7); doc.setTextColor(150); doc.text(pdfSafe(`Maßstab ca. 1:${Math.round(1 / pk)}, Maße in mm zur Mitte des Beschlags`), M, page.h - 6);
+    }
     // parts list
     doc.addPage();
     head(`${c.name} – Stückliste`);

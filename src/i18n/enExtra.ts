@@ -1,6 +1,25 @@
 // Hand-written additions to en.ts: texts in data objects, generated names and composite texts.
 
 export const EN_EXTRA: Record<string, string> = {
+  // case designer: drawers, drilling plan
+  "Fronthöhe (mm)": "Front height (mm)",
+  "Doppelklick auf die Schublade öffnet und schließt sie, Ziehen an der Front ändert die Höhe.": "Double-click the drawer to open and close it, drag the front to change its height.",
+  "Alle gleich hoch": "All the same height",
+  "Alle Schubladen gleich hoch, sie füllen das Unterteil": "All drawers the same height, filling the base",
+  "Schublade löschen": "Delete drawer",
+  "Schublade öffnen": "Open drawer",
+  "Schublade schließen": "Close drawer",
+  "Auch per Doppelklick": "Also by double-click",
+  "Bohrplan": "Drilling plan",
+  "Positionen aller Beschläge je Seite, zum Anreißen und Bohren in der Werkstatt": "Positions of all fittings per side, for marking out and drilling in the workshop",
+  "Mausrad zoomt, Ziehen verschiebt, Doppelklick passt ein. Im PDF-Export als eigenes Blatt.": "Mouse wheel zooms, drag pans, double-click fits. A sheet of its own in the PDF export.",
+  "Maße zur Mitte des Beschlags, gesehen auf die jeweilige Seite; Teilegrößen sind übliche Außenmaße.": "Dimensions to the centre of the fitting, seen onto each side; part sizes are typical outer sizes.",
+  "Vorderseite": "Front",
+  "Seite links": "Left side",
+  "Seite rechts": "Right side",
+  "von unten": "from the bottom",
+  "von unten / vorne": "from bottom / front",
+  "Keine Beschläge an den Außenseiten.": "No fittings on the outer sides.",
   // case designer: parameters, interference check
   "Parameter": "Parameters",
   "Benannte Werte, auf die Maßfelder per Formel verweisen, z. B. Länge = Geraet + 2 * Polster. Verknüpfte Felder sind blau markiert und folgen, wenn sich ein Parameter ändert. Eine reine Zahl im Feld hebt die Verknüpfung auf.": "Named values that size fields refer to by formula, e.g. length = Device + 2 * Padding. Linked fields are marked blue and follow when a parameter changes. A plain number in the field removes the link.",
@@ -602,4 +621,13 @@ export const EN_EXTRA_TPL: [string, string][] = [
   ["{0} löschen", "Delete {0}"],
   ["Parameter {0} gelöscht", "Parameter {0} deleted"],
   ["Parameter {0} = {1}", "Parameter {0} = {1}"],
+  ["Schublade {0}, {1} mm", "Drawer {0}, {1} mm"],
+  ["Schublade {0}", "Drawer {0}"],
+  ["unten {0} mm über dem Boden, im Unterteil frei {1} mm", "bottom {0} mm above the floor, {1} mm free in the base"],
+  ["Schublade {0}: Front {1} mm", "Drawer {0}: front {1} mm"],
+  ["im Unterteil frei {0} mm", "{0} mm free in the base"],
+  ["Bohrplan Beschläge, {0}", "Drilling plan fittings, {0}"],
+  ["{0} ({1} × {2} mm)", "{0} ({1} × {2} mm)"],
+  ["{0} – Bohrplan Beschläge", "{0} – drilling plan fittings"],
+  ["Maßstab ca. 1:{0}, Maße in mm zur Mitte des Beschlags", "Scale approx. 1:{0}, dimensions in mm to the centre of the fitting"],
 ];

@@ -347,6 +347,8 @@ export function removeSelection(c: FlightCase, sel: string): Partial<FlightCase>
     if (sel === 'part:lid2' || (c.lidSplit && sel === 'part:lid')) return { lidSplit: undefined, caseType: undefined };
     return { lidKind: 'none', lidH: 0, lidSplit: undefined, caseType: undefined };
   }
+  const drw = /^drw:(\d+)$/.exec(sel);
+  if (drw) { const list = c.drawers ?? []; return list[Number(drw[1])] ? { drawers: list.filter((_, j) => j !== Number(drw[1])) } : null; }
   const div = /^div:(\d+)$/.exec(sel);
   if (div) return c.dividers[Number(div[1])] ? { dividers: c.dividers.filter((_, j) => j !== Number(div[1])) } : null;
   const door = /^part:door-(front|back|left|right)$/.exec(sel);
@@ -478,6 +480,26 @@ export function spreadDividers(c: FlightCase, axis: DividerAxis): FlightCase['di
   return c.dividers.map((d, i) => (at.has(i) ? { ...d, pos: at.get(i)! } : d));
 }
 
+/** height left in the base above the drawers (mm, negative when they do not fit) */
+export const drawerFree = (c: FlightCase) => Math.round(caseDims(c).bodyInner - (c.drawers ?? []).reduce((s, d) => s + d.h, 0));
+/** bottom edge of drawer i above the inner floor */
+export const drawerBottom = (c: FlightCase, i: number) => (c.drawers ?? []).slice(0, i).reduce((s, d) => s + d.h, 0);
+/** sets the front height of a drawer: grid step, at least 40 mm, at most what is left in the base */
+export function setDrawerHeight(c: FlightCase, i: number, h: number, step = 5): FlightCase['drawers'] {
+  const list = c.drawers ?? [];
+  if (!list[i]) return list;
+  const max = Math.max(40, list[i].h + drawerFree(c));
+  const v = Math.max(40, Math.min(max, Math.round(h / step) * step));
+  return list.map((d, j) => (j === i ? { h: v } : d));
+}
+/** all drawers the same height, filling the base */
+export function spreadDrawers(c: FlightCase): FlightCase['drawers'] {
+  const n = c.drawers?.length ?? 0;
+  if (!n) return c.drawers;
+  const h = Math.max(40, Math.floor(caseDims(c).bodyInner / n));
+  return Array.from({ length: n }, () => ({ h }));
+}
+
 /**
  * Chain dimensions of the outside (mm from the outer corner): break points along the length and width (where doors
  * meet the base) and up the height (castors, base, lid). Every list starts at 0 and ends at the total.
@@ -513,7 +535,7 @@ function hwRect(it: HwInstance): HRect | null {
   return { u0: it.u - w / 2, u1: it.u + w / 2, z0: it.z - h / 2, z1: it.z + h / 2 };
 }
 /** the shells on a face as rectangles in face coordinates, with the edges that are outer edges (profile) */
-function faceShellRects(c: FlightCase, face: CaseFace): (HRect & { outer: { u0: boolean; u1: boolean; z0: boolean; z1: boolean } })[] {
+export function faceShellRects(c: FlightCase, face: CaseFace): (HRect & { outer: { u0: boolean; u1: boolean; z0: boolean; z1: boolean } })[] {
   const { L, W, H } = shellSize(c);
   const span = face === 'front' || face === 'back' || face === 'top' ? L : W;
   const zMax = face === 'top' ? W : H;
@@ -565,6 +587,35 @@ export function hardwareClashes(c: FlightCase): HwClash[] {
     if (!a.r || !b.r || a.it.face !== b.it.face) continue;
     const ou = Math.min(a.r.u1, b.r.u1) - Math.max(a.r.u0, b.r.u0), oz = Math.min(a.r.z1, b.r.z1) - Math.max(a.r.z0, b.r.z0);
     if (ou > 1 && oz > 1) out.push({ keys: [a.key, b.key], text: `${a.name} und ${b.name} überschneiden sich (${FACE_LABELS[a.it.face]})` });
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ drilling plan (hardware positions)
+
+export interface PlanPiece { n: number; key: string; kind: HardwareKind; label: string; sku?: string; u: number; z: number; w: number; h: number }
+export interface PlanFace { face: CaseFace; w: number; h: number; shells: { u0: number; u1: number; z0: number; z1: number }[]; pieces: PlanPiece[] }
+/**
+ * Positions of every piece of hardware for the workshop, one entry per side that carries hardware: centre of each
+ * piece measured from the left edge (seen onto that side) and from the bottom edge (top: from the front edge), with
+ * its usual outer size. Pieces are numbered through all sides.
+ */
+export function hardwarePlan(c: FlightCase): PlanFace[] {
+  const { L, W, H } = shellSize(c);
+  const order: CaseFace[] = ['front', 'back', 'left', 'right', 'top'];
+  const inst = hardwareInstances(c);
+  let n = 0;
+  const out: PlanFace[] = [];
+  for (const face of order) {
+    const list = inst.filter((x) => x.face === face).sort((a, b) => a.u - b.u || a.z - b.z);
+    if (!list.length) continue;
+    const pieces = list.map((it) => {
+      const s = HW_SIZE[it.kind] ?? [40, 40];
+      const [w, h] = it.vertical ? [s[1], s[0]] : s;
+      const sku = c.hardware[it.i]?.sku;
+      return { n: ++n, key: `hw:${it.i}:${it.k}`, kind: it.kind, label: HARDWARE[it.kind].label, sku, u: Math.round(it.u), z: Math.round(it.z), w, h };
+    });
+    out.push({ face, w: face === 'left' || face === 'right' ? W : L, h: face === 'top' ? W : H, shells: faceShellRects(c, face).map(({ u0, u1, z0, z1 }) => ({ u0, u1, z0, z1 })), pieces });
   }
   return out;
 }
