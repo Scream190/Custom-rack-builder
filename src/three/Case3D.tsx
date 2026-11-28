@@ -7,7 +7,7 @@ import { baseInner, caseBoxes, caseDims, addDivider, dimChains, DIVIDER_T, divid
 import { cutoutOutline, outlineBox } from '../model/inlay';
 import { Builder, FOAM_MM, S, boxGeo, faceBasis, inlayGeo, makeMats, v3, type FaceKey } from './caseParts';
 import { Scene3D, type BuildResult, type Scene3DApi } from './Scene3D';
-import { mirrorHardware, removeSelection, spreadDividers } from '../model/cases';
+import { hardwareClashes, mirrorHardware, removeSelection, spreadDividers } from '../model/cases';
 
 /** editor tools: select and drag, split the case (horizontal = lid seam, vertical = door), place a piece of hardware */
 export type CaseTool = 'select' | 'seam-h' | 'seam-v' | 'measure' | `place:${HardwareKind}` | `div:${DividerAxis}`;
@@ -799,6 +799,31 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?
         for (const m of [cone, stem]) { m.renderOrder = 10; m.userData.grip = { part: part.id, face }; g.add(m); }
         g.userData.overlay = true;
         root.add(g);
+      }
+    }
+  }
+  // interference check: red frames around pieces that overlap or reach over an edge or seam
+  if (view) {
+    const bad = new Set(hardwareClashes(c).flatMap((x) => x.keys));
+    if (bad.size) {
+      root.updateMatrixWorld(true);
+      const inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+      const boxes = new Map<string, THREE.Box3>();
+      root.traverse((o) => {
+        const hw = o.userData.hw as { i: number; k: number } | undefined;
+        const key = hw && `hw:${hw.i}:${hw.k}`;
+        if (!key || !bad.has(key)) return;
+        if (!boxes.has(key)) boxes.set(key, new THREE.Box3());
+        boxes.get(key)!.expandByObject(o);
+      });
+      for (const b of boxes.values()) {
+        b.applyMatrix4(inv).expandByScalar(3);
+        const hlp = new THREE.Box3Helper(b, new THREE.Color('#ef4444'));
+        hlp.userData.overlay = true;
+        (hlp.material as THREE.Material).userData.noClip = true;
+        (hlp.material as THREE.Material).depthTest = false;
+        hlp.renderOrder = 19;
+        root.add(hlp);
       }
     }
   }

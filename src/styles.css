@@ -510,3 +510,15 @@ tr.bad-row td { color: #fca5a5; }
 .view3d-file { position: absolute; top: 10px; right: 10px; z-index: 6; }
 .view3d-file .btn { height: 26px; font-size: 12px; }
 .case-view .view3d-btns { right: 110px; }
+/* case designer: formulas and parameters */
+.expr-input { width: 100%; min-width: 0; font-variant-numeric: tabular-nums; }
+.expr-input.linked { border-color: var(--accent2); box-shadow: inset 3px 0 0 var(--accent2); }
+.expr-input.bad { border-color: var(--danger); }
+.param-table { width: 100%; border-collapse: collapse; margin: 6px 0; font-size: 12px; }
+.param-table th { text-align: left; font-weight: 500; color: var(--muted); padding: 0 4px 2px 0; }
+.param-table td { padding: 2px 4px 2px 0; }
+.param-table td:nth-child(1) { width: 32%; }
+.param-table td:nth-child(2) { width: 26%; }
+.param-table td:last-child { width: 24px; }
+.param-table input { width: 100%; min-width: 0; }
+.tool-select { width: 150px; }

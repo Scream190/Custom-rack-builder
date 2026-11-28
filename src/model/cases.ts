@@ -205,20 +205,38 @@ export function hardwareInstances(c: FlightCase): HwInstance[] {
     }
     if (h.at) { h.at.forEach((p, k) => out.push({ i, k, kind: h.kind, face: h.face, u: p.u, z: p.z })); return; }
     if (h.kind === 'stack-cup') {
+      // in the corners of the largest top surface, clear of the edge profile and of seams to neighbouring shells
       const { L, W } = shellSize(c);
-      const pts: [number, number][] = [[75, 75], [L - 75, 75], [75, W - 75], [L - 75, W - 75]];
+      const tops = shellsOnFace(c, 'top');
+      const top = tops.sort((a, b) => (b.x1 - b.x0) * (b.y1 - b.y0) - (a.x1 - a.x0) * (a.y1 - a.y0))[0];
+      const leg = c.profile === 'alu35' ? 35 : c.profile === 'alu30' ? 30 : 0;
+      const half = (HW_SIZE['stack-cup']?.[0] ?? 100) / 2 + 2;
+      const inset = (outer: boolean) => Math.max(75, (outer ? leg : closeH) + half);
+      const bx = top ?? { x0: 0, x1: L, y0: 0, y1: W } as CaseBox;
+      const xa = bx.x0 + inset(bx.x0 < 0.5), xb = bx.x1 - inset(bx.x1 > L - 0.5), ya = bx.y0 + inset(bx.y0 < 0.5), yb = bx.y1 - inset(bx.y1 > W - 0.5);
+      const pts: [number, number][] = [[xa, ya], [xb, ya], [xa, yb], [xb, yb]];
       pts.slice(0, Math.max(1, Math.min(4, n))).forEach(([u, z], k) => out.push({ i, k, kind: h.kind, face: 'top', u, z }));
       return;
     }
     const shells = shellsOnFace(c, h.face);
-    const carrier = h.face === 'top' ? shells : [shells.find((b) => b.role === 'base') ?? shells.find((b) => b.role === 'door') ?? shells[0]].filter(Boolean);
+    // the base carries handles and labels unless the piece does not fit its height (shallow base): then the tallest shell
+    // free band of a shell between the edge profile / the latches at a seam below and above
+    const legH = c.profile === 'alu35' ? 35 : c.profile === 'alu30' ? 30 : 0;
+    const bandLo = (b: CaseBox) => (b.closing.includes('bottom') ? 50 : b.z0 > 0.5 ? closeH : legH);
+    const bandHi = (b: CaseBox) => (b.closing.includes('top') ? 50 : b.z1 < H - 0.5 ? closeH : legH);
+    const fits = (b: CaseBox) => b.z1 - b.z0 - bandLo(b) - bandHi(b) >= (HW_SIZE[h.kind]?.[1] ?? 60) + 4;
+    const base = shells.find((b) => b.role === 'base') ?? shells.find((b) => b.role === 'door') ?? shells[0];
+    const tallest = [...shells].sort((a, b) => b.z1 - b.z0 - (a.z1 - a.z0))[0];
+    const carrier = h.face === 'top' ? shells : [base && (fits(base) || !tallest) ? base : tallest].filter(Boolean);
     let k = 0;
     for (const bx of carrier) {
       const [u0, u1] = uRangeOf(c, bx, h.face);
       const top = bx.z1 - (bx.closing.includes('top') ? closeH : 0);
       for (let j = 0; j < n; j++) {
         const u = u0 + ((u1 - u0) * (j + 1)) / (n + 1);
-        const z = h.face === 'top' ? (bx.y0 + bx.y1) / 2 : h.kind === 'label' ? Math.min(top - 60, bx.z0 + 82) : h.kind.startsWith('dish') || h.kind === 'cable-gland' ? bx.z0 + (top - bx.z0) * 0.3 : bx.z0 + (top - bx.z0) * 0.52;
+        // handles: in the middle of the free band (clear of the edge profile and of latches at a seam)
+        const handleZ = (bx.z0 + bandLo(bx) + bx.z1 - bandHi(bx)) / 2;
+        const z = h.face === 'top' ? (bx.y0 + bx.y1) / 2 : h.kind === 'label' ? Math.min(top - 60, bx.z0 + 82) : h.kind.startsWith('dish') || h.kind === 'cable-gland' ? bx.z0 + (top - bx.z0) * 0.3 : handleZ;
         out.push({ i, k: k++, kind: h.kind, face: h.face, u, z });
       }
     }
@@ -477,6 +495,80 @@ export function dimChains(c: FlightCase): { L: number[]; W: number[]; H: number[
   };
 }
 
+// ------------------------------------------------------------------ interference check (hardware)
+
+/** usual outer size of a piece on its face (mm, width along the face × height), estimated from common parts */
+export const HW_SIZE: Partial<Record<HardwareKind, [number, number]>> = {
+  butterfly: [110, 90], 'butterfly-small': [80, 62], 'draw-latch': [70, 45], hinge: [65, 60], 'piano-hinge': [300, 25],
+  'handle-recessed': [190, 115], 'handle-strap': [210, 45], 'handle-surface': [170, 40], label: [100, 64],
+  'dish-vent': [150, 150], 'dish-connector': [120, 120], 'cable-gland': [55, 55], 'stack-cup': [100, 100],
+};
+export interface HwClash { keys: string[]; text: string }
+interface HRect { u0: number; u1: number; z0: number; z1: number }
+/** rectangle of one piece in face coordinates (pieces on a vertical door seam stand upright) */
+function hwRect(it: HwInstance): HRect | null {
+  const s = HW_SIZE[it.kind];
+  if (!s) return null;
+  const [w, h] = it.vertical ? [s[1], s[0]] : s;
+  return { u0: it.u - w / 2, u1: it.u + w / 2, z0: it.z - h / 2, z1: it.z + h / 2 };
+}
+/** the shells on a face as rectangles in face coordinates, with the edges that are outer edges (profile) */
+function faceShellRects(c: FlightCase, face: CaseFace): (HRect & { outer: { u0: boolean; u1: boolean; z0: boolean; z1: boolean } })[] {
+  const { L, W, H } = shellSize(c);
+  const span = face === 'front' || face === 'back' || face === 'top' ? L : W;
+  const zMax = face === 'top' ? W : H;
+  const e = 0.5;
+  return shellsOnFace(c, face).map((b) => {
+    const [u0, u1] = uRangeOf(c, b, face);
+    const z0 = face === 'top' ? b.y0 : b.z0, z1 = face === 'top' ? b.y1 : b.z1;
+    return { u0, u1, z0, z1, outer: { u0: u0 < e, u1: u1 > span - e, z0: z0 < e, z1: z1 > zMax - e } };
+  });
+}
+
+/**
+ * Interference check of the hardware: pieces overlapping each other, reaching over the edge profile or the closing
+ * profile of a seam, or sticking out of the face. Latches and hinges sit on their seam by design and are only checked
+ * along it. Sizes are typical outer sizes (HW_SIZE).
+ */
+export function hardwareClashes(c: FlightCase): HwClash[] {
+  const out: HwClash[] = [];
+  const leg = c.profile === 'alu35' ? 35 : c.profile === 'alu30' ? 30 : 0;
+  const closeH = 20;
+  const inst = hardwareInstances(c).map((it) => ({ it, r: hwRect(it), key: `hw:${it.i}:${it.k}`, name: HARDWARE[it.kind].label }));
+  const faces = new Map<CaseFace, ReturnType<typeof faceShellRects>>();
+  const rectsOf = (f: CaseFace) => { if (!faces.has(f)) faces.set(f, faceShellRects(c, f)); return faces.get(f)!; };
+  for (const a of inst) {
+    if (!a.r) continue;
+    const shells = rectsOf(a.it.face);
+    const where = FACE_LABELS[a.it.face];
+    if (a.it.seam) {
+      // along the seam: keep clear of the corner profiles at its ends
+      const along = a.it.vertical ? [a.r.z0, a.r.z1] : [a.r.u0, a.r.u1];
+      const lo = Math.min(...shells.map((s) => (a.it.vertical ? s.z0 : s.u0))), hi = Math.max(...shells.map((s) => (a.it.vertical ? s.z1 : s.u1)));
+      if (along[0] < lo + leg - 0.5 || along[1] > hi - leg + 0.5) out.push({ keys: [a.key], text: `${a.name} (${where}) reicht an der Fuge in das Eckprofil` });
+    } else {
+      const cu = (a.r.u0 + a.r.u1) / 2, cz = (a.r.z0 + a.r.z1) / 2;
+      const s = shells.find((x) => cu >= x.u0 && cu <= x.u1 && cz >= x.z0 && cz <= x.z1);
+      if (!s) out.push({ keys: [a.key], text: `${a.name} (${where}) liegt außerhalb der Seite` });
+      else {
+        const m = (o: boolean) => (o ? leg : closeH);
+        const over = a.r.u0 < s.u0 + m(s.outer.u0) - 0.5 || a.r.u1 > s.u1 - m(s.outer.u1) + 0.5 || a.r.z0 < s.z0 + m(s.outer.z0) - 0.5 || a.r.z1 > s.z1 - m(s.outer.z1) + 0.5;
+        if (over) {
+          const seamHit = (a.r.u0 < s.u0 + closeH && !s.outer.u0) || (a.r.u1 > s.u1 - closeH && !s.outer.u1) || (a.r.z0 < s.z0 + closeH && !s.outer.z0) || (a.r.z1 > s.z1 - closeH && !s.outer.z1);
+          out.push({ keys: [a.key], text: seamHit ? `${a.name} (${where}) ragt über eine Fuge` : `${a.name} (${where}) liegt auf dem Kantenprofil` });
+        }
+      }
+    }
+  }
+  for (let x = 0; x < inst.length; x++) for (let y = x + 1; y < inst.length; y++) {
+    const a = inst[x], b = inst[y];
+    if (!a.r || !b.r || a.it.face !== b.it.face) continue;
+    const ou = Math.min(a.r.u1, b.r.u1) - Math.max(a.r.u0, b.r.u0), oz = Math.min(a.r.z1, b.r.z1) - Math.max(a.r.z0, b.r.z0);
+    if (ou > 1 && oz > 1) out.push({ keys: [a.key, b.key], text: `${a.name} und ${b.name} überschneiden sich (${FACE_LABELS[a.it.face]})` });
+  }
+  return out;
+}
+
 /** construction presets after the case types of common case design software */
 export interface CaseType { id: string; label: string; note: string; apply: (c: FlightCase) => Partial<FlightCase> }
 const depthOf = (n: number) => Math.max(60, Math.round(n / 10) * 10);
@@ -540,11 +632,20 @@ export function autoHardware(c: Pick<FlightCase, 'inner' | 'lidKind' | 'lidH'> &
   if (c.lidKind === 'hinged') {
     out.push({ kind: 'butterfly', face: 'front', count: long }, { kind: 'hinge', face: 'back', count: Math.max(2, long) });
     if (c.inner.w > 350) out.push({ kind: 'butterfly', face: 'left', count: 1 }, { kind: 'butterfly', face: 'right', count: 1 });
-  } else {
-    out.push({ kind: 'butterfly', face: 'front', count: long }, { kind: 'butterfly', face: 'back', count: long });
-    out.push({ kind: 'butterfly', face: 'left', count: short }, { kind: 'butterfly', face: 'right', count: short });
   }
-  out.push({ kind: 'handle-recessed', face: 'left', count: 1 }, { kind: 'handle-recessed', face: 'right', count: 1 });
+  // side handles must fit beside the side latches: in the base or the lid, clear of the edge profile and the latch.
+  // Too low for a recessed handle -> a flat strap handle; too low even for that -> no latches on the ends.
+  const t0 = 9.5, band = (h: number) => h - 30 - 50 - 4;
+  const room = Math.max(c.inner.h - c.lidH + t0, c.lidH + t0);
+  const handle: HardwareKind = band(room) >= (HW_SIZE['handle-recessed']?.[1] ?? 115) ? 'handle-recessed' : 'handle-strap';
+  const sideLatches = band(room) >= (HW_SIZE['handle-strap']?.[1] ?? 45);
+  if (c.lidKind !== 'hinged') {
+    out.push({ kind: 'butterfly', face: 'front', count: long }, { kind: 'butterfly', face: 'back', count: long });
+    if (sideLatches) out.push({ kind: 'butterfly', face: 'left', count: short }, { kind: 'butterfly', face: 'right', count: short });
+  } else if (!sideLatches) {
+    for (let k = out.length - 1; k >= 0; k--) if (out[k].face === 'left' || out[k].face === 'right') out.splice(k, 1);
+  }
+  out.push({ kind: handle, face: 'left', count: 1 }, { kind: handle, face: 'right', count: 1 });
   if (c.inner.l > 1000) out.push({ kind: 'handle-recessed', face: 'front', count: 1 });
   out.push({ kind: 'stack-cup', face: 'top', count: 4 });
   return out;
@@ -724,6 +825,7 @@ export function caseWarnings(c: FlightCase): CaseWarning[] {
   for (const h of c.hardware) if (h.seam && h.seam !== 'lid' && !dd[h.seam]) out.push({ text: `${HARDWARE[h.kind].label}: ${SEAM_LABELS[h.seam]} gibt es nicht mehr` });
   const edge = profileBySku(c.parts?.edge), closing = profileBySku(c.parts?.closing);
   for (const pr of [edge, closing]) if (pr?.panel && (c.panel < pr.panel[0] - 0.01 || c.panel > pr.panel[1] + 0.01)) out.push({ text: `Profil ${pr.sku} ist für ${String(pr.panel[0]).replace('.', ',')} bis ${String(pr.panel[1]).replace('.', ',')} mm Platte, gewählt sind ${String(c.panel).replace('.', ',')} mm` });
+  if (!isDrawer(c)) for (const k of new Set(hardwareClashes(c).map((x) => x.text))) out.push({ text: k });
   return out;
 }
 

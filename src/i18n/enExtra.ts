@@ -1,6 +1,20 @@
 // Hand-written additions to en.ts: texts in data objects, generated names and composite texts.
 
 export const EN_EXTRA: Record<string, string> = {
+  // case designer: parameters, interference check
+  "Parameter": "Parameters",
+  "Benannte Werte, auf die Maßfelder per Formel verweisen, z. B. Länge = Geraet + 2 * Polster. Verknüpfte Felder sind blau markiert und folgen, wenn sich ein Parameter ändert. Eine reine Zahl im Feld hebt die Verknüpfung auf.": "Named values that size fields refer to by formula, e.g. length = Device + 2 * Padding. Linked fields are marked blue and follow when a parameter changes. A plain number in the field removes the link.",
+  "Name": "Name",
+  "Wert (mm)": "Value (mm)",
+  "Parameter hinzufügen": "Add parameter",
+  "Neuen benannten Wert anlegen": "Create a new named value",
+  "Formel nicht lesbar: Zahlen, + - * / ( ), Parameternamen, min, max, round": "Formula not readable: numbers, + - * / ( ), parameter names, min, max, round",
+  "Zahl oder Formel mit Parametern, z. B. Breite + 2 * Polster": "Number or formula with parameters, e.g. Width + 2 * Padding",
+  "Zahl oder Formel aus anderen Parametern": "Number or formula from other parameters",
+  "Name: Buchstabe am Anfang, dann Buchstaben, Ziffern oder _; jeder Name nur einmal": "Name: a letter first, then letters, digits or _; each name only once",
+  "Name des Parameters, in Formeln verwendbar": "Name of the parameter, usable in formulas",
+  "noch in keiner Formel verwendet": "not used in any formula yet",
+  "Formel geändert": "Formula changed",
   // case designer: menu, measure, shortcuts, 3D file
   "Zwei Punkte anklicken: Abstand und Versatz in Länge, Höhe und Tiefe. Zwei parallele Flächen ergeben ihren senkrechten Abstand (z. B. Innenwand zu Innenwand). Ein dritter Klick beginnt neu, Esc beendet.": "Click two points: distance and offset in length, height and depth. Two parallel faces give their perpendicular distance (e.g. inner wall to inner wall). A third click starts again, Esc ends the tool.",
   "Fuge senkrecht (Tür)": "Vertical seam (door)",
@@ -575,4 +589,17 @@ export const EN_EXTRA_TPL: [string, string][] = [
   ["Abstand {0} mm", "Distance {0} mm"],
   ["Länge {0} mm, Höhe {1} mm, Tiefe {2} mm", "Length {0} mm, height {1} mm, depth {2} mm"],
   ["Parallele Flächen: {0} mm", "Parallel faces: {0} mm"],
+  ["{0} ({1}) reicht an der Fuge in das Eckprofil", "{0} ({1}) reaches into the corner profile at the seam"],
+  ["{0} ({1}) liegt außerhalb der Seite", "{0} ({1}) lies outside the side"],
+  ["{0} ({1}) ragt über eine Fuge", "{0} ({1}) reaches over a seam"],
+  ["{0} ({1}) liegt auf dem Kantenprofil", "{0} ({1}) sits on the edge profile"],
+  ["{0} und {1} überschneiden sich ({2})", "{0} and {1} overlap ({2})"],
+  ["Formel ohne gültigen Parameter: {0}", "Formula without a valid parameter: {0}"],
+  ["Formel: {0} = {1} mm", "Formula: {0} = {1} mm"],
+  ["Wert von {0}", "Value of {0}"],
+  ["verwendet in: {0}", "used in: {0}"],
+  ["{0} löschen (verwendet in: {1})", "Delete {0} (used in: {1})"],
+  ["{0} löschen", "Delete {0}"],
+  ["Parameter {0} gelöscht", "Parameter {0} deleted"],
+  ["Parameter {0} = {1}", "Parameter {0} = {1}"],
 ];

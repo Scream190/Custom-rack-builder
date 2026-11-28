@@ -1,6 +1,8 @@
 // Case designer checks. Run: npm run test:cases
 import { addDivider, dimChains, dividerGaps, dividerRange, moveDivider, spreadDividers, DIVIDER_T, applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, mirrorHardware, moveHardware, newCase, snapHardware, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
 import { deleteStep, describeSteps, isRolledBack, MAX_STEPS, recordStep, setMarker, timelineMarker, toggleStep } from '../src/model/timeline';
+import { brokenExprs, evalExpr, isFormula, setFieldExpr, setParams, unlinkOverridden } from '../src/model/params';
+import { hardwareClashes } from '../src/model/cases';
 import { HARDWARE_PARTS, PROFILES, profileBySku, profilesFor, rackStripLength, rackStripSku } from '../src/library/caseHardware';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
@@ -353,6 +355,43 @@ console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRA
   for (let k = 0; k < MAX_STEPS + 15; k++) big = recordStep(big, { inner: { ...big.inner, l: 600 + k } }, undefined, 1000 + k * 5000);
   ok(big.timeline!.steps.length === MAX_STEPS && big.inner.l === 600 + MAX_STEPS + 14 && setMarker(big, 0).inner.l === 614, `old steps fold into the base (${setMarker(big, 0).inner.l})`);
   console.log(`timeline: ${c.timeline!.steps.length} steps, roll back, insert, suppress, delete, merge ok`);
+}
+
+// ------------------------------------------------------------------ parameters, formulas, interference check
+{
+  const P = [{ name: 'Geraet', value: 482 }, { name: 'Polster', value: 20 }];
+  ok(evalExpr('Geraet + 2 * Polster', P) === 522 && evalExpr('=(10+5)*2', P) === 30 && evalExpr('max(Geraet, 500)', P) === 500 && evalExpr('12,5 * 2') === 25, 'formulas: + - * / ( ), names, functions, decimal comma');
+  ok(evalExpr('Geraet +', P) === null && evalExpr('alert(1)', P) === null && evalExpr('Unbekannt * 2', P) === null && evalExpr('', P) === null, 'bad formulas are refused (nothing is executed)');
+  ok(isFormula('Geraet+2') && !isFormula(' 600 ') && !isFormula('12,5'), 'plain numbers are not kept as formulas');
+  let c = { ...newCase('Param'), params: P } as ReturnType<typeof newCase>;
+  c = { ...c, ...setFieldExpr(c, 'inner.l', 'Geraet + 2 * Polster')! };
+  ok(c.inner.l === 522 && c.exprs?.['inner.l'] === 'Geraet + 2 * Polster', 'a field takes a formula and its value');
+  c = { ...c, ...setParams(c, [{ name: 'Geraet', value: 600 }, P[1]]) };
+  ok(c.inner.l === 640, `the linked field follows the parameter (${c.inner.l})`);
+  const viaStore = unlinkOverridden(c, setParams(c, [{ name: 'Geraet', value: 700 }, P[1]]));
+  ok(viaStore.inner?.l === 740 && viaStore.exprs?.['inner.l'] === 'Geraet + 2 * Polster', 'a parameter change through the store keeps the formula');
+  c = { ...c, ...setParams(c, c.params!, ['Geraet', 'Mixer']) };
+  ok(c.exprs?.['inner.l'] === 'Mixer + 2 * Polster' && c.inner.l === 640, 'renaming a parameter rewrites the formula');
+  ok(brokenExprs({ ...c, params: [P[1]] }).includes('inner.l'), 'a formula whose parameter is gone is reported');
+  const plain = { ...c, ...setFieldExpr(c, 'inner.l', '700')! };
+  ok(plain.inner.l === 700 && !plain.exprs?.['inner.l'], 'a plain number unlinks the field');
+  const dragged = unlinkOverridden(c, { inner: { ...c.inner, l: 655 } });
+  ok(dragged.exprs !== undefined && !dragged.exprs['inner.l'], 'dragging a linked size in 3D unlinks it');
+  ok(unlinkOverridden(c, { inner: { ...c.inner, w: 455 } }).exprs === undefined, 'changing another size keeps the link');
+  ok(setFieldExpr(c, 'inner.l', 'Mixer +') === null, 'an unreadable formula is not applied');
+  // interference check: every preset is clean, overlapping and edge pieces are found
+  const base = newCase('Clash');
+  ok(hardwareClashes(base).length === 0, `the default case has no clashes (${hardwareClashes(base).map((x) => x.text).join('; ')})`);
+  for (const ty of CASE_TYPES) { const cc = { ...base, ...applyCaseType(base, ty.id) } as typeof base; ok(hardwareClashes(cc).length === 0, `${ty.id}: no clashes (${hardwareClashes(cc).map((x) => x.text).join('; ')})`); }
+  const two = { ...base, hardware: [...base.hardware, { kind: 'label' as const, face: 'right' as const, count: 1, at: [{ u: 200, z: 100 }] }, { kind: 'label' as const, face: 'right' as const, count: 1, at: [{ u: 240, z: 110 }] }] };
+  const cl = hardwareClashes(two);
+  ok(cl.some((x) => x.keys.length === 2 && /überschneiden sich/.test(x.text)), 'two labels on top of each other are found');
+  const edge = { ...base, hardware: [...base.hardware, { kind: 'label' as const, face: 'front' as const, count: 1, at: [{ u: 40, z: 100 }] }] };
+  ok(hardwareClashes(edge).some((x) => /Kantenprofil/.test(x.text)), 'a label on the edge profile is found');
+  const seam = { ...base, hardware: [...base.hardware, { kind: 'label' as const, face: 'front' as const, count: 1, at: [{ u: 300, z: caseBoxes(base).find((b) => b.role === 'lid')!.z0 - 10 }] }] };
+  ok(hardwareClashes(seam).some((x) => /Fuge/.test(x.text)), 'a label over the lid seam is found');
+  ok(caseWarnings(two).some((w) => /überschneiden sich/.test(w.text)), 'clashes appear in the warnings');
+  console.log('parameters, formulas and interference check ok');
 }
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }

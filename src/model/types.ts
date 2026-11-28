@@ -494,6 +494,10 @@ export interface FlightCase {
   caseType?: string;
   /** design history (timeline): construction fields are base + replayed steps up to the marker */
   timeline?: CaseTimeline;
+  /** user parameters (named values) that size fields refer to by formula */
+  params?: CaseParam[];
+  /** formulas of linked size fields by path ('inner.l', 'lidH', 'doors.left' …) */
+  exprs?: Record<string, string>;
   /** doors on the sides (vertical splits) */
   doors?: CaseDoors;
   /** the top lid is split in the middle into two halves (clamshell) */
@@ -533,3 +537,6 @@ export interface Project {
  */
 export interface CaseStep { id: string; t: number; key?: string; off?: boolean; d: Record<string, unknown> }
 export interface CaseTimeline { base: Partial<FlightCase>; steps: CaseStep[]; /** steps before this index are active; undefined = all */ marker?: number }
+
+/** a named value of a case (mm unless the note says otherwise) */
+export interface CaseParam { name: string; value: number; note?: string }

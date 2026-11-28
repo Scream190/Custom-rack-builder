@@ -18,6 +18,7 @@ const GLYPH: Record<StepKind, ReactNode> = {
   build: <><path d="M3 13V3h10" /><path d="M5.5 13V5.5H13" /></>,
   color: <><circle cx="8" cy="8" r="5" /><path d="M8 3v10M3 8h5" /></>,
   castor: <><circle cx="8" cy="10" r="3" /><path d="M5 3h6M8 3v4" /></>,
+  param: <><path d="M5 13c1.5 0 2-1 2.4-3l1.2-5C9 3 9.5 2.5 11 2.5M4.5 7h6" /></>,
   other: <><circle cx="8" cy="8" r="1.2" /><circle cx="4" cy="8" r="1.2" /><circle cx="12" cy="8" r="1.2" /></>,
 };
 const Glyph = ({ k }: { k: StepKind }) => <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{GLYPH[k]}</svg>;

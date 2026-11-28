@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../model/store';
 import type { CaseFace, CaseHardware, CaseSeam, FlightCase, HardwareKind, Project } from '../model/types';
 import { addDivider, applyCaseType, autoHardware, DIVIDER_LABELS, dividerGaps, dividerRange, spreadDividers, type DividerAxis, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
@@ -9,6 +9,8 @@ import { CaseSheet, sheetLayout } from '../render/CaseDrawing';
 import { Case3D, type CaseEdit, type CaseTool } from '../three/Case3D';
 import { CaseTimeline } from './CaseTimeline';
 import { isRolledBack, setMarker, timelineMarker } from '../model/timeline';
+import { brokenExprs, evalExpr, PARAM_FIELDS, PARAM_NAME, setFieldExpr, setParams } from '../model/params';
+import type { CaseParam } from '../model/types';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Splitter } from './Splitter';
 import { DEFAULT_LAYOUT, getLayout, setLayout, useLayout } from '../model/layout';
@@ -84,11 +86,12 @@ function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; 
         ) : null}
         {edit?.selected ? <SelectionBox c={c} edit={edit} /> : null}
 
+        <ParamSection c={c} />
         <Section id="case.inner" title="Innenmaße" defaultOpen summary={`${c.inner.l} × ${c.inner.w} × ${c.inner.h} mm`}>
         <div className="row gap8">
-          <Field label="Länge (mm)"><NumberInput value={c.inner.l} min={50} onChange={(v) => set({ inner: { ...c.inner, l: v } })} /></Field>
-          <Field label="Breite (mm)"><NumberInput value={c.inner.w} min={50} onChange={(v) => set({ inner: { ...c.inner, w: v } })} /></Field>
-          <Field label="Höhe (mm)"><NumberInput value={c.inner.h} min={10} onChange={(v) => set({ inner: { ...c.inner, h: v } })} /></Field>
+          <Field label="Länge (mm)"><ExprInput c={c} path="inner.l" /></Field>
+          <Field label="Breite (mm)"><ExprInput c={c} path="inner.w" /></Field>
+          <Field label="Höhe (mm)"><ExprInput c={c} path="inner.h" /></Field>
         </div>
 
         </Section>
@@ -101,7 +104,7 @@ function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; 
         <div className="muted small">Setzt Deckel, Türen und Beschläge passend. Innenmaße bleiben. Rack-Cases (auch Shockmount) baust du im Rack-Designer. Türen: Innentiefe in mm, 0 = keine Tür.</div>
         <div className="row gap8">
           {(['front', 'back', 'left', 'right'] as const).map((s) => (
-            <Field key={s} label={`${SEAM_LABELS[s]} (mm)`}><NumberInput value={c.doors?.[s] ?? 0} min={0} max={Math.round((s === 'front' || s === 'back' ? c.inner.w : c.inner.l) / 2)} onChange={(v) => set({ doors: { ...c.doors, [s]: Math.max(0, Math.round(v)) || undefined }, caseType: undefined })} /></Field>
+            <Field key={s} label={`${SEAM_LABELS[s]} (mm)`}><ExprInput c={c} path={`doors.${s}`} extra={{ caseType: undefined }} /></Field>
           ))}
         </div>
         {hasDoors(c) && c.lidKind !== 'none' ? (
@@ -135,7 +138,7 @@ function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; 
           <Field label="Art" grow={2}><select disabled={ro} value={c.lidKind} onChange={(e) => { const k = e.target.value as FlightCase['lidKind']; set({ lidKind: k, lidH: k === 'none' ? 0 : c.lidH || 100 }); }}>
             {Object.entries(LID_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
           </select></Field>
-          {c.lidKind !== 'none' ? <Field label="Höhe innen (mm)"><NumberInput value={c.lidH} min={20} max={c.inner.h - 20} onChange={(v) => set({ lidH: v })} /></Field> : null}
+          {c.lidKind !== 'none' ? <Field label="Höhe innen (mm)"><ExprInput c={c} path="lidH" /></Field> : null}
         </div>
 
         </Section>
@@ -217,6 +220,102 @@ function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; 
         </Section>
       </div>
     </aside>
+  );
+}
+
+// ------------------------------------------------------------------ parameters and formulas
+
+/**
+ * Size field that takes a number or a formula with the case's parameters ("Geraet + 2 * Polster"). Linked fields show
+ * their formula and follow the parameters; a plain number unlinks. Committed on Enter or when leaving the field.
+ */
+function ExprInput({ c, path, extra }: { c: FlightCase; path: string; extra?: Partial<FlightCase> }) {
+  const ro = useStore((s) => s.readOnly);
+  const f = PARAM_FIELDS[path];
+  const expr = c.exprs?.[path];
+  const value = f.get(c);
+  const shown = expr ?? String(value);
+  const [text, setText] = useState(shown);
+  const [bad, setBad] = useState(false);
+  const editing = useRef(false);
+  useEffect(() => { if (!editing.current) { setText(shown); setBad(false); } }, [shown]);
+  const commit = () => {
+    editing.current = false;
+    if (text.trim() === shown) { setBad(false); return; }
+    const patch = setFieldExpr(c, path, text);
+    if (!patch) { setBad(true); return; }
+    setBad(false);
+    st().updateCase(c.id, { ...patch, ...extra });
+  };
+  const broken = expr !== undefined && evalExpr(expr, c.params) === null;
+  return (
+    <input className={'expr-input' + (expr ? ' linked' : '') + (bad || broken ? ' bad' : '')} disabled={ro} value={text}
+      title={bad ? 'Formel nicht lesbar: Zahlen, + - * / ( ), Parameternamen, min, max, round' : expr ? `Formel: ${expr} = ${value} mm` : 'Zahl oder Formel mit Parametern, z. B. Breite + 2 * Polster'}
+      onFocus={() => { editing.current = true; }} onChange={(e) => setText(e.target.value)} onBlur={commit}
+      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); if (e.key === 'Escape') { setText(shown); setBad(false); editing.current = false; (e.target as HTMLInputElement).blur(); } }} />
+  );
+}
+
+/** a parameter value: a number or a formula over the other parameters, stored as its result */
+function ParamValue({ c, p, i }: { c: FlightCase; p: CaseParam; i: number }) {
+  const ro = useStore((s) => s.readOnly);
+  const [text, setText] = useState(String(p.value));
+  const [bad, setBad] = useState(false);
+  useEffect(() => { setText(String(p.value)); setBad(false); }, [p.value]);
+  const commit = () => {
+    const v = evalExpr(text, (c.params ?? []).filter((_, j) => j !== i));
+    if (v === null) { setBad(true); return; }
+    setBad(false);
+    if (v !== p.value) st().updateCase(c.id, setParams(c, (c.params ?? []).map((x, j) => (j === i ? { ...x, value: v } : x))));
+  };
+  return <input className={'expr-input' + (bad ? ' bad' : '')} disabled={ro} value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} title="Zahl oder Formel aus anderen Parametern" aria-label={`Wert von ${p.name}`} />;
+}
+
+/** a parameter name: renaming rewrites the formulas that use it */
+function ParamName({ c, p, i }: { c: FlightCase; p: CaseParam; i: number }) {
+  const ro = useStore((s) => s.readOnly);
+  const [text, setText] = useState(p.name);
+  const [bad, setBad] = useState(false);
+  useEffect(() => { setText(p.name); setBad(false); }, [p.name]);
+  const commit = () => {
+    const n = text.trim();
+    const taken = (c.params ?? []).some((x, j) => j !== i && x.name.toLowerCase() === n.toLowerCase());
+    if (!PARAM_NAME.test(n) || taken || ['min', 'max', 'round', 'floor', 'ceil', 'abs'].includes(n.toLowerCase())) { setBad(true); return; }
+    setBad(false);
+    if (n !== p.name) st().updateCase(c.id, setParams(c, (c.params ?? []).map((x, j) => (j === i ? { ...x, name: n } : x)), [p.name, n]));
+  };
+  return <input className={'expr-input' + (bad ? ' bad' : '')} disabled={ro} value={text} onChange={(e) => setText(e.target.value)} onBlur={commit} onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }} title={bad ? 'Name: Buchstabe am Anfang, dann Buchstaben, Ziffern oder _; jeder Name nur einmal' : 'Name des Parameters, in Formeln verwendbar'} aria-label="Name" />;
+}
+
+function ParamSection({ c }: { c: FlightCase }) {
+  const ro = useStore((s) => s.readOnly);
+  const params = c.params ?? [];
+  const broken = brokenExprs(c);
+  const usedIn = (name: string) => Object.entries(c.exprs ?? {}).filter(([, ex]) => new RegExp(`(?<![A-Za-zÄÖÜäöüß0-9_])${name}(?![A-Za-zÄÖÜäöüß0-9_])`, 'i').test(ex)).map(([k]) => PARAM_FIELDS[k]?.label ?? k);
+  const add = () => {
+    let n = params.length + 1;
+    while (params.some((p) => p.name.toLowerCase() === `p${n}`)) n++;
+    st().updateCase(c.id, setParams(c, [...params, { name: `P${n}`, value: 0 }]));
+  };
+  return (
+    <Section id="case.params" title="Parameter" summary={params.length ? params.map((p) => `${p.name} = ${p.value}`).join(', ') : 'keine'}>
+      <div className="muted small">Benannte Werte, auf die Maßfelder per Formel verweisen, z. B. Länge = Geraet + 2 * Polster. Verknüpfte Felder sind blau markiert und folgen, wenn sich ein Parameter ändert. Eine reine Zahl im Feld hebt die Verknüpfung auf.</div>
+      {broken.length ? <div className="warn-box"><div className="warn">{`Formel ohne gültigen Parameter: ${broken.map((k) => PARAM_FIELDS[k]?.label ?? k).join(', ')}`}</div></div> : null}
+      {params.length ? (
+        <table className="param-table">
+          <thead><tr><th>Name</th><th>Wert (mm)</th><th>Notiz</th><th /></tr></thead>
+          <tbody>{params.map((p, i) => (
+            <tr key={i}>
+              <td><ParamName c={c} p={p} i={i} /></td>
+              <td><ParamValue c={c} p={p} i={i} /></td>
+              <td><input disabled={ro} value={p.note ?? ''} placeholder={usedIn(p.name).join(', ')} onChange={(e) => st().updateCase(c.id, { params: params.map((x, j) => (j === i ? { ...x, note: e.target.value || undefined } : x)) })} aria-label="Notiz" title={usedIn(p.name).length ? `verwendet in: ${usedIn(p.name).join(', ')}` : 'noch in keiner Formel verwendet'} /></td>
+              <td>{!ro ? <button className="icon-btn" title={usedIn(p.name).length ? `${p.name} löschen (verwendet in: ${usedIn(p.name).join(', ')})` : `${p.name} löschen`} aria-label="Entfernen" onClick={() => st().updateCase(c.id, setParams(c, params.filter((_, j) => j !== i)))}>✕</button> : null}</td>
+            </tr>
+          ))}</tbody>
+        </table>
+      ) : null}
+      {!ro ? <button className="btn sm" onClick={add} title="Neuen benannten Wert anlegen">Parameter hinzufügen</button> : null}
+    </Section>
   );
 }
 
@@ -453,11 +552,11 @@ export function CaseWorkspace() {
                 { id: 'seam-v', label: 'Fuge senkrecht', title: 'Case senkrecht teilen: Klick nahe einem Ende setzt eine Tür, in der Deckelmitte wird der Deckel geteilt (T)' },
                 { id: 'measure', label: 'Messen', title: 'Abstand zwischen zwei Punkten oder parallelen Flächen messen (I)' },
               ]} />
-              <select className={tool.startsWith('place:') ? 'active' : ''} value={tool.startsWith('place:') ? tool.slice(6) : ''} onChange={(e) => setTool(e.target.value ? (`place:${e.target.value}` as CaseTool) : 'select')} title="Beschlag wählen und auf die Außenseite klicken">
+              <select className={'tool-select' + (tool.startsWith('place:') ? ' active' : '')} value={tool.startsWith('place:') ? tool.slice(6) : ''} onChange={(e) => setTool(e.target.value ? (`place:${e.target.value}` as CaseTool) : 'select')} title="Beschlag wählen und auf die Außenseite klicken">
                 <option value="">Beschlag setzen …</option>
                 {PLACEABLE.map((k) => <option key={k} value={k}>{HARDWARE[k].label}</option>)}
               </select>
-              <select className={tool.startsWith('div:') ? 'active' : ''} value={tool.startsWith('div:') ? tool.slice(4) : ''} onChange={(e) => setTool(e.target.value ? (`div:${e.target.value}` as CaseTool) : 'select')} title="Fachboden oder Trennwand wählen und auf eine Außenwand klicken">
+              <select className={'tool-select' + (tool.startsWith('div:') ? ' active' : '')} value={tool.startsWith('div:') ? tool.slice(4) : ''} onChange={(e) => setTool(e.target.value ? (`div:${e.target.value}` as CaseTool) : 'select')} title="Fachboden oder Trennwand wählen und auf eine Außenwand klicken">
                 <option value="">Einbau setzen …</option>
                 {(['z', 'x', 'y'] as const).map((a) => <option key={a} value={a}>{DIVIDER_LABELS[a]}</option>)}
               </select>

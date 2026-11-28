@@ -3,6 +3,7 @@ import { devicePorts } from './modules';
 import type { CustomCable, Cable, CableEnd, CableType, CaseItem, DeviceTemplate, Face, FlightCase, PlacedBox, PlacedDevice, Project, ProjectSettings, Rack, RackType } from './types';
 import { deepClone, uid } from './util';
 import { recordStep } from './timeline';
+import { unlinkOverridden } from './params';
 import { connectorDef } from './connectors';
 import { DEFAULT_CABLE_TYPES } from '../library/cableTypes';
 import { BUILTIN_DEVICES } from '../library/devices';
@@ -395,7 +396,7 @@ export const useStore = create<State>((set, get) => {
         const c = p.cases?.find((x) => x.id === id);
         if (!c) return;
         // flight cases keep a design history (timeline); drawer and free inlays do not
-        if (!c.kind || c.kind === 'case') Object.assign(c, recordStep(c, deepClone(patch), key || undefined, Date.now()));
+        if (!c.kind || c.kind === 'case') Object.assign(c, recordStep(c, unlinkOverridden(c, deepClone(patch)), key || undefined, Date.now()));
         else Object.assign(c, deepClone(patch));
       }, key);
     },

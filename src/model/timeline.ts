@@ -9,10 +9,10 @@ import { uid } from './util';
  * top; a later step that refers to something that no longer exists simply has no effect (shown in the timeline).
  */
 
-export const TRACKED = ['inner', 'lidKind', 'lidH', 'lidSplit', 'doors', 'drawers', 'dividers', 'hardware', 'castorSize', 'panel', 'profile', 'cornerBalls', 'color', 'parts', 'caseType'] as const;
+export const TRACKED = ['inner', 'lidKind', 'lidH', 'lidSplit', 'doors', 'drawers', 'dividers', 'hardware', 'castorSize', 'panel', 'profile', 'cornerBalls', 'color', 'parts', 'caseType', 'params', 'exprs'] as const;
 type Key = (typeof TRACKED)[number];
-const OBJ: Key[] = ['inner', 'doors', 'parts'];
-const ARR: Key[] = ['hardware', 'dividers', 'drawers'];
+const OBJ: Key[] = ['inner', 'doors', 'parts', 'exprs'];
+const ARR: Key[] = ['hardware', 'dividers', 'drawers', 'params'];
 type Tracked = Partial<Pick<FlightCase, Key>>;
 interface ArrDiff { add?: unknown[]; remove?: unknown[]; change?: [unknown, unknown][] }
 /** steps kept; older ones are folded into the base */
@@ -158,13 +158,20 @@ export function deleteStep(c: FlightCase, i: number): FlightCase {
   return withReplay(c, tl);
 }
 
-export type StepKind = 'type' | 'size' | 'lid' | 'door' | 'drawer' | 'divider' | 'hardware' | 'build' | 'color' | 'castor' | 'other';
+export type StepKind = 'type' | 'size' | 'lid' | 'door' | 'drawer' | 'divider' | 'hardware' | 'build' | 'color' | 'castor' | 'param' | 'other';
 export interface StepInfo { label: string; kind: StepKind; sel?: string; /** false when the step changes nothing where it stands (refers to something removed earlier) */ effective: boolean; active: boolean }
 
 const sideLabel = (s: string) => SEAM_LABELS[s as keyof typeof SEAM_LABELS] ?? s;
 /** a readable name of what a step does */
 export function describeStep(d: Record<string, unknown>, before: Tracked, after: Tracked): Omit<StepInfo, 'effective' | 'active'> {
   if (d.caseType !== undefined && d.caseType !== null) return { label: `Bauform: ${CASE_TYPES.find((t) => t.id === d.caseType)?.label ?? d.caseType}`, kind: 'type' };
+  if (d.params) {
+    const a = d.params as ArrDiff;
+    const p = (a.change?.[0]?.[1] ?? a.add?.[0] ?? a.remove?.[0]) as { name: string; value: number } | undefined;
+    if (p && a.remove && !a.add && !a.change) return { label: `Parameter ${p.name} gelöscht`, kind: 'param' };
+    return { label: p ? `Parameter ${p.name} = ${p.value}` : 'Parameter', kind: 'param' };
+  }
+  if (d.exprs && !d.inner && !d.lidH && !d.doors) return { label: 'Formel geändert', kind: 'param' };
   if (d.inner) {
     const p = d.inner as Partial<FlightCase['inner']>;
     const ks = Object.keys(p);

@@ -415,6 +415,19 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
   Bearbeiten stehen; *Einpassen* richtet sie neu aus, *Vorne*, *Oben*, *Rechts* und *Iso* schwenken in die
   Standardansichten. *Schnitt* schneidet das Case quer zur Länge oder Breite auf (Lage per Schieberegler) und zeigt
   Wände, Schaum und Schubladen von innen.
+- **Parameter und Formeln:** Im Bereich *Parameter* legst du benannte Werte an (z. B. `Geraet = 482`, `Polster = 25`).
+  Die Felder für Innenmaße, Deckelhöhe und Türtiefen nehmen statt einer Zahl auch eine Formel: `Geraet + 2 * Polster`,
+  mit + - * / ( ), Komma oder Punkt, `min`, `max`, `round`, `floor`, `ceil`, `abs`. Verknüpfte Felder sind blau markiert
+  und folgen, wenn sich ein Parameter ändert; Umbenennen schreibt die Formeln mit um, eine Formel ohne gültigen
+  Parameter wird gemeldet. Eine reine Zahl im Feld oder Ziehen des Maßes in 3D hebt die Verknüpfung auf. Parameter
+  und Formeln stehen in der Zeitleiste und werden mit dem Projekt gespeichert (`params`, `exprs`).
+- **Kollisionsprüfung der Beschläge:** Die App prüft, ob sich Beschläge auf einer Seite überschneiden, auf dem
+  Kantenprofil liegen, über eine Deckel- oder Türfuge ragen oder an der Fuge ins Eckprofil reichen. Treffer stehen bei
+  den Warnungen und sind in 3D rot umrahmt. Grundlage sind übliche Außenmaße der Teile (Schätzung, z. B. Klappgriff
+  versenkt 190 × 115 mm, Butterflyverschluss groß 110 × 90 mm). Die automatische Bestückung hält das ein: Griffe sitzen
+  auf der Schale, in die sie passen, mittig zwischen Profil und Verschlüssen; bei niedrigen Seiten wird ein flacher
+  Riemengriff gesetzt, notfalls entfallen die Seitenverschlüsse; Stapelschalen sitzen in den Ecken der größten
+  Deckfläche mit Abstand zu Profil und Fugen.
 - **Zeitleiste (Bearbeitungshistorie):** Unter der Ansicht steht wie in parametrischen CAD-Programmen jede Änderung an
   Maßen, Deckel, Türen, Schubladen, Einbauten, Beschlägen, Rollen und Bauweise als Schritt mit Symbol. Die Markierung
   (blauer Strich) zeigt, bis wohin die Konstruktion abgespielt ist: Ziehen oder die Pfeile rollen sie zurück, Doppelklick
