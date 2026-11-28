@@ -10,6 +10,7 @@ import { COMPLETE3_DEVICES } from './devicesComplete3';
 import { COMPLETE4_DEVICES } from './devicesComplete4';
 import { COMPLETE5_DEVICES } from './devicesComplete5';
 import { COMPLETE6_DEVICES } from './devicesComplete6';
+import { COMPLETE7_DEVICES } from './devicesComplete7';
 import { DRAWER_DEVICES } from './drawers';
 import { MEASURED_DEVICES } from './devicesMeasured';
 import { BOX_DEVICES } from './devicesBoxes';
@@ -48,6 +49,7 @@ const RAW_DEVICES: DeviceTemplate[] = [
   ...COMPLETE4_DEVICES,
   ...COMPLETE5_DEVICES,
   ...COMPLETE6_DEVICES,
+  ...COMPLETE7_DEVICES,
   ...DRAWER_DEVICES,
   ...BOX_DEVICES,
   ...IT_DEVICES,

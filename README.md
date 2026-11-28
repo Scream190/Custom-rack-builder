@@ -58,9 +58,12 @@ Händlerangabe, die das Datenblatt zitiert). Die Ergebnisse stehen mit Quelle in
 beim Laden der Bibliothek angewendet (`src/library/verified.ts`): Tiefe, Gewicht, Gehäusebreite und Name werden
 übernommen; ändern sich Höheneinheiten oder Breite (Halbrack / volle Breite), wandern Anschlüsse, Modulschächte und
 Frontgrafik mit. Wo keine verlässliche Angabe zu finden war, bleibt der Wert und die Quelle sagt „nicht bestätigt“.
-Stand 11/2026 sind alle 500 Herstellergeräte geprüft: 462 haben einen Eintrag in `verifiedData.ts`, davon 458 mit
-Werten aus Datenblatt, Handbuch oder Händlerangabe und 4 ohne verlässliche Angabe; 38 Geräte (Shure, Sennheiser, ELC und
-die Nachträge in `devicesComplete6.ts`) sind direkt nach Bedienungsanleitung bzw. Datenblatt gebaut. Die 87 generischen Vorlagen (Blenden, Fachböden,
+Stand 11/2026 sind alle 533 Herstellergeräte geprüft: 462 haben einen Eintrag in `verifiedData.ts`, davon 458 mit
+Werten aus Datenblatt, Handbuch oder Händlerangabe und 4 ohne verlässliche Angabe; 71 Geräte (Shure, Sennheiser, ELC und
+die Nachträge in `devicesComplete6.ts` und `devicesComplete7.ts`) sind direkt nach Bedienungsanleitung bzw. Datenblatt
+gebaut. In `devicesComplete7.ts` sind fünf Vorlagen teilweise geschätzt, weil der Hersteller Tiefe oder Gewicht nicht
+veröffentlicht (SSL SB 8.8 und SB i16, Riedel Artist 128 und RSP-1216HL, Gewicht der Lawo Power Core); die Quelle sagt
+jeweils, welcher Wert geschätzt ist. Die 87 generischen Vorlagen (Blenden, Fachböden,
 Schubladen ohne Hersteller) sind als Schätzung gekennzeichnet.
 Der Bibliothekstest prüft zusätzlich, dass jede Vorlage ihre Genauigkeit nennt, dass Anschlussnamen und Steckertyp
 zusammenpassen (z. B. „USB“ auf einer USB-Buchse) und dass Netzeingänge nicht als Ausgang geführt werden.
@@ -162,6 +165,11 @@ was gerendert wird; Exporte laufen über `trMarkup` und `trPdf`. Neue Texte in d
   Audio-Technica ATW-DA49; Lectrosonics Venue 2; Sony DWR-R03D; Yamaha MRX7-D, MTX5-D, Ri8-D, Ro8-D; Q-SYS Core 8 Flex,
   Core Nano; Allen & Heath AHM-64, AHM-16; d&b DS10; L-Acoustics LA7.16, P1. Genauigkeit je Vorlage in `source`
   (Datenblatt oder Schätzung).
+  Siebter Durchgang (`src/library/devicesComplete7.ts`), fehlende Hersteller und Lücken: NEXO NXAMP4x4mk2, 4x2mk2,
+  4x1mk2; Powersoft K20, K10, Ottocanali 4K4/8K4 DSP+D; L-Acoustics LA7.16i, LS10; Martin Audio iK81; d&b D12; Dynacord
+  TGX20; Midas DL351, DL451, DL231; Behringer SD8; Allen & Heath DX012; Soundcraft Mini Stagebox 32i; SSL SB 8.8, SB i16;
+  Avid VENUE E6L-192/-144; Lawo Power Core; Waves SoundGrid Extreme Server-C, DiGiGrid MGR; disguise vx 4+; Netgear
+  M4250-26G4F-PoE+; Riedel Artist 128, RSP-1232HL, RSP-1216HL; Barco Event Master EX; Novastar MX30; Furman P-1800 PF R.
   Zweiter Durchgang (`src/library/devicesComplete2.ts`): Sennheiser EM 100 G3, EM 300-500 G3, SR 300 IEM G3 (Gehäuse
   vom G4 abgeleitet), EM 3731-II; AKG SR4500, DSR700 V2; Wisycom MTK982; RF Venue DISTRO4 HDR, COMBINE4, COMBINE8;
   Allen & Heath dLive CDM32/48/64 (5/7/8 HE laut Datenblatt), DM0, DM32/48/64; Behringer WING RACK; DiGiCo SD-Rack,
