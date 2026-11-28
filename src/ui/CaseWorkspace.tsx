@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../model/store';
 import type { CaseFace, CaseHardware, CaseSeam, FlightCase, HardwareKind, Project } from '../model/types';
-import { applyCaseType, autoHardware, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, moveHardware, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
+import { applyCaseType, autoHardware, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
 import { panelMaterial, PANEL_MATERIALS, partLabel, partsForKind, partsInGroup, profileBySku, profileLabel, profilesFor } from '../library/caseHardware';
 import { caseList, foamMaterial, FOAM_MATERIALS, inlayThickness } from '../model/inlay';
 import { formatLength } from '../model/geometry';
@@ -219,6 +219,7 @@ function SelectionBox({ c, edit }: { c: FlightCase; edit: CaseEdit }) {
     const n = h.at?.length ?? h.count;
     const span = faceSpan(c, h.face);
     const where = FACE_LABELS[h.face] + (h.seam && h.seam !== 'lid' ? ` (${SEAM_LABELS[h.seam]})` : '');
+    const mirrored = mirrorHardware(c, i);
     return (
       <div className="case-sel">
         <div><b>{HARDWARE[h.kind].label}</b> <span className="muted small">{k !== null ? `${where}, Stück ${k + 1} von ${n}` : `${where}, ${n} Stück`}</span></div>
@@ -232,6 +233,7 @@ function SelectionBox({ c, edit }: { c: FlightCase; edit: CaseEdit }) {
           <div className="btn-group">
             {h.at ? <button className="btn sm" onClick={() => set({ hardware: c.hardware.map((x, j) => (j === i ? { ...x, at: undefined, count: x.at!.length } : x)) })} title="Handgesetzte Positionen verwerfen und die Teile wieder gleichmäßig verteilen">Gleichmäßig verteilen</button> : null}
             {k !== null ? <button className="btn sm" onClick={() => edit.select(`hw:${i}`)} title="Alle Teile dieser Zeile auswählen">Ganze Zeile</button> : null}
+            {mirrored ? <button className="btn sm" onClick={() => { set({ hardware: mirrored }); edit.select(`hw:${mirrored.length - 1}`); }} title={`Dieselben Beschläge spiegelbildlich auf die Seite ${FACE_LABELS[OPPOSITE_FACE[h.face]!]} setzen`}>Auf Gegenseite spiegeln</button> : null}
             <button className="btn sm danger" onClick={del} title="Ausgewähltes löschen (Entf)">{k !== null ? 'Stück löschen' : 'Zeile löschen'}</button>
           </div>
         ) : null}

@@ -389,8 +389,14 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
   - *Beschlag setzen:* Beschlag wählen und auf die Außenseite klicken; Verschlüsse rasten an der nächsten Fuge ein.
 
   Von Hand gesetzte Beschläge behalten ihre Position (`at` in Seitenkoordinaten) und erscheinen genauso in der
-  Maßzeichnung und im PDF; *Gleichmäßig verteilen* setzt eine Zeile wieder zurück. Ein Zug mit der Maus ist ein
-  Rückgängig-Schritt. Die Kamera bleibt beim Bearbeiten stehen, *Einpassen* richtet sie neu aus.
+  Maßzeichnung und im PDF; *Gleichmäßig verteilen* setzt eine Zeile wieder zurück, *Auf Gegenseite spiegeln* setzt
+  dieselben Beschläge spiegelbildlich auf die gegenüberliegende Seite. Beim Verschieben rasten Beschläge auf der Mitte
+  der Seite, symmetrisch zum Gegenstück der Zeile und im 5-mm-Raster ein (Strg: 1 mm, Alt: frei). Neben dem Mauszeiger
+  steht dabei die Position bzw. beim Push/Pull das neue Maß mit der Änderung. Was ein Klick auswählen würde, bekommt
+  beim Überfahren einen hellen Rahmen. Ein Zug mit der Maus ist ein Rückgängig-Schritt. Die Kamera bleibt beim
+  Bearbeiten stehen; *Einpassen* richtet sie neu aus, *Vorne*, *Oben*, *Rechts* und *Iso* schwenken in die
+  Standardansichten. *Schnitt* schneidet das Case quer zur Länge oder Breite auf (Lage per Schieberegler) und zeigt
+  Wände, Schaum und Schubladen von innen.
 - **Bauformen:** Truhe 50/50, flacher Deckel, flache Wanne (hohe Haube), Eintür-, Doppeltür- und Dreifach-Case,
   Klappdeckel geteilt (Clamshell), Rack-Case mit Deckel oben und Türen vorne/hinten, Production-Case mit Fachböden und
   Schubladen-Case. Jede Bauform setzt Deckel, Türen und Verschlüsse; danach lässt sich alles einzeln ändern: Türen auf jeder

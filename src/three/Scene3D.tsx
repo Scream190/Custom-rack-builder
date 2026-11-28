@@ -24,7 +24,11 @@ export interface BuildResult {
  * occlusion in recesses, dark floor fading into the background. `build` fills a group that is in mm.
  */
 /** handle for editors: camera, canvas, model root (mm scaled by S) and the orbit controls */
-export interface Scene3DApi { camera: THREE.PerspectiveCamera; dom: HTMLCanvasElement; content: THREE.Group; controls: OrbitControls }
+export interface Scene3DApi {
+  camera: THREE.PerspectiveCamera; dom: HTMLCanvasElement; content: THREE.Group; controls: OrbitControls;
+  /** section planes on the model (floor and grid stay whole); null removes them. Kept across rebuilds. */
+  clip: (planes: THREE.Plane[] | null) => void;
+}
 
 /**
  * `frameKey`: when given, the camera is framed again only when this key changes (editors keep the view while the
@@ -37,7 +41,10 @@ export function Scene3D({ build, deps, children, interact, frameKey }: { build: 
   const ctxRef = useRef<{ scene: THREE.Scene; content: THREE.Group; camera: THREE.PerspectiveCamera; controls: OrbitControls; sun: THREE.DirectionalLight; ao: GTAOPass | null } | null>(null);
   const [failed, setFailed] = useState(false);
   const lastSize = useRef<string>('');
+  const clipRef = useRef<THREE.Plane[] | null>(null);
+  const aoRef = useRef(true);
   const { ao: aoOn } = useLayout();
+  aoRef.current = aoOn;
 
   useEffect(() => {
     const el = host.current!;
@@ -93,7 +100,14 @@ export function Scene3D({ build, deps, children, interact, frameKey }: { build: 
       composer.addPass(new OutputPass());
     } catch { composer = null; ao = null; }
     ctxRef.current = { scene, content, camera, controls, sun, ao };
-    const stopInteract = interactRef.current?.({ camera, dom: renderer.domElement, content, controls });
+    renderer.localClippingEnabled = true;
+    const clip = (planes: THREE.Plane[] | null) => {
+      clipRef.current = planes;
+      applyClip(content, planes);
+      // the AO normal pass ignores clipping: it would shade the cut away parts
+      if (ao) ao.enabled = !planes && aoRef.current;
+    };
+    const stopInteract = interactRef.current?.({ camera, dom: renderer.domElement, content, controls, clip });
     let raf = 0;
     const loop = () => {
       controls.update();
@@ -126,7 +140,7 @@ export function Scene3D({ build, deps, children, interact, frameKey }: { build: 
     };
   }, []);
 
-  useEffect(() => { if (ctxRef.current?.ao) ctxRef.current.ao.enabled = aoOn; }, [aoOn]);
+  useEffect(() => { if (ctxRef.current?.ao) ctxRef.current.ao.enabled = aoOn && !clipRef.current; }, [aoOn]);
 
   useEffect(() => {
     const ctx = ctxRef.current;
@@ -139,6 +153,7 @@ export function Scene3D({ build, deps, children, interact, frameKey }: { build: 
     content.add(root);
     const res = build(root);
     content.traverse((o) => { if (o instanceof THREE.Mesh) { o.castShadow = true; o.receiveShadow = true; } });
+    if (clipRef.current) applyClip(content, clipRef.current);
     const span = Math.max(res.size.x, res.size.y, res.size.z + Math.abs(res.zShift ?? 0) * 2) * S;
     sun.position.set(span * 1.2, span * 2.6, span * 1.6);
     sun.target.position.set(0, 0, (res.zShift ?? 0) * S);
@@ -171,4 +186,23 @@ export function Scene3D({ build, deps, children, interact, frameKey }: { build: 
       {children}
     </div>
   );
+}
+
+/** sets section planes on every material of the model (materials are shared, so each is touched once) */
+function applyClip(root: THREE.Object3D, planes: THREE.Plane[] | null) {
+  const seen = new Set<THREE.Material>();
+  root.traverse((o) => {
+    const m = (o as THREE.Mesh).material as THREE.Material | THREE.Material[] | undefined;
+    if (!m) return;
+    for (const mat of Array.isArray(m) ? m : [m]) {
+      if (seen.has(mat) || mat.userData.noClip) continue;
+      seen.add(mat);
+      mat.clippingPlanes = planes;
+      mat.clipShadows = true;
+      // cut panels show their inside instead of looking hollow
+      if (mat.userData.side0 === undefined) mat.userData.side0 = mat.side;
+      mat.side = planes ? THREE.DoubleSide : mat.userData.side0;
+      mat.needsUpdate = true;
+    }
+  });
 }

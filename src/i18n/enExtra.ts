@@ -1,6 +1,25 @@
 // Hand-written additions to en.ts: texts in data objects, generated names and composite texts.
 
 export const EN_EXTRA: Record<string, string> = {
+  // case designer: views, section, readouts
+  "Klicken wählt aus. Beschläge mit der Maus verschieben, sie rasten auf der Mitte und symmetrisch zum Gegenstück ein (Alt: frei). An den Pfeilen einer Schale ziehen ändert die Maße (Strg: 1-mm-Schritte). Entf löscht, Esc hebt die Auswahl auf.": "Click to select. Drag fittings with the mouse, they snap to the middle and symmetric to their counterpart (Alt: free). Drag the arrows of a shell to change sizes (Ctrl: 1 mm steps). Del deletes, Esc clears the selection.",
+  "Oben": "Top",
+  "Rechts": "Right",
+  "Iso": "Iso",
+  "Ansicht von vorne": "View from the front",
+  "Ansicht von oben": "View from the top",
+  "Ansicht von rechts": "View from the right",
+  "Schräg von vorne oben": "Oblique from front and above",
+  "Schnitt": "Section",
+  "Schnitt durch das Case: zeigt Wände, Schaum und Einbauten von innen": "Section through the case: shows walls, foam and fittings from the inside",
+  "quer zur Länge": "across the length",
+  "quer zur Breite": "across the width",
+  "Richtung des Schnitts": "Direction of the section",
+  "Lage des Schnitts verschieben": "Move the section",
+  "auf der Mitte": "on the middle",
+  "symmetrisch zum Gegenstück": "symmetric to its counterpart",
+  "unverändert": "unchanged",
+  "Auf Gegenseite spiegeln": "Mirror to the opposite side",
   // devices, seventh pass
   "Netzwerk (Karte)": "Network (card)",
   "Powered TD Controller, 4 × 4500 W.": "Powered TD controller, 4 × 4500 W.",
@@ -419,4 +438,12 @@ export const EN_EXTRA_TPL: [string, string][] = [
   ["Stück {0}, verteilt", "Piece {0}, spread"],
   ["Stück {0}", "Piece {0}"],
   ["MADI optisch {0}", "MADI optical {0}"],
+  ["Länge innen {0} mm ({1})", "Inner length {0} mm ({1})"],
+  ["Breite innen {0} mm ({1})", "Inner width {0} mm ({1})"],
+  ["Höhe innen {0} mm ({1})", "Inner height {0} mm ({1})"],
+  ["Deckelhöhe {0} mm ({1})", "Lid height {0} mm ({1})"],
+  ["Tiefe {0}: {1} mm ({2})", "Depth {0}: {1} mm ({2})"],
+  ["{0} mm von links, {1} mm hoch", "{0} mm from the left, {1} mm high"],
+  ["{0} mm von links, {1} mm von vorne", "{0} mm from the left, {1} mm from the front"],
+  ["Dieselben Beschläge spiegelbildlich auf die Seite {0} setzen", "Place the same fittings mirrored on the {0} side"],
 ];

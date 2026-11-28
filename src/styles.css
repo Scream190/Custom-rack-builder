@@ -267,7 +267,12 @@ input.bad { border-color: var(--danger); color: #fca5a5; }
 .parts-grid { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 0 28px; padding: 0 6px 8px; }
 .parts-grid table { width: auto; flex: 0 0 auto; }
 .view3d-btn { position: absolute; top: 10px; left: 10px; z-index: 5; }
-.view3d-btns { position: absolute; top: 10px; left: 10px; z-index: 5; display: flex; gap: 6px; }
+.view3d-btns { position: absolute; top: 10px; left: 10px; right: 10px; z-index: 5; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.view3d-btns select.sm { height: 26px; padding: 0 6px; font-size: 12px; line-height: 24px; }
+.view3d-sep { width: 1px; height: 18px; background: var(--line); margin: 0 2px; }
+.view3d-range { width: 160px; accent-color: var(--accent); }
+.view3d-val { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; min-width: 52px; }
+.view3d-hud { position: absolute; z-index: 7; pointer-events: none; padding: 3px 7px; background: #0d0f12; border: 1px solid #3b4048; border-radius: 3px; color: #e6e8eb; font-size: 12px; line-height: 1.4; white-space: pre-line; font-variant-numeric: tabular-nums; }
 .view3d-hint { position: absolute; left: 12px; right: 12px; bottom: 10px; z-index: 5; color: #9aa1ab; font-size: 12px; pointer-events: none; text-shadow: 0 1px 2px #000; }
 /* case editor: component browser next to the 3D view */
 .case-edit { position: absolute; inset: 0; display: flex; }

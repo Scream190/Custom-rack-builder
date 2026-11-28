@@ -354,6 +354,43 @@ export function moveHardware(c: FlightCase, i: number, k: number, u: number, z: 
   return pinned.map((x, j) => (j === i ? { ...x, at } : x));
 }
 
+/** opposite face of a side (top and bottom have none for hardware) */
+export const OPPOSITE_FACE: Partial<Record<CaseFace, CaseFace>> = { front: 'back', back: 'front', left: 'right', right: 'left' };
+
+/**
+ * Snapping while a piece of hardware is dragged (face coordinates): to the middle of the face, to the mirror image of
+ * another piece of the same row, then to a `step` grid. `guide` names what it snapped to (for the readout).
+ */
+export function snapHardware(c: FlightCase, i: number, k: number, u: number, z: number, step = 5): { u: number; z: number; guide?: 'mitte' | 'symmetrisch' } {
+  const h = c.hardware[i];
+  if (!h) return { u, z };
+  const span = faceSpan(c, h.face);
+  const tol = Math.max(6, step * 1.6);
+  if (Math.abs(u - span / 2) <= tol) return { u: span / 2, z: Math.round(z / step) * step, guide: 'mitte' };
+  const others = hardwareInstances(c).filter((x) => x.i === i && x.k !== k);
+  for (const o of others) {
+    const m = span - o.u;
+    if (Math.abs(u - m) <= tol) return { u: m, z: Math.round(z / step) * step, guide: 'symmetrisch' };
+  }
+  return { u: Math.round(u / step) * step, z: Math.round(z / step) * step };
+}
+
+/**
+ * Copies a hardware row to the opposite side, mirrored through the middle of the case (a handle 200 mm from the left
+ * on the front sits 200 mm from the left on the back as seen from the front). Returns null for faces without an
+ * opposite side or when the kind cannot sit there.
+ */
+export function mirrorHardware(c: FlightCase, i: number): CaseHardware[] | null {
+  const h = c.hardware[i];
+  const face = h && OPPOSITE_FACE[h.face];
+  if (!h || !face || !HARDWARE[h.kind].faces.includes(face)) return null;
+  const span = faceSpan(c, h.face);
+  // a door seam on the side faces stays the same door; on a front/back door the seam would face the other way
+  if (h.seam && h.seam !== 'lid' && (h.seam === face || h.seam === h.face)) return null;
+  const copy: CaseHardware = { ...h, face, at: h.at?.map((p) => ({ u: Math.round(span - p.u), z: p.z })) };
+  return [...c.hardware, copy];
+}
+
 /** adds one hand-placed piece of hardware where the user clicked (latches and hinges snap to the nearest seam) */
 export function placeHardware(c: FlightCase, kind: HardwareKind, face: CaseFace, u: number, z: number): CaseHardware[] | null {
   if (!HARDWARE[kind].faces.includes(face)) return null;

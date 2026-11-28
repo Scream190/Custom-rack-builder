@@ -1,5 +1,5 @@
 // Case designer checks. Run: npm run test:cases
-import { applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, moveHardware, newCase, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
+import { applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, mirrorHardware, moveHardware, newCase, snapHardware, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
 import { HARDWARE_PARTS, PROFILES, profileBySku, profilesFor, rackStripLength, rackStripSku } from '../src/library/caseHardware';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
@@ -261,7 +261,24 @@ console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRA
   ok(removeSelection(door, 'part:door-left')!.doors?.left === undefined, 'deleting a door');
   ok(removeSelection(c, 'part:lid')!.lidKind === 'none' && removeSelection(c, 'part:base') === null, 'deleting the lid, the base stays');
   ok(removeSelection({ ...c, lidSplit: true }, 'part:lid2')!.lidSplit === undefined, 'deleting a lid half joins the halves');
-  console.log(`3D editor: push/pull, split, place, move, delete ok`);
+  // snapping: middle of the face, mirror image of the other piece, grid
+  const span = shellSize(c).L;
+  ok(snapHardware(c, fi, 0, span / 2 + 4, 33).guide === 'mitte' && snapHardware(c, fi, 0, span / 2 + 4, 33).u === span / 2, 'snap to the middle of the face');
+  const other = hardwareInstances(c).find((x) => x.i === fi && x.k === 1)!;
+  const sm = snapHardware(c, fi, 0, span - other.u + 3, 50);
+  ok(sm.guide === 'symmetrisch' && Math.abs(sm.u - (span - other.u)) < 1e-6, 'snap to the mirror image of the other piece');
+  const sg = snapHardware(c, fi, 0, 101.7, 47.2);
+  ok(!sg.guide && sg.u === 100 && sg.z === 45, `snap to the 5 mm grid (${sg.u}, ${sg.z})`);
+  ok(snapHardware(c, fi, 0, 101.7, 47.2, 1).u === 102, 'snap to 1 mm with Ctrl');
+  // mirroring a hand-placed handle to the back keeps its position seen from the front
+  const withLab = { ...c, hardware: placeHardware(c, 'label', 'front', 200, 80)! };
+  const li = withLab.hardware.length - 1;
+  const mir = mirrorHardware(withLab, li)!;
+  const back = hardwareInstances({ ...withLab, hardware: mir }).find((x) => x.i === mir.length - 1)!;
+  const pf = faceToOuter(withLab, 'front', 200, 80), pb = faceToOuter(withLab, 'back', back.u, back.z);
+  ok(back.face === 'back' && Math.abs(pf[0] - pb[0]) < 1 && pb[2] === 80, `mirrored label sits at the same x on the back (${pf[0]} / ${pb[0]})`);
+  ok(mirrorHardware(c, c.hardware.findIndex((h) => h.kind === 'stack-cup')) === null, 'top hardware has no opposite side');
+  console.log(`3D editor: push/pull, split, place, move, snap, mirror, delete ok`);
 }
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }
