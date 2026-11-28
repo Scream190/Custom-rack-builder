@@ -1,5 +1,5 @@
-import type { CaseFace, CaseHardware, CaseItem, CaseSeam, DeviceTemplate, FlightCase, HardwareKind, Project } from './types';
-import { footHeight, hardwarePart, panelMaterial, profileBySku, profileKgPerM, sheetOf, slideFor } from '../library/caseHardware';
+import type { CaseFace, CaseHardware, CaseItem, CaseRack, CaseSeam, DeviceTemplate, FlightCase, HardwareKind, PlacedDevice, Project } from './types';
+import { footHeight, hardwarePart, panelMaterial, profileBySku, profileKgPerM, rackStripLength, rackStripSku, sheetOf, slideFor } from '../library/caseHardware';
 import { faceWidth, U } from './geometry';
 import { uid } from './util';
 import { cutDepth, FOAM_MATERIALS, foamStack, formatStack, type ShapeKind } from './inlay';
@@ -620,6 +620,130 @@ export function hardwarePlan(c: FlightCase): PlanFace[] {
   return out;
 }
 
+// ------------------------------------------------------------------ 19" racks inside the case
+
+/** a box in inner coordinates (x from the inner left, y from the inner front, z from the inner floor) */
+export interface InnerBox { x0: number; x1: number; y0: number; y1: number; z0: number; z1: number }
+/** rail profile: lateral width and depth, inner edge at half the 19" opening */
+export const RAIL = { w: 30, d: 36, inner: 451 / 2 };
+const EAR = 482.6;
+
+/**
+ * Turns rack-local coordinates into inner case coordinates. Local axes: lat (left to right seen onto the rack front,
+ * 0 = centre), up (along the height units, 0 = lowest unit), d (from the front rail plane into the rack).
+ */
+export function rackFrame(c: FlightCase, r: CaseRack) {
+  // measured in the body (doors excluded): inset from its front / back inner face, centred across its width
+  const bi = baseInner(c);
+  const cx = (bi.x0 + bi.x1) / 2;
+  return (lat0: number, lat1: number, up0: number, up1: number, d0: number, d1: number): InnerBox => {
+    const [la, lb] = [Math.min(lat0, lat1), Math.max(lat0, lat1)], [ua, ub] = [Math.min(up0, up1), Math.max(up0, up1)], [da, db] = [Math.min(d0, d1), Math.max(d0, d1)];
+    if (r.face === 'front') return { x0: cx + la, x1: cx + lb, y0: bi.y0 + r.inset + da, y1: bi.y0 + r.inset + db, z0: r.pos + ua, z1: r.pos + ub };
+    if (r.face === 'back') return { x0: cx - lb, x1: cx - la, y0: bi.y1 - r.inset - db, y1: bi.y1 - r.inset - da, z0: r.pos + ua, z1: r.pos + ub };
+    // lying rack, front facing up: units run from the front of the body backwards
+    return { x0: cx + la, x1: cx + lb, y0: bi.y0 + r.pos + ua, y1: bi.y0 + r.pos + ub, z0: c.inner.h - r.inset - db, z1: c.inner.h - r.inset - da };
+  };
+}
+
+/** the rails of a rack (front pair, rear pair when railDepth > 0) */
+export function rackRails(c: FlightCase, r: CaseRack): InnerBox[] {
+  const f = rackFrame(c, r);
+  const h = r.units * U;
+  const out: InnerBox[] = [];
+  for (const d0 of r.railDepth > 0 ? [0, r.railDepth - RAIL.d] : [0]) for (const s of [-1, 1]) out.push(f(s * RAIL.inner, s * (RAIL.inner + RAIL.w), 0, h, d0, d0 + RAIL.d));
+  return out;
+}
+
+export interface RackDeviceBox { pd: PlacedDevice; tpl: DeviceTemplate; plate: InnerBox; body: InnerBox; facing: 'front' | 'rear' }
+/** devices of the linked project rack (first bay), placed on the case rack's rails */
+export function rackDevices(c: FlightCase, r: CaseRack, project?: Project): RackDeviceBox[] {
+  const rack = project?.racks.find((x) => x.id === r.rackId);
+  if (!rack) return [];
+  const f = rackFrame(c, r);
+  const out: RackDeviceBox[] = [];
+  for (const pd of rack.devices) {
+    const tpl = project!.templates[pd.templateId];
+    if (!tpl || (pd.bay ?? 0) !== 0 || pd.u < 1 || pd.u - 1 + tpl.heightU > r.units) continue;
+    const sw = faceWidth(19) / (tpl.slots || 1);
+    const up0 = (pd.u - 1) * U, up1 = up0 + tpl.heightU * U - 0.8;
+    const rear = pd.mount === 'rear' && r.railDepth > 0;
+    // seen from the mounting side the slot counts from the left; from the front a rear device is mirrored
+    let la = -EAR / 2 + (pd.slot ?? 0) * sw;
+    if (rear) la = -(la + sw);
+    const bodyW = Math.min(sw - 2, tpl.bodyWidth ?? (tpl.slots > 1 ? sw - 4 : 432));
+    const mid = la + sw / 2;
+    const depth = Math.max(10, tpl.depth);
+    const plate = rear ? f(la, la + sw, up0, up1, r.railDepth, r.railDepth + 3) : f(la, la + sw, up0, up1, -3, 0);
+    const body = rear ? f(mid - bodyW / 2, mid + bodyW / 2, up0 + 1, up1 - 1, r.railDepth - depth, r.railDepth) : f(mid - bodyW / 2, mid + bodyW / 2, up0 + 1, up1 - 1, 0, depth);
+    out.push({ pd, tpl, plate, body, facing: rear ? 'rear' : 'front' });
+  }
+  return out;
+}
+
+/** foam lining: rack cases carry devices on rails, so no foam unless cut-outs were placed */
+export const hasCaseFoam = (c: FlightCase) => !c.racks?.length || c.items.length > 0;
+
+/** a new rack fitted to the case: as many units as fit, front rails 20 mm behind the front, rear rails if deep enough */
+export function newCaseRack(c: FlightCase, face: CaseRack['face'] = 'front'): CaseRack {
+  const bi = baseInner(c);
+  const room = face === 'top' ? bi.y1 - bi.y0 : caseDims(c).bodyInner;
+  const units = Math.max(1, Math.floor((room - 10) / U));
+  const depthRoom = face === 'top' ? Math.min(150, c.inner.h) : bi.y1 - bi.y0;
+  const railDepth = depthRoom - 40 >= 300 ? Math.round(depthRoom - 60) : 0;
+  return { id: uid('crk-'), units, face, inset: face === 'top' ? 10 : 20, railDepth, pos: face === 'top' ? Math.round((bi.y1 - bi.y0 - units * U) / 2) : 5 };
+}
+
+/** problems of the racks: too wide, too high or deep for the case, devices deeper than the space */
+export function rackWarnings(c: FlightCase, project?: Project): string[] {
+  const out: string[] = [];
+  const e = 0.5;
+  for (const [n, r] of (c.racks ?? []).entries()) {
+    const name = r.name || `Rack ${n + 1}`;
+    for (const b of rackRails(c, r)) {
+      if (b.x0 < -e || b.x1 > c.inner.l + e) { out.push(`${name}: die Rackschienen brauchen ${2 * (RAIL.inner + RAIL.w)} mm Innenbreite`); break; }
+      if (b.y0 < -e || b.y1 > c.inner.w + e || b.z0 < -e || b.z1 > c.inner.h + e) { out.push(`${name}: ragt aus dem Innenraum (${r.units} HE = ${Math.round(r.units * U)} mm)`); break; }
+    }
+    for (const d of rackDevices(c, r, project)) {
+      const b = d.body;
+      if (b.y0 < -e || b.y1 > c.inner.w + e || b.z0 < -e || b.z1 > c.inner.h + e) out.push(`${name}: ${d.pd.label || d.tpl.name} ist ${d.tpl.depth} mm tief und passt nicht hinein`);
+    }
+  }
+  return out;
+}
+
+/** swing door hinges: the side face the hinge sits on (seen from outside the door: left / right / top) */
+export function hingeFace(side: Side, edge: 'left' | 'right' | 'top' | 'bottom'): CaseFace | null {
+  if (edge === 'top') return 'top';
+  if (edge === 'bottom') return null;
+  const map: Record<Side, [CaseFace, CaseFace]> = { front: ['left', 'right'], back: ['right', 'left'], left: ['back', 'front'], right: ['front', 'back'] };
+  return map[side][edge === 'left' ? 0 : 1];
+}
+/**
+ * Hangs a door on hinges (or makes it removable again): the latch row on the hinge side becomes a piano hinge and back.
+ */
+export function setDoorHinge(c: FlightCase, side: Side, edge: 'left' | 'right' | 'top' | 'bottom' | null): Partial<FlightCase> {
+  const prev = c.doorHinge?.[side];
+  const doorHinge = { ...c.doorHinge };
+  if (edge) doorHinge[side] = edge; else delete doorHinge[side];
+  let hardware = c.hardware;
+  const pf = prev && hingeFace(side, prev), nf = edge && hingeFace(side, edge);
+  if (pf) hardware = hardware.map((h) => (h.seam === side && h.face === pf && h.kind === 'piano-hinge' ? { kind: 'butterfly', face: pf, count: c.inner.h > 700 ? 2 : 1, seam: side } : h));
+  if (nf && nf !== 'top') {
+    const i = hardware.findIndex((h) => h.seam === side && h.face === nf && LATCH_KINDS.includes(h.kind));
+    const hinge: CaseHardware = { kind: 'piano-hinge', face: nf, count: 1, seam: side };
+    hardware = i >= 0 ? hardware.map((h, j) => (j === i ? hinge : h)) : [...hardware, hinge];
+  }
+  return { doorHinge: Object.keys(doorHinge).length ? doorHinge : undefined, hardware };
+}
+
+/** a door's inner depth and height, for its shelves */
+export function doorSpace(c: FlightCase, side: Side) {
+  const bx = caseBoxes(c).find((b) => b.id === `door-${side}`);
+  const t = wallOf(c);
+  if (!bx) return null;
+  return { depth: (side === 'front' || side === 'back' ? bx.y1 - bx.y0 : bx.x1 - bx.x0) - t, height: bx.z1 - bx.z0 - t - (bx.open.includes('top') ? 0 : t), width: (side === 'front' || side === 'back' ? bx.x1 - bx.x0 : bx.y1 - bx.y0) - 2 * t };
+}
+
 /** construction presets after the case types of common case design software */
 export interface CaseType { id: string; label: string; note: string; apply: (c: FlightCase) => Partial<FlightCase> }
 const depthOf = (n: number) => Math.max(60, Math.round(n / 10) * 10);
@@ -877,6 +1001,7 @@ export function caseWarnings(c: FlightCase): CaseWarning[] {
   const edge = profileBySku(c.parts?.edge), closing = profileBySku(c.parts?.closing);
   for (const pr of [edge, closing]) if (pr?.panel && (c.panel < pr.panel[0] - 0.01 || c.panel > pr.panel[1] + 0.01)) out.push({ text: `Profil ${pr.sku} ist für ${String(pr.panel[0]).replace('.', ',')} bis ${String(pr.panel[1]).replace('.', ',')} mm Platte, gewählt sind ${String(c.panel).replace('.', ',')} mm` });
   if (!isDrawer(c)) for (const k of new Set(hardwareClashes(c).map((x) => x.text))) out.push({ text: k });
+  for (const w of rackWarnings(c)) out.push({ text: w });
   return out;
 }
 
@@ -950,6 +1075,19 @@ export function caseBom(c: FlightCase, project?: Project): CaseBom {
     if (e0) e0.count += count; else hw.set(k, { label, count, sku });
   };
   let hwKg = 0;
+  // 19" racks: rail strips (front pair, rear pair) of the rack's height; steel strip about 0.06 kg per unit
+  for (const r of c.racks ?? []) {
+    const n = r.railDepth > 0 ? 4 : 2;
+    addHw(`Rackschiene ${r.units} HE (${rackStripLength(r.units)} mm)`, n, rackStripSku(r.units) ?? undefined);
+    hwKg += n * r.units * 0.06;
+  }
+  // storage in doors: shelf panels and lips across the door
+  for (const s of SIDES) for (const sh of c.doorShelves?.[s] ?? []) {
+    const sp = doorSpace(c, s);
+    if (!sp) continue;
+    if (sh.pos > 0) addPanel('Türfach Boden', sp.width, sp.depth);
+    if (sh.lip > 0) addPanel('Türfach Lippe', sp.width, sh.lip);
+  }
   // drawers on slides: front over the base width, box between the slides
   const slide = slideFor(bi.y1 - bi.y0 - 15);
   for (const dr of c.drawers ?? []) {
@@ -1021,11 +1159,12 @@ export function caseBom(c: FlightCase, project?: Project): CaseBom {
   }
   if (hasLid && c.lidKind === 'hinged' && !c.hardware.some((h) => h.kind === 'lid-stay')) { addHw('Deckelhalter', 2); hwKg += 0.2; }
   const fullFoam = { l: bi.x1 - bi.x0, w: bi.y1 - bi.y0 };
-  foamParts.push({ name: 'Boden-Schaum', a: fullFoam.l, b: fullFoam.w, t: c.foam.bottom, stack: stackNote(c.foam.bottom) });
-  if (c.foam.sides > 0) foamParts.push({ name: 'Randschaum (Streifen)', a: round2(2 * (fullFoam.l + fullFoam.w)), b: d.bodyInner, t: c.foam.sides });
+  const foamOn = hasCaseFoam(c);
+  if (foamOn) foamParts.push({ name: 'Boden-Schaum', a: fullFoam.l, b: fullFoam.w, t: c.foam.bottom, stack: stackNote(c.foam.bottom) });
+  if (foamOn && c.foam.sides > 0) foamParts.push({ name: 'Randschaum (Streifen)', a: round2(2 * (fullFoam.l + fullFoam.w)), b: d.bodyInner, t: c.foam.sides });
   const bodyItems = c.items.filter((i) => i.layer === 'body'), lidItems = c.items.filter((i) => i.layer === 'lid');
   if (bodyItems.length) { const th = Math.round(Math.max(...bodyItems.map(cutDepth))); foamParts.push({ name: 'Einlage Unterteil mit Ausschnitten', a: usable.x1 - usable.x0, b: usable.y1 - usable.y0, t: th, stack: stackNote(th) }); }
-  if (hasLid && c.foam.lid > 0) foamParts.push({ name: 'Deckel-Schaum', a: c.inner.l, b: c.inner.w, t: c.foam.lid, stack: stackNote(c.foam.lid) });
+  if (foamOn && hasLid && c.foam.lid > 0) foamParts.push({ name: 'Deckel-Schaum', a: c.inner.l, b: c.inner.w, t: c.foam.lid, stack: stackNote(c.foam.lid) });
   if (hasLid && lidItems.length) { const th = Math.round(Math.max(...lidItems.map(cutDepth))); foamParts.push({ name: 'Einlage Deckel mit Ausschnitten', a: usable.x1 - usable.x0, b: usable.y1 - usable.y0, t: th, stack: stackNote(th) }); }
   const foamVol = foamParts.reduce((s, f) => s + (f.name.startsWith('Randschaum') ? (f.a / 1000) * (f.b / 1000) * (f.t / 1000) : area(f.a, f.b) * f.t / 1000), 0) - cut;
   const foamKg = Math.max(0, foamVol) * density;

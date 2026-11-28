@@ -522,3 +522,5 @@ tr.bad-row td { color: #fca5a5; }
 .param-table td:last-child { width: 24px; }
 .param-table input { width: 100%; min-width: 0; }
 .tool-select { width: 150px; }
+.rack-row { border-top: 1px solid var(--line); padding-top: 6px; margin-top: 6px; }
+.rack-info { align-self: flex-end; padding-bottom: 8px; white-space: nowrap; }

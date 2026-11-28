@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
-import type { CaseFace, CaseItem, FlightCase, HardwareKind } from '../model/types';
+import type { CaseFace, CaseItem, FlightCase, HardwareKind, Project } from '../model/types';
+import { renderMarkup as renderToStaticMarkup } from '../i18n/render';
+import { DeviceFace } from '../render/DeviceFace';
+import { panelTexture } from './rackScene';
 import { useStore } from '../model/store';
-import { baseInner, caseBoxes, caseDims, addDivider, dimChains, DIVIDER_T, dividerGaps, moveDivider, type DividerAxis, faceToOuter, footprint, hardwareInstances, hasDoors, isDrawer, moveHardware, outerToFace, placeHardware, pushPull, SEAM_LABELS, shellSize, snapHardware, splitAt, usableArea, wallOf, type CasePartId } from '../model/cases';
+import { baseInner, caseBoxes, caseDims, hasCaseFoam, hingeFace, rackDevices, rackRails, type InnerBox, type RackDeviceBox, addDivider, dimChains, DIVIDER_T, dividerGaps, moveDivider, type DividerAxis, faceToOuter, footprint, hardwareInstances, hasDoors, isDrawer, moveHardware, outerToFace, placeHardware, pushPull, SEAM_LABELS, shellSize, snapHardware, splitAt, usableArea, wallOf, type CasePartId } from '../model/cases';
 import { cutoutOutline, outlineBox } from '../model/inlay';
 import { Builder, FOAM_MM, S, boxGeo, faceBasis, inlayGeo, makeMats, v3, type FaceKey } from './caseParts';
 import { Scene3D, type BuildResult, type Scene3DApi } from './Scene3D';
@@ -89,7 +92,8 @@ export function Case3D({ c, edit }: { c: FlightCase; edit?: CaseEdit }) {
   const doors = hasDoors(c);
   const lidToggle = !isDrawer(c) && c.kind !== 'inlay' && (c.lidKind !== 'none' || doors);
   const what = doors ? (c.lidKind !== 'none' ? 'Deckel und Türen' : 'Türen') : 'Deckel';
-  const view: CaseView | undefined = edit ? { hidden: edit.hidden, selected: edit.selected, dims, measure: measure ?? undefined, openDrawers } : undefined;
+  const project = useStore((s) => s.project);
+  const view: CaseView | undefined = edit ? { hidden: edit.hidden, selected: edit.selected, dims, measure: measure ?? undefined, openDrawers, project } : { project };
   const hint = edit && (!edit.readOnly || edit.tool === 'measure') ? TOOL_HINTS[edit.tool.startsWith('place:') ? 'place' : edit.tool.startsWith('div:') ? 'div' : edit.tool] : null;
   const size = edit && !isDrawer(c) && c.kind !== 'inlay' ? shellSize(c) : null;
   // section plane: keeps the part left of the cut (length) or behind it (width)
@@ -100,7 +104,7 @@ export function Case3D({ c, edit }: { c: FlightCase; edit?: CaseEdit }) {
     ctl.current.clip([section.axis === 'x' ? new THREE.Plane(v3(-1, 0, 0), (pos - size.L / 2) * S) : new THREE.Plane(v3(0, 0, -1), (size.W / 2 - pos) * S)]);
   }, [section, size?.L, size?.W]);
   return (
-    <Scene3D build={(root) => buildCase(root, c, open, view)} deps={[c, open, edit?.selected, edit?.hidden, dims, measure, openDrawers]}
+    <Scene3D build={(root) => buildCase(root, c, open, view)} deps={[c, open, edit?.selected, edit?.hidden, dims, measure, openDrawers, project.racks, project.templates]}
       interact={edit ? (api) => caseEditor(api, cRef, editRef, openRef, ctl, ui) : undefined}
       frameKey={edit ? `${c.id}:${open}:${fit}` : undefined}>
       <div className="view3d-btns">
@@ -183,7 +187,7 @@ function MeasureReadout({ m }: { m: { a: MeasurePt; b?: MeasurePt } }) {
 
 /** keys of every component that can be hidden (for "isolate") */
 function allKeys(c: FlightCase): string[] {
-  return [...caseBoxes(c).map((b) => `part:${b.id}`), ...c.hardware.map((h, i) => (h.kind.startsWith('castor') ? '' : `hw:${i}`)).filter(Boolean), ...c.dividers.map((_, i) => `div:${i}`), ...(c.drawers ?? []).map((_, i) => `drw:${i}`), 'foam'];
+  return [...caseBoxes(c).map((b) => `part:${b.id}`), ...c.hardware.map((h, i) => (h.kind.startsWith('castor') ? '' : `hw:${i}`)).filter(Boolean), ...c.dividers.map((_, i) => `div:${i}`), ...(c.drawers ?? []).map((_, i) => `drw:${i}`), ...(c.racks ?? []).map((_, i) => `rack:${i}`), 'foam'];
 }
 
 /** right-click menu on a part, a piece of hardware, a shelf or the empty view */
@@ -217,6 +221,10 @@ function ContextMenu({ menu, c, edit, close, fit, openDrawers, toggleDrawer }: {
       items.push(['Schublade löschen', () => { set(removeSelection(c, key!)); edit.select(null); }]);
       if ((c.drawers?.length ?? 0) > 1) items.push(['Alle gleich hoch', () => set({ drawers: spreadDrawers(c) }), 'Alle Schubladen gleich hoch, sie füllen das Unterteil']);
     }
+  } else if (tag?.rack !== undefined) {
+    const i = tag.rack;
+    key = `rack:${i}`;
+    if (!ro) items.push(['Rack entfernen', () => { set({ racks: (c.racks ?? []).filter((_, j) => j !== i) }); edit.select(null); }]);
   } else if (tag?.div !== undefined) {
     const i = tag.div;
     key = `div:${i}`;
@@ -272,13 +280,14 @@ function pushPullText(c0: FlightCase, p: Partial<FlightCase>): string {
   return lines.join('\n') || 'unverändert';
 }
 
-type Tag = { grip?: { part: CasePartId; face: CaseFace }; hw?: { i: number; k: number }; div?: number; drw?: number; part?: CasePartId; group?: THREE.Object3D };
+type Tag = { grip?: { part: CasePartId; face: CaseFace }; hw?: { i: number; k: number }; div?: number; drw?: number; rack?: number; part?: CasePartId; group?: THREE.Object3D };
 function tagOf(o: THREE.Object3D | null): Tag | null {
   for (let x = o; x; x = x.parent) {
     if (x.userData.grip) return { grip: x.userData.grip };
     if (x.userData.hw) return { hw: x.userData.hw };
     if (x.userData.divider !== undefined) return { div: x.userData.divider };
     if (x.userData.drawer !== undefined) return { drw: x.userData.drawer };
+    if (x.userData.rack !== undefined) return { rack: x.userData.rack };
     if (x.userData.partGroup) return { part: x.userData.partGroup, group: x };
   }
   return null;
@@ -322,7 +331,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
   let hoverKey = '';
   let hoverBox: THREE.Box3Helper | null = null;
   const setHover = (tag: Tag | null) => {
-    const key = tag?.hw ? `hw:${tag.hw.i}:${tag.hw.k}` : tag?.div !== undefined ? `div:${tag.div}` : tag?.drw !== undefined ? `drw:${tag.drw}` : tag?.part ? `part:${tag.part}` : tag?.grip ? 'grip' : '';
+    const key = tag?.hw ? `hw:${tag.hw.i}:${tag.hw.k}` : tag?.div !== undefined ? `div:${tag.div}` : tag?.drw !== undefined ? `drw:${tag.drw}` : tag?.rack !== undefined ? `rack:${tag.rack}` : tag?.part ? `part:${tag.part}` : tag?.grip ? 'grip' : '';
     if (key === hoverKey && (!hoverBox || hoverBox.parent)) return;
     hoverKey = key;
     if (hoverBox) { hoverBox.removeFromParent(); hoverBox.geometry.dispose(); (hoverBox.material as THREE.Material).dispose(); hoverBox = null; }
@@ -330,7 +339,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
     const box = new THREE.Box3();
     content.traverse((o) => {
       const hw = o.userData.hw as { i: number; k: number } | undefined;
-      if ((hw && key === `hw:${hw.i}:${hw.k}`) || (o.userData.part && key === `part:${o.userData.part}`) || (o.userData.divider !== undefined && key === `div:${o.userData.divider}`) || (o.userData.drawer !== undefined && key === `drw:${o.userData.drawer}`)) box.expandByObject(o);
+      if ((hw && key === `hw:${hw.i}:${hw.k}`) || (o.userData.part && key === `part:${o.userData.part}`) || (o.userData.divider !== undefined && key === `div:${o.userData.divider}`) || (o.userData.drawer !== undefined && key === `drw:${o.userData.drawer}`) || (o.userData.rack !== undefined && key === `rack:${o.userData.rack}`)) box.expandByObject(o);
     });
     if (box.isEmpty()) return;
     box.expandByScalar(0.002);
@@ -517,6 +526,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
       if (tag?.hw) ed.select(`hw:${tag.hw.i}:${tag.hw.k}`);
       else if (tag?.div !== undefined) ed.select(`div:${tag.div}`);
       else if (tag?.drw !== undefined) ed.select(`drw:${tag.drw}`);
+      else if (tag?.rack !== undefined) ed.select(`rack:${tag.rack}`);
       else if (tag?.part) ed.select(`part:${tag.part}`);
       const r = dom.getBoundingClientRect();
       ui.current.setMenu({ x: e.clientX - r.left, y: e.clientY - r.top, tag });
@@ -535,6 +545,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
       if (p.tag.hw) ed.select(`hw:${p.tag.hw.i}:${p.tag.hw.k}`);
       else if (p.tag.div !== undefined) ed.select(`div:${p.tag.div}`);
       else if (p.tag.drw !== undefined) ed.select(`drw:${p.tag.drw}`);
+      else if (p.tag.rack !== undefined) ed.select(`rack:${p.tag.rack}`);
       else if (p.tag.part) ed.select(`part:${p.tag.part}`);
       return;
     }
@@ -605,7 +616,7 @@ const ITEM_TONES = ['#26292e', '#33373d', '#1f2125', '#3b4047', '#2c3036', '#414
 /** what the editor shows: hidden components ('part:base', 'hw:3', 'foam') and the selection (outlined) */
 /** a measured point: model coordinates (mm, scene axes) and the axis of the face it lies on */
 export interface MeasurePt { p: [number, number, number]; ax: 'x' | 'y' | 'z' }
-export interface CaseView { hidden?: Set<string>; selected?: string | null; /** outer chain dimensions */ dims?: boolean; measure?: { a: MeasurePt; b?: MeasurePt }; /** drawers pulled out (editor) */ openDrawers?: Set<number> }
+export interface CaseView { hidden?: Set<string>; selected?: string | null; /** outer chain dimensions */ dims?: boolean; measure?: { a: MeasurePt; b?: MeasurePt }; /** drawers pulled out (editor) */ openDrawers?: Set<number>; /** project whose racks fill the case racks (device fronts) */ project?: Project }
 
 export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?: CaseView): BuildResult {
   const d = caseDims(c);
@@ -644,9 +655,32 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?
   root.add(base);
   const baseBox = boxes[0];
   const drawers = c.drawers ?? [];
-  const foamOn = !view?.hidden?.has('foam');
+  const foamOn = !view?.hidden?.has('foam') && hasCaseFoam(c);
   if (drawers.length) buildDrawers(base, c, t, open, B, view);
   else if (foamOn) addFoam(base, c, 'body', t, d.bodyInner, B, false);
+  // 19" racks: rails and the devices of the linked project rack
+  (c.racks ?? []).forEach((r, ri) => {
+    if (view?.hidden?.has(`rack:${ri}`)) return;
+    const toScene = (b: InnerBox, geoMat: THREE.Material | THREE.Material[]) => {
+      const m = new THREE.Mesh(boxGeo(b.x1 - b.x0, b.z1 - b.z0, b.y1 - b.y0), geoMat);
+      m.position.copy(P(t + (b.x0 + b.x1) / 2, t + (b.y0 + b.y1) / 2, t + (b.z0 + b.z1) / 2));
+      m.userData.rack = ri;
+      base.add(m);
+      return m;
+    };
+    for (const b of rackRails(c, r)) toScene(b, mats.alu);
+    for (const d of rackDevices(c, r, view?.project)) {
+      const body = new THREE.MeshStandardMaterial({ color: d.tpl.color, roughness: 0.6, metalness: 0.3 });
+      toScene(d.body, body);
+      const plateMat = new THREE.MeshStandardMaterial({ color: d.tpl.frontColor ?? d.tpl.color, roughness: 0.55 });
+      // material slots of a box: +x, -x, +y, -y, +z, -z; the front looks out of the rack
+      const out = r.face === 'top' ? (d.facing === 'front' ? 2 : 3) : (r.face === 'front') === (d.facing === 'front') ? 4 : 5;
+      const matsArr = [body, body, body, body, body, body] as THREE.Material[];
+      matsArr[out] = plateMat;
+      toScene(d.plate, matsArr);
+      if (view?.project) deviceTexture(view.project, d, (tex) => { plateMat.map = tex; plateMat.color.set('#ffffff'); plateMat.needsUpdate = true; });
+    }
+  });
   // shelves and walls: own objects so the editor can pick and drag them
   {
     const bi = baseInner(c);
@@ -695,6 +729,12 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?
       if (!door) continue;
       const sm = it.seam;
       const toDoor = sm === 'front' ? v3(0, 0, 1) : sm === 'back' ? v3(0, 0, -1) : sm === 'left' ? v3(-1, 0, 0) : v3(1, 0, 0);
+      if (it.kind === 'piano-hinge' && it.face !== 'top') {
+        // piano hinge along the whole door seam
+        const a = faceToOuter(c, it.face, it.u, door.z0 + 30), b = faceToOuter(c, it.face, it.u, door.z1 - 30);
+        tag(B.rod(groupAt(...a), P(...a), P(...b), 4.5, mats.chrome, 14));
+        continue;
+      }
       if (latch) {
         const bodyPt: [number, number, number] = [pt[0] - toDoor.x * 30, pt[1] + toDoor.z * 30, pt[2] - (it.face === 'top' ? 1 : 0)];
         B.butterflyLatch(tag(frameAt(groupAt(...bodyPt), it.face, pt, toDoor)), s);
@@ -778,6 +818,36 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?
   }
   for (const bx of boxes.filter((b) => b.role === 'door')) {
     const g = groups.get(bx.id)!;
+    addDoorShelves(g, c, bx, t, B, P);
+    const hinge = bx.side && c.doorHinge?.[bx.side];
+    if (open && hinge) {
+      // swing door: turns about its hinge line at the seam to the body (piano hinge), outwards
+      const seamY = bx.side === 'front' ? bx.y1 : bx.side === 'back' ? bx.y0 : 0;
+      const seamX = bx.side === 'left' ? bx.x1 : bx.side === 'right' ? bx.x0 : 0;
+      let px = 0, py = 0, pz = 0;
+      let axis = v3(0, 1, 0);
+      const front = bx.side === 'front' || bx.side === 'back';
+      if (hinge === 'top' || hinge === 'bottom') {
+        pz = hinge === 'top' ? bx.z1 : bx.z0;
+        axis = front ? v3(1, 0, 0) : v3(0, 0, 1);
+        if (front) { px = L / 2; py = seamY; } else { px = seamX; py = W / 2; }
+      } else {
+        const face = hingeFace(bx.side!, hinge);
+        if (front) { px = face === 'left' ? 0 : L; py = seamY; } else { px = seamX; py = face === 'back' ? W : 0; }
+      }
+      const pivot = new THREE.Group();
+      pivot.position.copy(P(px, py, pz)).setY(y0 + pz);
+      g.position.set(-pivot.position.x, y0 - pivot.position.y, -pivot.position.z);
+      pivot.add(g);
+      // pick the turning direction that moves the door away from the body
+      const centre = P((bx.x0 + bx.x1) / 2, (bx.y0 + bx.y1) / 2, (bx.z0 + bx.z1) / 2).setY(y0 + (bx.z0 + bx.z1) / 2);
+      const rel = centre.clone().sub(pivot.position);
+      const ang = hinge === 'bottom' ? 1.45 : 1.75;
+      const away = (a: number) => rel.clone().applyAxisAngle(axis, a).add(pivot.position).sub(v3(0, y0 + (bx.z0 + bx.z1) / 2, 0)).length();
+      pivot.quaternion.setFromAxisAngle(axis, away(ang) >= away(-ang) ? ang : -ang);
+      root.add(pivot);
+      continue;
+    }
     if (open) {
       // removed doors stand beside the case so the inside stays visible
       const depth = bx.side === 'front' || bx.side === 'back' ? bx.y1 - bx.y0 : bx.x1 - bx.x0;
@@ -799,6 +869,7 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?
       if (o.userData.part && sel === `part:${o.userData.part}`) hits.push(o);
       if (o.userData.divider !== undefined && sel === `div:${o.userData.divider}`) hits.push(o);
       if (o.userData.drawer !== undefined && sel === `drw:${o.userData.drawer}`) hits.push(o);
+      if (o.userData.rack !== undefined && sel === `rack:${o.userData.rack}`) hits.push(o);
     });
     if (hits.length) {
       const box = new THREE.Box3();
@@ -1126,4 +1197,46 @@ function addMeasure(root: THREE.Object3D, m: { a: MeasurePt; b?: MeasurePt }) {
     if (lab) { lab.position.copy(a).add(b).multiplyScalar(0.5); g.add(lab); }
   }
   root.add(g);
+}
+
+// ------------------------------------------------------------------ doors with storage, device fronts
+
+/** shelves with lips inside a door (storage in the door) */
+function addDoorShelves(g: THREE.Object3D, c: FlightCase, bx: { side?: 'front' | 'back' | 'left' | 'right'; x0: number; x1: number; y0: number; y1: number; z0: number; z1: number }, t: number, B: Builder, P: (x: number, y: number, z: number) => THREE.Vector3) {
+  const list = bx.side ? c.doorShelves?.[bx.side] : undefined;
+  if (!list?.length) return;
+  const p = c.panel;
+  const add = (x0: number, x1: number, y0: number, y1: number, z0: number, z1: number) => {
+    if (x1 - x0 < 1 || y1 - y0 < 1 || z1 - z0 < 1) return;
+    B.add(g, boxGeo(x1 - x0, z1 - z0, y1 - y0), B.mats.ply, P((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2).x, (z0 + z1) / 2, P((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2).z);
+  };
+  const s = bx.side!;
+  // inner space of the door box and the open side towards the body (where the lips stand)
+  const ix0 = bx.x0 + (s === 'right' ? 0 : t), ix1 = bx.x1 - (s === 'left' ? 0 : t);
+  const iy0 = bx.y0 + (s === 'back' ? 0 : t), iy1 = bx.y1 - (s === 'front' ? 0 : t);
+  const iz0 = bx.z0 + t, iz1 = bx.z1 - t;
+  for (const sh of list) {
+    const z = iz0 + sh.pos;
+    if (z >= iz1) continue;
+    if (sh.pos > 0) add(s === 'right' ? bx.x0 : ix0, s === 'left' ? bx.x1 : ix1, s === 'back' ? bx.y0 : iy0, s === 'front' ? bx.y1 : iy1, z, z + p);
+    const lz0 = sh.pos > 0 ? z + p : z, lz1 = Math.min(iz1, z + (sh.pos > 0 ? p : 0) + sh.lip);
+    if (s === 'front') add(ix0, ix1, bx.y1 - p, bx.y1, lz0, lz1);
+    else if (s === 'back') add(ix0, ix1, bx.y0, bx.y0 + p, lz0, lz1);
+    else if (s === 'left') add(bx.x1 - p, bx.x1, iy0, iy1, lz0, lz1);
+    else add(bx.x0, bx.x0 + p, iy0, iy1, lz0, lz1);
+  }
+}
+
+/** device front textures, cached by drawing */
+const DEVICE_TEX = new Map<string, Promise<THREE.Texture>>();
+function deviceTexture(project: Project, d: RackDeviceBox, done: (t: THREE.Texture) => void) {
+  const w = (d.plate.x1 - d.plate.x0) || (d.plate.y1 - d.plate.y0);
+  const width = Math.max(w, 10);
+  const h = d.tpl.heightU * 44.45 - 0.8;
+  const panel = d.pd.reversed ? (d.facing === 'front' ? 'rear' : 'front') : d.facing === 'front' ? 'front' : 'rear';
+  const markup = renderToStaticMarkup(<DeviceFace tpl={d.tpl} panel={panel} width={width} device={d.pd} showPortLabels={project.settings.showPortLabels} />);
+  const key = `${width}x${h}|${markup}`;
+  let p = DEVICE_TEX.get(key);
+  if (!p) { p = panelTexture(markup, width, h); DEVICE_TEX.set(key, p); }
+  p.then(done).catch(() => { /* drawing failed: the plate keeps its colour */ });
 }

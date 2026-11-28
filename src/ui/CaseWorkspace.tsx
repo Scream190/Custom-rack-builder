@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../model/store';
 import type { CaseFace, CaseHardware, CaseSeam, FlightCase, HardwareKind, Project } from '../model/types';
-import { addDivider, drawerBottom, drawerFree, setDrawerHeight, spreadDrawers, applyCaseType, autoHardware, DIVIDER_LABELS, dividerGaps, dividerRange, spreadDividers, type DividerAxis, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
+import { addDivider, doorSpace, newCaseRack, rackDevices, setDoorHinge, drawerBottom, drawerFree, setDrawerHeight, spreadDrawers, applyCaseType, autoHardware, DIVIDER_LABELS, dividerGaps, dividerRange, spreadDividers, type DividerAxis, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
 import { panelMaterial, PANEL_MATERIALS, partLabel, partsForKind, partsInGroup, profileBySku, profileLabel, profilesFor } from '../library/caseHardware';
 import { caseList, foamMaterial, FOAM_MATERIALS, inlayThickness } from '../model/inlay';
 import { formatLength } from '../model/geometry';
@@ -11,7 +11,7 @@ import { Case3D, type CaseEdit, type CaseTool } from '../three/Case3D';
 import { CaseTimeline } from './CaseTimeline';
 import { isRolledBack, setMarker, timelineMarker } from '../model/timeline';
 import { brokenExprs, evalExpr, PARAM_FIELDS, PARAM_NAME, setFieldExpr, setParams } from '../model/params';
-import type { CaseParam } from '../model/types';
+import type { CaseParam, CaseRack } from '../model/types';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Splitter } from './Splitter';
 import { DEFAULT_LAYOUT, getLayout, setLayout, useLayout } from '../model/layout';
@@ -134,6 +134,8 @@ function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; 
         ) : null}
 
         </Section>
+        <RackSection c={c} project={project} edit={edit} />
+        {hasDoors(c) ? <DoorSection c={c} /> : null}
         <Section id="case.lid" title="Deckel" defaultOpen summary={c.lidKind === 'none' ? 'ohne' : `${LID_LABELS[c.lidKind]}, ${c.lidH} mm`}>
         <div className="row gap8">
           <Field label="Art" grow={2}><select disabled={ro} value={c.lidKind} onChange={(e) => { const k = e.target.value as FlightCase['lidKind']; set({ lidKind: k, lidH: k === 'none' ? 0 : c.lidH || 100 }); }}>
@@ -221,6 +223,90 @@ function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; 
         </Section>
       </div>
     </aside>
+  );
+}
+
+// ------------------------------------------------------------------ racks and doors
+
+const RACK_FACES: Record<CaseRack['face'], string> = { front: 'Front vorne', back: 'Front hinten', top: 'liegend, Front oben' };
+
+/** 19" racks in the case: height units, which side the front looks at, position, rails, linked project rack */
+function RackSection({ c, project, edit }: { c: FlightCase; project: Project; edit?: CaseEdit }) {
+  const ro = useStore((s) => s.readOnly);
+  const racks = c.racks ?? [];
+  const set = (list: CaseRack[]) => st().updateCase(c.id, { racks: list });
+  const setR = (i: number, p: Partial<CaseRack>) => set(racks.map((r, j) => (j === i ? { ...r, ...p } : r)));
+  return (
+    <Section id="case.racks" title="Racks" summary={racks.length ? racks.map((r) => `${r.units} HE`).join(', ') : 'keine'}>
+      <div className="muted small">19-Zoll-Rackschienen im Case. Die Geräte kommen aus einem Rack unter Racks bestücken. Lage: Abstand der vorderen Schienenebene von der Innenwand des Korpus (Türen nicht mitgerechnet), Start über dem Innenboden (liegend: ab der vorderen Innenwand des Korpus).</div>
+      {racks.map((r, i) => {
+        const devs = rackDevices(c, r, project).length;
+        return (
+          <div key={r.id} className="rack-row">
+            <div className="row gap8">
+              <Field label="Name" grow={2}><input disabled={ro} value={r.name ?? ''} placeholder={`Rack ${i + 1}`} onChange={(e) => setR(i, { name: e.target.value || undefined })} /></Field>
+              <Field label="HE"><NumberInput value={r.units} min={1} max={60} onChange={(v) => setR(i, { units: Math.max(1, Math.round(v)) })} /></Field>
+              <Field label="Ausrichtung" grow={2}><select disabled={ro} value={r.face} onChange={(e) => setR(i, { face: e.target.value as CaseRack['face'] })}>{Object.entries(RACK_FACES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+            </div>
+            <div className="row gap8">
+              <Field label="Abstand Front (mm)"><NumberInput value={r.inset} min={0} onChange={(v) => setR(i, { inset: Math.max(0, v) })} /></Field>
+              <Field label="Schienenabstand (mm)"><NumberInput value={r.railDepth} min={0} onChange={(v) => setR(i, { railDepth: Math.max(0, v) })} /></Field>
+              <Field label="Start (mm)"><NumberInput value={r.pos} min={0} onChange={(v) => setR(i, { pos: Math.max(0, v) })} /></Field>
+            </div>
+            <div className="row gap8">
+              <Field label="Bestückung aus" grow={3}><select disabled={ro} value={r.rackId ?? ''} onChange={(e) => setR(i, { rackId: e.target.value || undefined })}>
+                <option value="">keine (nur Schienen)</option>
+                {project.racks.map((x) => <option key={x.id} value={x.id}>{`${x.name} (${x.type.heightU} HE)`}</option>)}
+              </select></Field>
+              <span className="muted small rack-info">{r.rackId ? `${devs} Geräte` : ''}</span>
+              {!ro ? <button className="icon-btn" title="Rack entfernen" aria-label="Entfernen" onClick={() => set(racks.filter((_, j) => j !== i))}>✕</button> : null}
+            </div>
+          </div>
+        );
+      })}
+      {!ro ? (
+        <div className="case-add">
+          <button className="btn sm" onClick={() => { const r = newCaseRack(c, 'front'); set([...racks, r]); edit?.select(`rack:${racks.length}`); }} title="Aufrechtes Rack, Front zur Vorderseite, so hoch wie es passt">Rack hinzufügen</button>
+          <button className="btn sm" onClick={() => { const r = newCaseRack(c, 'top'); set([...racks, r]); edit?.select(`rack:${racks.length}`); }} title="Liegendes Rack, Front nach oben (z. B. unter einem Klappdeckel)">Liegendes Rack</button>
+        </div>
+      ) : null}
+    </Section>
+  );
+}
+
+const HINGES: Record<string, string> = { '': 'abnehmbar', left: 'Scharnier links', right: 'Scharnier rechts', top: 'Scharnier oben', bottom: 'Scharnier unten' };
+
+/** doors: removable or swinging on a hinge, and storage shelves inside the door */
+function DoorSection({ c }: { c: FlightCase }) {
+  const ro = useStore((s) => s.readOnly);
+  const set = (p: Partial<FlightCase>) => st().updateCase(c.id, p);
+  const dd = doorDepths(c);
+  const sides = (['front', 'back', 'left', 'right'] as const).filter((s) => dd[s] > 0);
+  return (
+    <Section id="case.doors" title="Türen" summary={sides.map((s) => `${SEAM_LABELS[s]} ${c.doorHinge?.[s] ? 'Schwingtür' : 'abnehmbar'}`).join(', ')}>
+      <div className="muted small">Schwingtüren hängen an einem Klavierband und schwenken in 3D auf; abnehmbare Türen werden mit Verschlüssen gehalten. Fächer: Höhe des Fachbodens über dem Türboden (0 = nur eine Lippe am Boden) und Höhe der Lippe, die den Inhalt hält.</div>
+      {sides.map((s) => {
+        const shelves = c.doorShelves?.[s] ?? [];
+        const sp = doorSpace(c, s);
+        const setShelves = (list: { pos: number; lip: number }[]) => set({ doorShelves: { ...c.doorShelves, [s]: list.length ? list : undefined } });
+        return (
+          <div key={s} className="rack-row">
+            <div className="row gap8">
+              <Field label={SEAM_LABELS[s]} grow={2}><select disabled={ro} value={c.doorHinge?.[s] ?? ''} onChange={(e) => set(setDoorHinge(c, s, (e.target.value || null) as 'left' | 'right' | 'top' | 'bottom' | null))}>{Object.entries(HINGES).map(([k, l]) => <option key={k} value={k}>{l}</option>)}</select></Field>
+              <span className="muted small rack-info">{sp ? `innen ${Math.round(sp.width)} × ${Math.round(sp.depth)} × ${Math.round(sp.height)} mm` : ''}</span>
+            </div>
+            {shelves.map((sh, k) => (
+              <div key={k} className="hw-row">
+                <label className="inline-field">{`Fach ${k + 1}: Boden auf (mm)`} <NumberInput value={sh.pos} min={0} max={sp ? Math.round(sp.height - 20) : undefined} onChange={(v) => setShelves(shelves.map((x, j) => (j === k ? { ...x, pos: Math.max(0, Math.round(v)) } : x)))} style={{ width: 64 }} /></label>
+                <label className="inline-field">Lippe (mm) <NumberInput value={sh.lip} min={0} onChange={(v) => setShelves(shelves.map((x, j) => (j === k ? { ...x, lip: Math.max(0, Math.round(v)) } : x)))} style={{ width: 56 }} /></label>
+                {!ro ? <button className="icon-btn" title="Fach entfernen" aria-label="Entfernen" onClick={() => setShelves(shelves.filter((_, j) => j !== k))}>✕</button> : null}
+              </div>
+            ))}
+            {!ro ? <button className="btn sm" onClick={() => { const top = shelves.reduce((m, x) => Math.max(m, x.pos), -1); const h = sp?.height ?? 300; setShelves([...shelves, shelves.length ? { pos: Math.round(Math.min(h - 60, top + h / 3)), lip: 110 } : { pos: 0, lip: 150 }]); }} title="Fach in der Tür hinzufügen (das erste ist die Lippe am Türboden)">Fach hinzufügen</button> : null}
+          </div>
+        );
+      })}
+    </Section>
   );
 }
 
@@ -358,6 +444,19 @@ function SelectionBox({ c, edit }: { c: FlightCase; edit: CaseEdit }) {
       </div>
     );
   }
+  const rkm = /^rack:(\d+)$/.exec(sel);
+  if (rkm) {
+    const i = Number(rkm[1]), r = c.racks?.[i];
+    if (!r) return null;
+    const devs = rackDevices(c, r, st().project);
+    return (
+      <div className="case-sel">
+        <div><b>{r.name || `Rack ${i + 1}`}</b> <span className="muted small">{`${r.units} HE, ${devs.length} Geräte`}</span></div>
+        <div className="muted small">Maße, Lage und Bestückung stellst du im Abschnitt Racks ein.</div>
+        {!ro ? <div className="btn-group"><button className="btn sm danger" onClick={() => { set({ racks: (c.racks ?? []).filter((_, j) => j !== i) }); edit.select(null); }}>Rack entfernen</button></div> : null}
+      </div>
+    );
+  }
   const drm = /^drw:(\d+)$/.exec(sel);
   if (drm) {
     const i = Number(drm[1]), dr = c.drawers?.[i];
@@ -447,6 +546,8 @@ function CaseTree({ c, edit, setHidden }: { c: FlightCase; edit: CaseEdit; setHi
           ...(selRow === String(i) && pieces.length > 1 ? pieces.map((p) => node(`hw${i}:${p.k}`, `Stück ${p.k + 1}${h.at ? '' : ', verteilt'}`, `hw:${i}:${p.k}`, true)) : []),
         ];
       })}
+      {c.racks?.length ? <h4>Racks</h4> : null}
+      {(c.racks ?? []).map((r, i) => node(`rack${i}`, `${r.name || `Rack ${i + 1}`}, ${r.units} HE`, `rack:${i}`, false, `rack:${i}`))}
       {c.drawers?.length ? <h4>Schubladen</h4> : null}
       {(c.drawers ?? []).map((d, i) => node(`drw${i}`, `Schublade ${i + 1}, ${d.h} mm`, `drw:${i}`, false, `drw:${i}`))}
       {c.dividers.length ? <h4>Einbauten</h4> : null}

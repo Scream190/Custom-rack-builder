@@ -2,7 +2,7 @@
 import { addDivider, dimChains, dividerGaps, dividerRange, moveDivider, spreadDividers, DIVIDER_T, applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, mirrorHardware, moveHardware, newCase, snapHardware, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
 import { deleteStep, describeSteps, isRolledBack, MAX_STEPS, recordStep, setMarker, timelineMarker, toggleStep } from '../src/model/timeline';
 import { brokenExprs, evalExpr, isFormula, setFieldExpr, setParams, unlinkOverridden } from '../src/model/params';
-import { drawerBottom, drawerFree, hardwareClashes, hardwarePlan, setDrawerHeight, spreadDrawers } from '../src/model/cases';
+import { autoHardware, baseInner, doorDepths, doorSpace, hingeFace, newCaseRack, rackDevices, rackRails, rackWarnings, RAIL, setDoorHinge, drawerBottom, drawerFree, hardwareClashes, hardwarePlan, setDrawerHeight, spreadDrawers } from '../src/model/cases';
 import { HARDWARE_PARTS, PROFILES, profileBySku, profilesFor, rackStripLength, rackStripSku } from '../src/library/caseHardware';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
@@ -417,6 +417,69 @@ console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRA
   ok(plan.every((f) => f.pieces.every((p) => p.u > 0 && p.u < f.w && p.z > 0 && p.z < f.h)), 'all positions lie on their side');
   ok(plan.map((f) => f.face).join(',') === 'front,back,left,right,top', `sides in workshop order (${plan.map((f) => f.face).join(',')})`);
   console.log('drawers and drilling plan ok');
+}
+
+// ------------------------------------------------------------------ racks in the case, swing doors, door storage
+{
+  const base = { ...newCase('Rack'), inner: { l: 560, w: 700, h: 900 }, lidKind: 'hinged' as const, lidH: 40 };
+  const r = newCaseRack(base, 'front');
+  const rails = rackRails(base, r);
+  ok(rails.length === 4 && r.units === Math.floor((caseDims(base).bodyInner - 10) / 44.45), `new rack: ${r.units} HE with front and rear rails`);
+  ok(rails.every((b) => b.x0 >= 0 && b.x1 <= base.inner.l && b.z1 <= caseDims(base).bodyInner), 'rails lie inside the body');
+  ok(Math.abs(rails[1].x0 - rails[0].x1 - 2 * RAIL.inner) < 1e-6, 'the 19" opening between the rails is 451 mm');
+  const withRack = { ...base, racks: [r] };
+  ok(rackWarnings(withRack).length === 0, 'a fitting rack gives no warning');
+  ok(rackWarnings({ ...withRack, inner: { ...base.inner, l: 480 } }).some((w) => /Innenbreite/.test(w)), 'too narrow for 19" is reported');
+  ok(rackWarnings({ ...withRack, racks: [{ ...r, units: 40 }] }).some((w) => /ragt aus dem Innenraum/.test(w)), 'too many units are reported');
+  const strips = caseBom(withRack).hardware.find((h) => /Rackschiene/.test(h.label));
+  ok(strips?.count === 4 && strips.sku !== undefined, `rail strips in the parts list (${strips?.label}, ${strips?.sku})`);
+  // devices of a project rack land on the rails: 1 U device at unit 1, mounted on the front rails
+  const proj = sampleProject();
+  const prack = proj.racks[0];
+  const devs = rackDevices({ ...withRack, racks: [{ ...r, rackId: prack.id }] }, { ...r, rackId: prack.id }, proj);
+  const one = devs[0];
+  ok(devs.length > 0 && devs.every((d) => d.plate.z0 >= r.pos - 0.5 && d.plate.z1 <= r.pos + r.units * 44.45 + 0.5), `devices of a project rack sit on the case rack (${devs.length})`);
+  ok(!!one && Math.abs((one.plate.z0 - r.pos) - (one.pd.u - 1) * 44.45) < 0.01, 'a device starts at its unit');
+  // swing doors: the hinge side gets a piano hinge instead of latches, and back again
+  const door = { ...base, ...applyCaseType(base, 'single-door') } as typeof base;
+  ok(hingeFace('front', 'left') === 'left' && hingeFace('back', 'left') === 'right' && hingeFace('left', 'left') === 'back' && hingeFace('right', 'left') === 'front', 'hinge sides seen from outside the door');
+  const hung = { ...door, ...setDoorHinge(door, 'front', 'left') };
+  ok(hung.doorHinge?.front === 'left' && hung.hardware.some((h) => h.kind === 'piano-hinge' && h.face === 'left' && h.seam === 'front') && !hung.hardware.some((h) => h.kind === 'butterfly' && h.face === 'left' && h.seam === 'front'), 'hanging the door: piano hinge on the left, latches stay on the right');
+  const back = { ...hung, ...setDoorHinge(hung, 'front', null) };
+  ok(!back.doorHinge && back.hardware.some((h) => h.kind === 'butterfly' && h.face === 'left' && h.seam === 'front'), 'a removable door gets its latches back');
+  // storage in the door: shelves and lips in the parts list
+  const sp = doorSpace(door, 'front')!;
+  const stored = { ...door, doorShelves: { front: [{ pos: 0, lip: 120 }, { pos: 300, lip: 100 }] } };
+  const pn = caseBom(stored).panels;
+  ok(pn.some((p) => p.name === 'Türfach Boden' && p.count === 1) && pn.filter((p) => p.name === 'Türfach Lippe').reduce((s, p) => s + p.count, 0) === 2, 'door shelves and lips in the cutting list');
+  ok(sp.depth === doorDepths(door).front && sp.width === door.inner.l, `door space ${Math.round(sp.width)} × ${Math.round(sp.depth)} × ${Math.round(sp.height)} mm`);
+  console.log('racks in the case, swing doors, door storage ok');
+}
+
+// ------------------------------------------------------------------ rebuild of a real case drawn in Fusion (20 U tool case)
+{
+  // reference values read from the Fusion file (bodies, mm): outer 580 × 822 × 1015, 9.4 mm panels, door 150 deep with
+  // shelves at 390 / 690, rear lid 77, 20 U rack with rails 525 mm apart starting 2 mm above the floor
+  let c = { ...newCase('Toolcase 20HE'), panel: 9.4, profile: 'alu30' as const, inner: { l: 558, w: 804, h: 996 }, lidKind: 'hinged' as const, lidH: 20, doors: { front: 140, back: 77, span: 'full' as const } } as ReturnType<typeof newCase>;
+  c = { ...c, hardware: [...autoHardware(c), { kind: 'castor', face: 'bottom', count: 2 }, { kind: 'castor-braked', face: 'bottom', count: 2 }], castorSize: 100 };
+  c = { ...c, ...setDoorHinge(c, 'front', 'left') };
+  c = { ...c, doorShelves: { front: [{ pos: 0, lip: 140 }, { pos: 381, lip: 110 }, { pos: 681, lip: 110 }] } };
+  c = { ...c, dividers: [{ axis: 'z', pos: 897 }] };
+  c = { ...c, racks: [{ id: 'main', name: 'Main Rack', units: 20, face: 'front', inset: 38, railDepth: 525, pos: 2 }, { id: 'top', name: 'Rack oben', units: 2, face: 'top', inset: 10, railDepth: 0, pos: 200 }] };
+  const d = caseDims(c);
+  const near = (a: number, b: number, tol: number) => Math.abs(a - b) <= tol;
+  ok(near(d.L, 580, 6) && near(d.W, 822, 10) && near(d.H - d.castorH, 1015, 8), `outer size like the Fusion model (${Math.round(d.L)} × ${Math.round(d.W)} × ${Math.round(d.H - d.castorH)} mm)`);
+  const main = rackRails(c, c.racks![0]);
+  const bi = baseInner(c);
+  ok(main.every((b) => b.y0 >= bi.y0 - 0.5 && b.y1 <= bi.y1 + 0.5 && b.z0 >= 0 && b.z1 <= d.bodyInner + 0.5), 'the 20 U rack fits the body between the doors');
+  ok(near(main[0].z1 - main[0].z0, 889, 0.5), `20 U = ${Math.round(main[0].z1 - main[0].z0)} mm of rail`);
+  ok(rackWarnings(c).length === 0, `no rack warnings (${rackWarnings(c).join('; ')})`);
+  const ds = doorSpace(c, 'front')!;
+  ok(near(ds.depth, 140, 1) && near(ds.width, 558, 1), `door storage ${Math.round(ds.width)} × ${Math.round(ds.depth)} mm like the Fusion door (554 × 140)`);
+  const b = caseBom(c);
+  ok(b.hardware.some((h) => /Rackschiene 20 HE/.test(h.label) && h.count === 4) && b.hardware.some((h) => /Rackschiene 2 HE/.test(h.label) && h.count === 2), 'rail strips: 4 × 20 U, 2 × 2 U');
+  ok(b.hardware.some((h) => /Klavierband/.test(h.label)), 'piano hinge for the swing door in the parts list');
+  console.log(`tool case rebuild: ${Math.round(d.L)} × ${Math.round(d.W)} × ${Math.round(d.H)} mm, ${b.weight.case} kg, warnings: ${caseWarnings(c).map((w) => w.text).join('; ') || 'none'}`);
 }
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }

@@ -428,6 +428,19 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
   auf der Schale, in die sie passen, mittig zwischen Profil und Verschlüssen; bei niedrigen Seiten wird ein flacher
   Riemengriff gesetzt, notfalls entfallen die Seitenverschlüsse; Stapelschalen sitzen in den Ecken der größten
   Deckfläche mit Abstand zu Profil und Fugen.
+- **19"-Racks im Case:** Im Abschnitt *Racks* baust du beliebig viele Racks ein: Höhe in HE, Ausrichtung (Front vorne,
+  hinten oder liegend mit der Front nach oben, z. B. unter einem Klappdeckel), Abstand der vorderen Schienenebene von
+  der Innenwand des Korpus, Abstand zu den hinteren Schienen (0 = nur vorne) und Start über dem Innenboden. Die
+  Bestückung kommt aus einem Rack unter *Racks bestücken*: Die Geräte erscheinen mit ihren Fronten auf den Schienen,
+  hinten montierte an den hinteren Schienen. Warnung, wenn das Rack nicht in die Breite, Höhe oder Tiefe passt oder ein
+  Gerät zu tief ist; die Rackschienen (Penn Elcom, Länge 44,45 mm je HE + 3,2 mm) stehen in der Stückliste. Ein Case
+  mit Racks bekommt keinen Schaumstoff im Korpus, solange keine Ausschnitte gesetzt sind.
+- **Schwingtüren und Türfächer:** Im Abschnitt *Türen* hängt jede Tür wahlweise an einem Scharnier links, rechts, oben
+  oder unten (gesehen von außen). Statt der Verschlüsse auf dieser Seite kommt ein durchgehendes Klavierband; in 3D
+  schwenkt die Tür beim Öffnen nach außen auf. Fächer in der Tür: Fachboden auf einer Höhe über dem Türboden und eine
+  Lippe, die den Inhalt hält (Höhe 0 = nur eine Lippe am Türboden). Fachböden und Lippen gehen in den Zuschnitt ein.
+  Der Test baut ein in Fusion gezeichnetes 20-HE-Toolcase nach (Schwingtür mit drei Fächern, hintere Tür, Klappdeckel,
+  20-HE-Rack mit hinteren Schienen, liegendes 2-HE-Rack, Rollen) und vergleicht die Außenmaße mit dem Original.
 - **Schubladen in 3D:** Schubladen sind eigene Teile im Bauteilbaum. Anklicken wählt aus, Ziehen an der Front ändert
   die Fronthöhe (5-mm-Raster, höchstens bis der Platz im Unterteil voll ist), Doppelklick öffnet und schließt die
   einzelne Schublade. Im Rechtsklick-Menü und im Auswahlbereich: öffnen/schließen, löschen, *Alle gleich hoch*.

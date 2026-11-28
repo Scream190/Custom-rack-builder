@@ -9,10 +9,10 @@ import { uid } from './util';
  * top; a later step that refers to something that no longer exists simply has no effect (shown in the timeline).
  */
 
-export const TRACKED = ['inner', 'lidKind', 'lidH', 'lidSplit', 'doors', 'drawers', 'dividers', 'hardware', 'castorSize', 'panel', 'profile', 'cornerBalls', 'color', 'parts', 'caseType', 'params', 'exprs'] as const;
+export const TRACKED = ['inner', 'lidKind', 'lidH', 'lidSplit', 'doors', 'drawers', 'dividers', 'hardware', 'castorSize', 'panel', 'profile', 'cornerBalls', 'color', 'parts', 'caseType', 'params', 'exprs', 'racks', 'doorHinge', 'doorShelves'] as const;
 type Key = (typeof TRACKED)[number];
-const OBJ: Key[] = ['inner', 'doors', 'parts', 'exprs'];
-const ARR: Key[] = ['hardware', 'dividers', 'drawers', 'params'];
+const OBJ: Key[] = ['inner', 'doors', 'parts', 'exprs', 'doorHinge', 'doorShelves'];
+const ARR: Key[] = ['hardware', 'dividers', 'drawers', 'params', 'racks'];
 type Tracked = Partial<Pick<FlightCase, Key>>;
 interface ArrDiff { add?: unknown[]; remove?: unknown[]; change?: [unknown, unknown][] }
 /** steps kept; older ones are folded into the base */
@@ -158,7 +158,7 @@ export function deleteStep(c: FlightCase, i: number): FlightCase {
   return withReplay(c, tl);
 }
 
-export type StepKind = 'type' | 'size' | 'lid' | 'door' | 'drawer' | 'divider' | 'hardware' | 'build' | 'color' | 'castor' | 'param' | 'other';
+export type StepKind = 'type' | 'size' | 'lid' | 'door' | 'drawer' | 'divider' | 'hardware' | 'build' | 'color' | 'castor' | 'param' | 'rack' | 'other';
 export interface StepInfo { label: string; kind: StepKind; sel?: string; /** false when the step changes nothing where it stands (refers to something removed earlier) */ effective: boolean; active: boolean }
 
 const sideLabel = (s: string) => SEAM_LABELS[s as keyof typeof SEAM_LABELS] ?? s;
@@ -172,6 +172,21 @@ export function describeStep(d: Record<string, unknown>, before: Tracked, after:
     return { label: p ? `Parameter ${p.name} = ${p.value}` : 'Parameter', kind: 'param' };
   }
   if (d.exprs && !d.inner && !d.lidH && !d.doors) return { label: 'Formel geändert', kind: 'param' };
+  if (d.racks) {
+    const a = d.racks as ArrDiff;
+    const r = (a.add?.[0] ?? a.change?.[0]?.[1] ?? a.remove?.[0]) as { units: number; name?: string } | undefined;
+    const name = r?.name || 'Rack';
+    const idx = r ? (after.racks ?? []).findIndex((x) => sj(x) === sj(r)) : -1;
+    if (a.add && !a.remove && !a.change) return { label: `${name} ${r?.units} HE eingebaut`, kind: 'rack', sel: idx >= 0 ? `rack:${idx}` : undefined };
+    if (a.remove && !a.add && !a.change) return { label: `${name} entfernt`, kind: 'rack' };
+    return { label: `${name} geändert`, kind: 'rack', sel: idx >= 0 ? `rack:${idx}` : undefined };
+  }
+  if (d.doorHinge) {
+    const p = d.doorHinge as Record<string, string | null>;
+    const s = Object.keys(p)[0];
+    return { label: p[s] ? `${sideLabel(s)}: Schwingtür` : `${sideLabel(s)}: abnehmbar`, kind: 'door', sel: `part:door-${s}` };
+  }
+  if (d.doorShelves) return { label: `Fächer ${sideLabel(Object.keys(d.doorShelves as object)[0])}`, kind: 'door', sel: `part:door-${Object.keys(d.doorShelves as object)[0]}` };
   if (d.inner) {
     const p = d.inner as Partial<FlightCase['inner']>;
     const ks = Object.keys(p);

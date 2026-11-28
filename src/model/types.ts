@@ -494,6 +494,12 @@ export interface FlightCase {
   caseType?: string;
   /** design history (timeline): construction fields are base + replayed steps up to the marker */
   timeline?: CaseTimeline;
+  /** 19" racks built into the case (rails with devices of a project rack) */
+  racks?: CaseRack[];
+  /** hinged (swing) doors: the edge the hinge is on, seen from outside; doors without an entry are removable */
+  doorHinge?: Partial<Record<'front' | 'back' | 'left' | 'right', 'left' | 'right' | 'top' | 'bottom'>>;
+  /** shelves inside a door (storage in the door), heights from the inner bottom of the door; pos 0 = only a lip at the floor */
+  doorShelves?: Partial<Record<'front' | 'back' | 'left' | 'right', { pos: number; lip: number }[]>>;
   /** user parameters (named values) that size fields refer to by formula */
   params?: CaseParam[];
   /** formulas of linked size fields by path ('inner.l', 'lidH', 'doors.left' …) */
@@ -540,3 +546,10 @@ export interface CaseTimeline { base: Partial<FlightCase>; steps: CaseStep[]; /*
 
 /** a named value of a case (mm unless the note says otherwise) */
 export interface CaseParam { name: string; value: number; note?: string }
+
+/**
+ * A 19" rack inside a flight case: rails of `units` HE whose front looks at an inner face. `inset` is the distance of
+ * the front rail plane from that inner face, `railDepth` the distance to the rear rails (0 = front rails only), `pos`
+ * where the rack starts along its height (front/back racks: above the inner floor; top racks: from the inner front).
+ */
+export interface CaseRack { id: string; name?: string; units: number; face: 'front' | 'back' | 'top'; inset: number; railDepth: number; pos: number; rackId?: string }
