@@ -329,6 +329,8 @@ export function removeSelection(c: FlightCase, sel: string): Partial<FlightCase>
     if (sel === 'part:lid2' || (c.lidSplit && sel === 'part:lid')) return { lidSplit: undefined, caseType: undefined };
     return { lidKind: 'none', lidH: 0, lidSplit: undefined, caseType: undefined };
   }
+  const div = /^div:(\d+)$/.exec(sel);
+  if (div) return c.dividers[Number(div[1])] ? { dividers: c.dividers.filter((_, j) => j !== Number(div[1])) } : null;
   const door = /^part:door-(front|back|left|right)$/.exec(sel);
   if (door) {
     const doors = { ...c.doors };
@@ -401,6 +403,78 @@ export function placeHardware(c: FlightCase, kind: HardwareKind, face: CaseFace,
     return [...c.hardware, { kind, face, count: 1, seam: s.seam === 'lid' ? undefined : s.seam, at: [{ u: Math.round(s.u), z: Math.round(s.z) }] }];
   }
   return [...c.hardware, { kind, face, count: 1, at: [{ u: Math.round(u), z: Math.round(z) }] }];
+}
+
+// ------------------------------------------------------------------ shelves and walls (3D editor)
+
+export type DividerAxis = FlightCase['dividers'][number]['axis'];
+export const DIVIDER_LABELS: Record<DividerAxis, string> = { x: 'Trennwand längs', y: 'Trennwand quer', z: 'Fachboden' };
+/** panel thickness of shelves and walls (mm) */
+export const DIVIDER_T = 7;
+/** range a divider can sit in (inner coordinates: x walls along y, y walls along x, shelves above the inner floor) */
+export function dividerRange(c: FlightCase, axis: DividerAxis): [number, number] {
+  const bi = baseInner(c);
+  if (axis === 'x') return [bi.y0, bi.y1];
+  if (axis === 'y') return [bi.x0, bi.x1];
+  return [0, caseDims(c).bodyInner];
+}
+/** clear space on both sides of a divider (to the next one of the same direction or the inner wall), in mm */
+export function dividerGaps(c: FlightCase, i: number, pos = c.dividers[i]?.pos): [number, number] {
+  const dv = c.dividers[i];
+  if (!dv) return [0, 0];
+  const [a, b] = dividerRange(c, dv.axis);
+  const others = c.dividers.filter((x, j) => j !== i && x.axis === dv.axis).map((x) => x.pos);
+  const lo = Math.max(a, ...others.filter((p) => p <= pos).map((p) => p + DIVIDER_T / 2));
+  const hi = Math.min(b, ...others.filter((p) => p > pos).map((p) => p - DIVIDER_T / 2));
+  return [Math.round(pos - DIVIDER_T / 2 - lo), Math.round(hi - pos - DIVIDER_T / 2)];
+}
+/** moves a divider: snaps to the middle of its free space, then to the grid; stays inside the case */
+export function moveDivider(c: FlightCase, i: number, pos: number, step = 5): { dividers: FlightCase['dividers']; pos: number; guide?: 'mitte' } {
+  const dv = c.dividers[i];
+  if (!dv) return { dividers: c.dividers, pos };
+  const [a, b] = dividerRange(c, dv.axis);
+  const others = c.dividers.filter((x, j) => j !== i && x.axis === dv.axis).map((x) => x.pos);
+  const lo = Math.max(a, ...others.filter((p) => p <= dv.pos).map((p) => p + DIVIDER_T / 2));
+  const hi = Math.min(b, ...others.filter((p) => p > dv.pos).map((p) => p - DIVIDER_T / 2));
+  const mid = (lo + hi) / 2;
+  let p: number, guide: 'mitte' | undefined;
+  if (Math.abs(pos - mid) <= Math.max(6, step * 1.6)) { p = mid; guide = 'mitte'; }
+  else p = Math.round(pos / step) * step;
+  p = Math.max(a + 10, Math.min(b - 10, p));
+  p = Math.round(p * 10) / 10;
+  return { dividers: c.dividers.map((x, j) => (j === i ? { ...x, pos: p } : x)), pos: p, guide };
+}
+/** adds a shelf or wall at a position (clamped into the case) */
+export function addDivider(c: FlightCase, axis: DividerAxis, pos: number): FlightCase['dividers'] {
+  const [a, b] = dividerRange(c, axis);
+  return [...c.dividers, { axis, pos: Math.round(Math.max(a + 10, Math.min(b - 10, pos))) }];
+}
+/** spreads all dividers of one direction evenly over the space (equal clear spaces) */
+export function spreadDividers(c: FlightCase, axis: DividerAxis): FlightCase['dividers'] {
+  const [a, b] = dividerRange(c, axis);
+  const idx = c.dividers.map((d, i) => [d, i] as const).filter(([d]) => d.axis === axis).sort((p, q) => p[0].pos - q[0].pos).map(([, i]) => i);
+  const n = idx.length;
+  if (!n) return c.dividers;
+  const gap = (b - a - n * DIVIDER_T) / (n + 1);
+  const at = new Map(idx.map((i, k) => [i, Math.round((a + gap * (k + 1) + DIVIDER_T * (k + 0.5)) * 10) / 10]));
+  return c.dividers.map((d, i) => (at.has(i) ? { ...d, pos: at.get(i)! } : d));
+}
+
+/**
+ * Chain dimensions of the outside (mm from the outer corner): break points along the length and width (where doors
+ * meet the base) and up the height (castors, base, lid). Every list starts at 0 and ends at the total.
+ */
+export function dimChains(c: FlightCase): { L: number[]; W: number[]; H: number[]; castorH: number } {
+  const { L, W, H, boxes } = shellSize(c);
+  const uniq = (v: number[]) => [...new Set(v.map((x) => Math.round(x * 10) / 10))].sort((a, b) => a - b);
+  const d = caseDims(c);
+  const zs = uniq([0, ...boxes.filter((b) => b.role !== 'door').flatMap((b) => [b.z0, b.z1]), H]).map((z) => z + d.castorH);
+  return {
+    L: uniq([0, ...boxes.flatMap((b) => [b.x0, b.x1]), L]),
+    W: uniq([0, ...boxes.flatMap((b) => [b.y0, b.y1]), W]),
+    H: d.castorH ? [0, ...zs] : zs,
+    castorH: d.castorH,
+  };
 }
 
 /** construction presets after the case types of common case design software */

@@ -1,5 +1,5 @@
 // Case designer checks. Run: npm run test:cases
-import { applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, mirrorHardware, moveHardware, newCase, snapHardware, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
+import { addDivider, dimChains, dividerGaps, dividerRange, moveDivider, spreadDividers, DIVIDER_T, applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, mirrorHardware, moveHardware, newCase, snapHardware, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
 import { HARDWARE_PARTS, PROFILES, profileBySku, profilesFor, rackStripLength, rackStripSku } from '../src/library/caseHardware';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
@@ -278,7 +278,35 @@ console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRA
   const pf = faceToOuter(withLab, 'front', 200, 80), pb = faceToOuter(withLab, 'back', back.u, back.z);
   ok(back.face === 'back' && Math.abs(pf[0] - pb[0]) < 1 && pb[2] === 80, `mirrored label sits at the same x on the back (${pf[0]} / ${pb[0]})`);
   ok(mirrorHardware(c, c.hardware.findIndex((h) => h.kind === 'stack-cup')) === null, 'top hardware has no opposite side');
-  console.log(`3D editor: push/pull, split, place, move, snap, mirror, delete ok`);
+  // shelves and walls: placing, gaps, dragging with snap to the middle, spreading, deleting
+  const body = caseDims(c).bodyInner;
+  const shf = { ...c, dividers: addDivider(c, 'z', 100) };
+  ok(shf.dividers[0].pos === 100 && dividerRange(c, 'z')[1] === body, 'a shelf sits at the clicked height, range = body height');
+  const [below, above] = dividerGaps(shf, 0);
+  ok(below === Math.round(100 - DIVIDER_T / 2) && above === Math.round(body - 100 - DIVIDER_T / 2), `clear space under and over a shelf (${below} / ${above})`);
+  const mv = moveDivider(shf, 0, body / 2 + 3);
+  ok(mv.guide === 'mitte' && mv.pos === Math.round((body / 2) * 10) / 10, 'a shelf snaps to the middle of its space');
+  ok(moveDivider(shf, 0, 63.4).pos === 65 && moveDivider(shf, 0, 63.4, 1).pos === 63, 'grid of 5 mm, 1 mm with Ctrl');
+  ok(moveDivider(shf, 0, -50).pos === 10 && moveDivider(shf, 0, 99999).pos === body - 10, 'a shelf stays inside the body');
+  const two = { ...shf, dividers: addDivider(shf, 'z', 120) };
+  const sp = spreadDividers(two, 'z');
+  const g = (cc: typeof c, i: number) => dividerGaps(cc, i);
+  const spc = { ...two, dividers: sp };
+  const gs = [g(spc, 0), g(spc, 1)].flat();
+  ok(Math.max(...gs) - Math.min(...gs) <= 1, `spreading gives equal clear spaces (${gs.join(', ')})`);
+  const walls = addDivider(c, 'x', 50);
+  ok(walls[0].axis === 'x' && removeSelection({ ...c, dividers: walls }, 'div:0')!.dividers!.length === 0, 'a wall is added and deleted');
+  ok(addDivider(door, 'y', 0)[0].pos >= sv.doors!.left! + 10, 'a crosswise wall stays out of the door');
+  // chain dimensions: base and lid up the height, door along the length, totals at the ends
+  const dc = dimChains(c);
+  const dd0 = caseDims(c);
+  ok(dc.L[0] === 0 && Math.round(dc.L[dc.L.length - 1]) === Math.round(dd0.L) && dc.H.length === (dd0.castorH ? 4 : 3) && Math.round(dc.H[dc.H.length - 1]) === Math.round(dd0.H), `outer chains: ${dc.L.join('/')} | ${dc.H.join('/')}`);
+  const rolling = { ...c, hardware: [...c.hardware, { kind: 'castor' as const, face: 'bottom' as const, count: 2 }, { kind: 'castor-braked' as const, face: 'bottom' as const, count: 2 }] };
+  const dr = dimChains(rolling);
+  ok(dr.castorH > 0 && dr.H.length === 4 && dr.H[1] === dr.castorH, `castors get their own segment in the height chain (${dr.H.join('/')})`);
+  const dcd = dimChains(door);
+  ok(dcd.L.length === 3 && Math.round(dcd.L[1]) === Math.round(sv.doors!.left! + t), `a left door splits the length chain (${dcd.L.join('/')})`);
+  console.log(`3D editor: push/pull, split, place, move, snap, mirror, shelves, dimensions, delete ok`);
 }
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }

@@ -115,9 +115,13 @@ export function makeMats(color: string, foamColor: string): Mats {
 
 export function disposeTree(o: THREE.Object3D) {
   o.traverse((m) => {
-    if (m instanceof THREE.Mesh) {
-      m.geometry.dispose();
-      (Array.isArray(m.material) ? m.material : [m.material]).forEach((x) => x.dispose());
+    const x = m as THREE.Mesh;
+    if (x.geometry) x.geometry.dispose();
+    if (!x.material) return;
+    for (const mat of Array.isArray(x.material) ? x.material : [x.material]) {
+      // label textures (dimension texts) belong to their material
+      if (mat.userData.ownMap) (mat as THREE.SpriteMaterial).map?.dispose();
+      mat.dispose();
     }
   });
 }

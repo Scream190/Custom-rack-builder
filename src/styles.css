@@ -289,6 +289,9 @@ input.bad { border-color: var(--danger); color: #fca5a5; }
 .case-tree .eye:hover { color: var(--text); }
 .case-sel { border: 1px solid var(--line); border-radius: 3px; padding: 8px; margin-bottom: 10px; }
 .case-sel .row { flex-wrap: wrap; }
+.case-sel .btn-group, .case-add { display: flex; flex-wrap: wrap; gap: 6px; }
+.case-sel .btn-group > * + * { margin-left: 0; }
+.case-sel .btn-group .btn { border-radius: 3px; }
 
 /* ---------------------------------------------------------------- shell: workspaces, object bar, tool bar */
 .topbar { padding: 0 12px; min-height: 48px; row-gap: 6px; }

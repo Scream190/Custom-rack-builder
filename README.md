@@ -387,6 +387,14 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
   - *Fuge senkrecht:* Klick nahe einem Ende setzt dort eine Tür, Klick in die Deckelmitte teilt den Deckel (oder fügt die
     Hälften wieder zusammen).
   - *Beschlag setzen:* Beschlag wählen und auf die Außenseite klicken; Verschlüsse rasten an der nächsten Fuge ein.
+  - *Einbau setzen:* Fachboden, Trennwand längs oder quer wählen und auf eine Außenwand klicken. Der Fachboden entsteht
+    in der geklickten Höhe, die Trennwand an der geklickten Stelle; das Case öffnet sich dafür. Einbauten lassen sich
+    in 3D anklicken und mit der Maus verschieben (rasten in der Mitte ihres freien Raums und im 5-mm-Raster ein). Zur
+    Auswahl zeigt das Modell die lichten Maße darunter und darüber bzw. davor und dahinter, rechts stehen Position,
+    lichte Maße und *Gleichmäßig verteilen*. Im Bereich Bauform setzen die Knöpfe *Fachboden +*, *Trennwand längs +*
+    und *Trennwand quer +* weitere ein und verteilen alle gleichmäßig. Einbauten gehen in Zuschnitt und Gewicht ein.
+  - *Maße:* blendet Maßketten am Modell ein: Länge vorne unten, Breite rechts unten, Höhe an der vorderen rechten
+    Kante, jeweils mit den Teilmaßen (Türen, Unterteil, Deckel, Rollen) und dem Gesamtmaß.
 
   Von Hand gesetzte Beschläge behalten ihre Position (`at` in Seitenkoordinaten) und erscheinen genauso in der
   Maßzeichnung und im PDF; *Gleichmäßig verteilen* setzt eine Zeile wieder zurück, *Auf Gegenseite spiegeln* setzt

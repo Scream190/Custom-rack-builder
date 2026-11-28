@@ -1,6 +1,19 @@
 // Hand-written additions to en.ts: texts in data objects, generated names and composite texts.
 
 export const EN_EXTRA: Record<string, string> = {
+  // case designer: shelves, walls, dimensions
+  "Auf eine Außenwand klicken: Ein Fachboden entsteht in der geklickten Höhe, eine Trennwand an der geklickten Stelle (längs: Seitenwand oder Deckel, quer: Vorder- oder Rückwand). Esc beendet.": "Click on an outer wall: a shelf is added at the clicked height, a wall at the clicked spot (lengthwise: side wall or lid, crosswise: front or back). Esc ends the tool.",
+  "Maße": "Dimensions",
+  "Maßketten außen: Länge, Breite und Höhe mit Unterteil, Deckel, Türen und Rollen": "Outer dimension chains: length, width and height with base, lid, doors and castors",
+  "Einbau setzen …": "Add shelf or wall …",
+  "Fachboden oder Trennwand wählen und auf eine Außenwand klicken": "Choose a shelf or wall and click on an outer wall",
+  "Einbauten": "Shelves and walls",
+  "Höhe über dem Boden (mm)": "Height above the floor (mm)",
+  "Abstand von vorne (mm)": "Distance from the front (mm)",
+  "Abstand von links (mm)": "Distance from the left (mm)",
+  "Alle Einbauten dieser Richtung mit gleichen Abständen verteilen": "Spread all shelves or walls of this direction with equal spaces",
+  "Einbau löschen": "Delete shelf or wall",
+  "Einbauten: keine": "Shelves and walls: none",
   // case designer: views, section, readouts
   "Klicken wählt aus. Beschläge mit der Maus verschieben, sie rasten auf der Mitte und symmetrisch zum Gegenstück ein (Alt: frei). An den Pfeilen einer Schale ziehen ändert die Maße (Strg: 1-mm-Schritte). Entf löscht, Esc hebt die Auswahl auf.": "Click to select. Drag fittings with the mouse, they snap to the middle and symmetric to their counterpart (Alt: free). Drag the arrows of a shell to change sizes (Ctrl: 1 mm steps). Del deletes, Esc clears the selection.",
   "Oben": "Top",
@@ -446,4 +459,16 @@ export const EN_EXTRA_TPL: [string, string][] = [
   ["{0} mm von links, {1} mm hoch", "{0} mm from the left, {1} mm high"],
   ["{0} mm von links, {1} mm von vorne", "{0} mm from the left, {1} mm from the front"],
   ["Dieselben Beschläge spiegelbildlich auf die Seite {0} setzen", "Place the same fittings mirrored on the {0} side"],
+  ["Fachboden {0}", "Shelf {0}"],
+  ["Trennwand längs {0}", "Lengthwise wall {0}"],
+  ["Trennwand quer {0}", "Crosswise wall {0}"],
+  ["frei darunter {0} mm, darüber {1} mm", "clear below {0} mm, above {1} mm"],
+  ["frei davor {0} mm, dahinter {1} mm", "clear in front {0} mm, behind {1} mm"],
+  ["frei links {0} mm, rechts {1} mm", "clear left {0} mm, right {1} mm"],
+  ["Fachboden: {0} mm über dem Boden", "Shelf: {0} mm above the floor"],
+  ["Trennwand längs: {0} mm von vorne", "Lengthwise wall: {0} mm from the front"],
+  ["Trennwand quer: {0} mm von links", "Crosswise wall: {0} mm from the left"],
+  ["Einbauten: Fachböden {0}, Trennwände {1}", "Shelves {0}, walls {1}"],
+  ["{0} +", "{0} +"],
+  ["{0} einsetzen, alle dieser Richtung werden gleichmäßig verteilt", "Add {0}, all of this direction are spread evenly"],
 ];

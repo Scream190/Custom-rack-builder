@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useStore } from '../model/store';
 import type { CaseFace, CaseHardware, CaseSeam, FlightCase, HardwareKind, Project } from '../model/types';
-import { applyCaseType, autoHardware, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
+import { addDivider, applyCaseType, autoHardware, DIVIDER_LABELS, dividerGaps, dividerRange, spreadDividers, type DividerAxis, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
 import { panelMaterial, PANEL_MATERIALS, partLabel, partsForKind, partsInGroup, profileBySku, profileLabel, profilesFor } from '../library/caseHardware';
 import { caseList, foamMaterial, FOAM_MATERIALS, inlayThickness } from '../model/inlay';
 import { formatLength } from '../model/geometry';
@@ -110,6 +110,15 @@ function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; 
           </div>
         ))}
         {!ro ? <button className="btn sm" onClick={() => set({ drawers: [...(c.drawers ?? []), { h: 120 }] })} title="Schublade auf Auszügen ins Unterteil einsetzen">Schublade hinzufügen</button> : null}
+        <div className="muted small">{c.dividers.length ? `Einbauten: Fachböden ${c.dividers.filter((x) => x.axis === 'z').length}, Trennwände ${c.dividers.filter((x) => x.axis !== 'z').length}` : 'Einbauten: keine'}</div>
+        {!ro ? (
+          <div className="case-add">
+            {(['z', 'x', 'y'] as DividerAxis[]).map((a) => {
+              const [r0, r1] = dividerRange(c, a);
+              return <button key={a} className="btn sm" onClick={() => { const dividers = spreadDividers({ ...c, dividers: addDivider(c, a, (r0 + r1) / 2) }, a); set({ dividers }); edit?.select(`div:${dividers.length - 1}`); }} title={`${DIVIDER_LABELS[a]} einsetzen, alle dieser Richtung werden gleichmäßig verteilt`}>{`${DIVIDER_LABELS[a]} +`}</button>;
+            })}
+          </div>
+        ) : null}
 
         </Section>
         <Section id="case.lid" title="Deckel" defaultOpen summary={c.lidKind === 'none' ? 'ohne' : `${LID_LABELS[c.lidKind]}, ${c.lidH} mm`}>
@@ -240,6 +249,29 @@ function SelectionBox({ c, edit }: { c: FlightCase; edit: CaseEdit }) {
       </div>
     );
   }
+  const dvm = /^div:(\d+)$/.exec(sel);
+  if (dvm) {
+    const i = Number(dvm[1]), dv = c.dividers[i];
+    if (!dv) return null;
+    const [r0, r1] = dividerRange(c, dv.axis);
+    const [g0, g1] = dividerGaps(c, i);
+    const nr = c.dividers.slice(0, i + 1).filter((x) => x.axis === dv.axis).length;
+    const sameAxis = c.dividers.filter((x) => x.axis === dv.axis).length;
+    const posLabel = dv.axis === 'z' ? 'Höhe über dem Boden (mm)' : dv.axis === 'x' ? 'Abstand von vorne (mm)' : 'Abstand von links (mm)';
+    const gapText = dv.axis === 'z' ? `frei darunter ${g0} mm, darüber ${g1} mm` : dv.axis === 'x' ? `frei davor ${g0} mm, dahinter ${g1} mm` : `frei links ${g0} mm, rechts ${g1} mm`;
+    return (
+      <div className="case-sel">
+        <div><b>{`${DIVIDER_LABELS[dv.axis]} ${nr}`}</b> <span className="muted small">{gapText}</span></div>
+        <Field label={posLabel}><NumberInput value={Math.round(dv.pos)} min={Math.round(r0 + 10)} max={Math.round(r1 - 10)} onChange={(v) => set({ dividers: c.dividers.map((x, j) => (j === i ? { ...x, pos: Math.max(r0 + 10, Math.min(r1 - 10, v)) } : x)) })} /></Field>
+        {!ro ? (
+          <div className="btn-group">
+            {sameAxis > 1 ? <button className="btn sm" onClick={() => set({ dividers: spreadDividers(c, dv.axis) })} title="Alle Einbauten dieser Richtung mit gleichen Abständen verteilen">Gleichmäßig verteilen</button> : null}
+            <button className="btn sm danger" onClick={del} title="Ausgewähltes löschen (Entf)">Einbau löschen</button>
+          </div>
+        ) : null}
+      </div>
+    );
+  }
   const part = sel.startsWith('part:') ? (sel.slice(5) as CasePartId) : null;
   const bx = part ? caseBoxes(c).find((b) => b.id === part) : null;
   if (!part || !bx) return null;
@@ -287,6 +319,8 @@ function CaseTree({ c, edit, setHidden }: { c: FlightCase; edit: CaseEdit; setHi
           ...(selRow === String(i) && pieces.length > 1 ? pieces.map((p) => node(`hw${i}:${p.k}`, `Stück ${p.k + 1}${h.at ? '' : ', verteilt'}`, `hw:${i}:${p.k}`, true)) : []),
         ];
       })}
+      {c.dividers.length ? <h4>Einbauten</h4> : null}
+      {c.dividers.map((dv, i) => node(`div${i}`, `${DIVIDER_LABELS[dv.axis]} ${c.dividers.slice(0, i + 1).filter((x) => x.axis === dv.axis).length}`, `div:${i}`, false, `div:${i}`))}
       <h4>Einlage</h4>
       {node('foam', 'Schaumstoff', null, false, 'foam')}
     </div>
@@ -397,6 +431,10 @@ export function CaseWorkspace() {
               <select className={tool.startsWith('place:') ? 'active' : ''} value={tool.startsWith('place:') ? tool.slice(6) : ''} onChange={(e) => setTool(e.target.value ? (`place:${e.target.value}` as CaseTool) : 'select')} title="Beschlag wählen und auf die Außenseite klicken">
                 <option value="">Beschlag setzen …</option>
                 {PLACEABLE.map((k) => <option key={k} value={k}>{HARDWARE[k].label}</option>)}
+              </select>
+              <select className={tool.startsWith('div:') ? 'active' : ''} value={tool.startsWith('div:') ? tool.slice(4) : ''} onChange={(e) => setTool(e.target.value ? (`div:${e.target.value}` as CaseTool) : 'select')} title="Fachboden oder Trennwand wählen und auf eine Außenwand klicken">
+                <option value="">Einbau setzen …</option>
+                {(['z', 'x', 'y'] as const).map((a) => <option key={a} value={a}>{DIVIDER_LABELS[a]}</option>)}
               </select>
             </ToolGroup>
           ) : null}
