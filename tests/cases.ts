@@ -2,7 +2,7 @@
 import { addDivider, dimChains, dividerGaps, dividerRange, moveDivider, spreadDividers, DIVIDER_T, applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, mirrorHardware, moveHardware, newCase, snapHardware, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
 import { deleteStep, describeSteps, isRolledBack, MAX_STEPS, recordStep, setMarker, timelineMarker, toggleStep } from '../src/model/timeline';
 import { brokenExprs, evalExpr, isFormula, setFieldExpr, setParams, unlinkOverridden } from '../src/model/params';
-import { autoHardware, baseInner, doorDepths, doorSpace, hingeFace, newCaseRack, rackDevices, rackRails, rackWarnings, RAIL, setDoorHinge, drawerBottom, drawerFree, hardwareClashes, hardwarePlan, setDrawerHeight, spreadDrawers } from '../src/model/cases';
+import { newObject, objectBox, objectWeight, snapObject, autoHardware, baseInner, doorDepths, doorSpace, hingeFace, newCaseRack, rackDevices, rackRails, rackWarnings, RAIL, setDoorHinge, drawerBottom, drawerFree, hardwareClashes, hardwarePlan, setDrawerHeight, spreadDrawers } from '../src/model/cases';
 import { HARDWARE_PARTS, PROFILES, profileBySku, profilesFor, rackStripLength, rackStripSku } from '../src/library/caseHardware';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
@@ -382,7 +382,9 @@ console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRA
   // interference check: every preset is clean, overlapping and edge pieces are found
   const base = newCase('Clash');
   ok(hardwareClashes(base).length === 0, `the default case has no clashes (${hardwareClashes(base).map((x) => x.text).join('; ')})`);
-  for (const ty of CASE_TYPES) { const cc = { ...base, ...applyCaseType(base, ty.id) } as typeof base; ok(hardwareClashes(cc).length === 0, `${ty.id}: no clashes (${hardwareClashes(cc).map((x) => x.text).join('; ')})`); }
+  // the rack case with swing door is checked at rack size (a 19" rack with a swing door is never 300 mm high)
+  const rackBase = { ...base, inner: { l: 560, w: 700, h: 900 } };
+  for (const ty of CASE_TYPES) { const b0 = ty.id === 'rack-swing' ? rackBase : base; const cc = { ...b0, ...applyCaseType(b0, ty.id) } as typeof base; ok(hardwareClashes(cc).length === 0, `${ty.id}: no clashes (${hardwareClashes(cc).map((x) => x.text).join('; ')})`); }
   const two = { ...base, hardware: [...base.hardware, { kind: 'label' as const, face: 'right' as const, count: 1, at: [{ u: 200, z: 100 }] }, { kind: 'label' as const, face: 'right' as const, count: 1, at: [{ u: 240, z: 110 }] }] };
   const cl = hardwareClashes(two);
   ok(cl.some((x) => x.keys.length === 2 && /überschneiden sich/.test(x.text)), 'two labels on top of each other are found');
@@ -454,6 +456,39 @@ console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRA
   ok(pn.some((p) => p.name === 'Türfach Boden' && p.count === 1) && pn.filter((p) => p.name === 'Türfach Lippe').reduce((s, p) => s + p.count, 0) === 2, 'door shelves and lips in the cutting list');
   ok(sp.depth === doorDepths(door).front && sp.width === door.inner.l, `door space ${Math.round(sp.width)} × ${Math.round(sp.depth)} × ${Math.round(sp.height)} mm`);
   console.log('racks in the case, swing doors, door storage ok');
+}
+
+// ------------------------------------------------------------------ free parts, connector panels, rack case preset
+{
+  const c = newCase('Objects');
+  const d = caseDims(c);
+  const plate = newObject(c, 'plate');
+  ok(plate.size[0] === Math.round(d.L) && plate.pos[2] === Math.round(d.H - d.castorH), 'a plate starts on top of the case, as long as the case');
+  const leg = newObject(c, 'leg');
+  ok(Math.abs(objectWeight(leg) - Math.PI * (20 ** 2 - 18 ** 2) * 900 / 1e9 * 2700) < 0.02, `an aluminium leg is a tube (${objectWeight(leg)} kg)`);
+  const withObj = { ...c, objects: [plate, leg] };
+  const bom = caseBom(withObj);
+  ok(bom.panels.some((p) => p.name === 'Platte') && bom.hardware.some((h) => /Tischbein \(Ø 40 × 900 mm, Aluminium\)/.test(h.label)), 'plates go into the cutting list, other parts into the list of parts');
+  ok(caseBom(withObj).weight.case > caseBom(c).weight.case, 'free parts add weight');
+  // moving: snaps onto the case faces and onto other parts, else to the grid
+  const box = { ...newObject(c, 'box'), size: [100, 100, 50] as [number, number, number] };
+  ok(snapObject(c, box, 2, d.H - d.castorH + 4) === d.H - d.castorH, 'a part snaps onto the top of the case');
+  ok(snapObject(c, box, 0, -97) === -100, 'its right edge snaps onto the left face');
+  ok(snapObject(c, box, 0, 203) === 205 && snapObject(c, box, 0, 203, 1) === 203, 'grid of 5 mm, 1 mm with Ctrl');
+  const lying = { ...leg, lie: 'x' as const };
+  ok(objectBox(lying).x1 - objectBox(lying).x0 === 900, 'a lying cylinder runs along x');
+  ok(removeSelection(withObj, 'obj:0')!.objects!.length === 1, 'deleting a part');
+  // connector panels on the walls: in the parts list, no clash on a free spot
+  const dp = { ...c, hardware: [...c.hardware, { kind: 'd-panel' as const, face: 'back' as const, count: 1, at: [{ u: 300, z: 120 }] }, { kind: 'd-socket' as const, face: 'right' as const, count: 1, at: [{ u: 120, z: 120 }] }] };
+  ok(caseBom(dp).hardware.some((h) => /Anschlussblende/.test(h.label)) && caseBom(dp).hardware.some((h) => /Einbaubuchse D-Norm/.test(h.label)), 'connector panel and D socket in the parts list');
+  ok(!hardwareClashes(dp).some((x) => x.keys.some((k) => k.startsWith(`hw:${c.hardware.length}`))), `connector panel on a free spot does not clash (${hardwareClashes(dp).map((x) => x.text).join('; ')})`);
+  // preset: rack case with swing door builds a rack, a swing door with storage and a rear door
+  const rb = { ...c, inner: { l: 560, w: 700, h: 900 } };
+  const rs = { ...rb, ...applyCaseType(rb, 'rack-swing') } as typeof c;
+  ok(rs.racks?.length === 1 && rs.doorHinge?.front === 'left' && (rs.doorShelves?.front?.length ?? 0) === 3 && doorDepths(rs).back > 0, 'rack case preset: rack, swing door with three compartments, rear door');
+  ok(rs.hardware.some((h) => h.kind === 'piano-hinge' && h.seam === 'front') && rackWarnings(rs).length === 0, 'rack case preset: piano hinge, rack fits');
+  ok(!(applyCaseType(rs, 'trunk-5050').doorHinge) && !(applyCaseType(rs, 'trunk-5050').doorShelves), 'another preset clears hinge and door storage');
+  console.log('free parts, connector panels, rack case preset ok');
 }
 
 // ------------------------------------------------------------------ rebuild of a real case drawn in Fusion (20 U tool case)

@@ -6,7 +6,7 @@ import { renderMarkup as renderToStaticMarkup } from '../i18n/render';
 import { DeviceFace } from '../render/DeviceFace';
 import { panelTexture } from './rackScene';
 import { useStore } from '../model/store';
-import { baseInner, caseBoxes, caseDims, hasCaseFoam, hingeFace, rackDevices, rackRails, type InnerBox, type RackDeviceBox, addDivider, dimChains, DIVIDER_T, dividerGaps, moveDivider, type DividerAxis, faceToOuter, footprint, hardwareInstances, hasDoors, isDrawer, moveHardware, outerToFace, placeHardware, pushPull, SEAM_LABELS, shellSize, snapHardware, splitAt, usableArea, wallOf, type CasePartId } from '../model/cases';
+import { baseInner, caseBoxes, caseDims, hasCaseFoam, objectBox, OBJECT_MATERIALS, snapObject, hingeFace, rackDevices, rackRails, type InnerBox, type RackDeviceBox, addDivider, dimChains, DIVIDER_T, dividerGaps, moveDivider, type DividerAxis, faceToOuter, footprint, hardwareInstances, hasDoors, isDrawer, moveHardware, outerToFace, placeHardware, pushPull, SEAM_LABELS, shellSize, snapHardware, splitAt, usableArea, wallOf, type CasePartId } from '../model/cases';
 import { cutoutOutline, outlineBox } from '../model/inlay';
 import { Builder, FOAM_MM, S, boxGeo, faceBasis, inlayGeo, makeMats, v3, type FaceKey } from './caseParts';
 import { Scene3D, type BuildResult, type Scene3DApi } from './Scene3D';
@@ -187,7 +187,7 @@ function MeasureReadout({ m }: { m: { a: MeasurePt; b?: MeasurePt } }) {
 
 /** keys of every component that can be hidden (for "isolate") */
 function allKeys(c: FlightCase): string[] {
-  return [...caseBoxes(c).map((b) => `part:${b.id}`), ...c.hardware.map((h, i) => (h.kind.startsWith('castor') ? '' : `hw:${i}`)).filter(Boolean), ...c.dividers.map((_, i) => `div:${i}`), ...(c.drawers ?? []).map((_, i) => `drw:${i}`), ...(c.racks ?? []).map((_, i) => `rack:${i}`), 'foam'];
+  return [...caseBoxes(c).map((b) => `part:${b.id}`), ...c.hardware.map((h, i) => (h.kind.startsWith('castor') ? '' : `hw:${i}`)).filter(Boolean), ...c.dividers.map((_, i) => `div:${i}`), ...(c.drawers ?? []).map((_, i) => `drw:${i}`), ...(c.racks ?? []).map((_, i) => `rack:${i}`), ...(c.objects ?? []).map((_, i) => `obj:${i}`), 'foam'];
 }
 
 /** right-click menu on a part, a piece of hardware, a shelf or the empty view */
@@ -220,6 +220,13 @@ function ContextMenu({ menu, c, edit, close, fit, openDrawers, toggleDrawer }: {
     if (!ro) {
       items.push(['Schublade löschen', () => { set(removeSelection(c, key!)); edit.select(null); }]);
       if ((c.drawers?.length ?? 0) > 1) items.push(['Alle gleich hoch', () => set({ drawers: spreadDrawers(c) }), 'Alle Schubladen gleich hoch, sie füllen das Unterteil']);
+    }
+  } else if (tag?.obj !== undefined) {
+    const i = tag.obj;
+    key = `obj:${i}`;
+    if (!ro) {
+      items.push(['Duplizieren', () => { const o = c.objects![i]; const copy = { ...o, id: `obj-${Date.now().toString(36)}`, pos: [o.pos[0] + 30, o.pos[1] + 30, o.pos[2]] as [number, number, number] }; set({ objects: [...(c.objects ?? []), copy] }); edit.select(`obj:${(c.objects ?? []).length}`); }, 'Kopie 30 mm versetzt']);
+      items.push(['Bauteil entfernen', () => { set(removeSelection(c, key!)); edit.select(null); }]);
     }
   } else if (tag?.rack !== undefined) {
     const i = tag.rack;
@@ -280,7 +287,7 @@ function pushPullText(c0: FlightCase, p: Partial<FlightCase>): string {
   return lines.join('\n') || 'unverändert';
 }
 
-type Tag = { grip?: { part: CasePartId; face: CaseFace }; hw?: { i: number; k: number }; div?: number; drw?: number; rack?: number; part?: CasePartId; group?: THREE.Object3D };
+type Tag = { grip?: { part: CasePartId; face: CaseFace }; move?: { i: number; axis: 'x' | 'y' | 'z' }; hw?: { i: number; k: number }; div?: number; drw?: number; rack?: number; obj?: number; part?: CasePartId; group?: THREE.Object3D };
 function tagOf(o: THREE.Object3D | null): Tag | null {
   for (let x = o; x; x = x.parent) {
     if (x.userData.grip) return { grip: x.userData.grip };
@@ -288,6 +295,7 @@ function tagOf(o: THREE.Object3D | null): Tag | null {
     if (x.userData.divider !== undefined) return { div: x.userData.divider };
     if (x.userData.drawer !== undefined) return { drw: x.userData.drawer };
     if (x.userData.rack !== undefined) return { rack: x.userData.rack };
+    if (x.userData.obj !== undefined) return { obj: x.userData.obj };
     if (x.userData.partGroup) return { part: x.userData.partGroup, group: x };
   }
   return null;
@@ -331,7 +339,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
   let hoverKey = '';
   let hoverBox: THREE.Box3Helper | null = null;
   const setHover = (tag: Tag | null) => {
-    const key = tag?.hw ? `hw:${tag.hw.i}:${tag.hw.k}` : tag?.div !== undefined ? `div:${tag.div}` : tag?.drw !== undefined ? `drw:${tag.drw}` : tag?.rack !== undefined ? `rack:${tag.rack}` : tag?.part ? `part:${tag.part}` : tag?.grip ? 'grip' : '';
+    const key = tag?.hw ? `hw:${tag.hw.i}:${tag.hw.k}` : tag?.div !== undefined ? `div:${tag.div}` : tag?.drw !== undefined ? `drw:${tag.drw}` : tag?.rack !== undefined ? `rack:${tag.rack}` : tag?.obj !== undefined ? `obj:${tag.obj}` : tag?.part ? `part:${tag.part}` : tag?.grip ? 'grip' : '';
     if (key === hoverKey && (!hoverBox || hoverBox.parent)) return;
     hoverKey = key;
     if (hoverBox) { hoverBox.removeFromParent(); hoverBox.geometry.dispose(); (hoverBox.material as THREE.Material).dispose(); hoverBox = null; }
@@ -339,7 +347,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
     const box = new THREE.Box3();
     content.traverse((o) => {
       const hw = o.userData.hw as { i: number; k: number } | undefined;
-      if ((hw && key === `hw:${hw.i}:${hw.k}`) || (o.userData.part && key === `part:${o.userData.part}`) || (o.userData.divider !== undefined && key === `div:${o.userData.divider}`) || (o.userData.drawer !== undefined && key === `drw:${o.userData.drawer}`) || (o.userData.rack !== undefined && key === `rack:${o.userData.rack}`)) box.expandByObject(o);
+      if ((hw && key === `hw:${hw.i}:${hw.k}`) || (o.userData.part && key === `part:${o.userData.part}`) || (o.userData.divider !== undefined && key === `div:${o.userData.divider}`) || (o.userData.drawer !== undefined && key === `drw:${o.userData.drawer}`) || (o.userData.rack !== undefined && key === `rack:${o.userData.rack}`) || (o.userData.obj !== undefined && key === `obj:${o.userData.obj}`)) box.expandByObject(o);
     });
     if (box.isEmpty()) return;
     box.expandByScalar(0.002);
@@ -359,11 +367,13 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
   /** the nearest tagged object under the pointer; grips win because they are drawn on top */
   const pick = (e: PointerEvent, only?: (t: Tag) => boolean) => {
     const hits = hitsOf(e);
+    const mv = hits.find((h) => h.object.userData.move);
+    if (mv && !only) return { hit: mv, tag: { move: mv.object.userData.move } as Tag };
     const grip = hits.find((h) => h.object.userData.grip);
     if (grip && !only) return { hit: grip, tag: { grip: grip.object.userData.grip } as Tag };
     for (const h of hits) {
       const tag = tagOf(h.object);
-      if (tag && !tag.grip && (!only || only(tag))) return { hit: h, tag };
+      if (tag && !tag.grip && !h.object.userData.move && (!only || only(tag))) return { hit: h, tag };
     }
     return null;
   };
@@ -384,7 +394,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
   };
   const update = (patch: Partial<FlightCase>, key: string) => useStore.getState().updateCase(cRef.current.id, patch, key);
 
-  let drag: null | { kind: 'hw'; i: number; k: number; face: CaseFace } | { kind: 'drw'; i: number; c0: FlightCase; origin: THREE.Vector3; scale: number } | { kind: 'div'; i: number; c0: FlightCase; origin: THREE.Vector3; axis: THREE.Vector3; scale: number } | { kind: 'grip'; part: CasePartId; face: CaseFace; c0: FlightCase; origin: THREE.Vector3; axis: THREE.Vector3; scale: number } = null;
+  let drag: null | { kind: 'rack'; i: number; c0: FlightCase; origin: THREE.Vector3; dir: THREE.Vector3; scale: number } | { kind: 'move'; i: number; axis: 'x' | 'y' | 'z'; c0: FlightCase; origin: THREE.Vector3; dir: THREE.Vector3; scale: number } | { kind: 'hw'; i: number; k: number; face: CaseFace } | { kind: 'drw'; i: number; c0: FlightCase; origin: THREE.Vector3; scale: number } | { kind: 'div'; i: number; c0: FlightCase; origin: THREE.Vector3; axis: THREE.Vector3; scale: number } | { kind: 'grip'; part: CasePartId; face: CaseFace; c0: FlightCase; origin: THREE.Vector3; axis: THREE.Vector3; scale: number } = null;
   let down: { x: number; y: number; id: number } | null = null;
   let moved = false;
   let pending: PointerEvent | null = null;
@@ -400,7 +410,14 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
     if (ed.readOnly || ed.tool !== 'select') return;
     const p = pick(e);
     if (!p) return;
-    if (p.tag.grip && !openRef.current) {
+    if (p.tag.move) {
+      // move arrow of a free part: along one axis of the case
+      const obj = p.hit.object.parent!;
+      const origin = obj.getWorldPosition(new THREE.Vector3());
+      const dir = new THREE.Vector3(0, 1, 0).applyQuaternion(obj.getWorldQuaternion(new THREE.Quaternion())).normalize();
+      const scale = new THREE.Vector3().setFromMatrixScale(obj.parent!.matrixWorld).x;
+      drag = { kind: 'move', ...p.tag.move, c0: cRef.current, origin, dir, scale };
+    } else if (p.tag.grip && !openRef.current) {
       const obj = p.hit.object.parent!;
       const origin = obj.getWorldPosition(new THREE.Vector3());
       const axis = new THREE.Vector3(0, 1, 0).applyQuaternion(obj.getWorldQuaternion(new THREE.Quaternion())).normalize();
@@ -411,6 +428,12 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
       if (!inst) return;
       ed.select(`hw:${inst.i}:${inst.k}`);
       drag = { kind: 'hw', i: inst.i, k: inst.k, face: inst.face };
+    } else if (p.tag.rack !== undefined && cRef.current.racks?.[p.tag.rack]) {
+      // rack: slides along its height (upright racks up and down, lying racks front to back)
+      const i = p.tag.rack, r = cRef.current.racks![i];
+      ed.select(`rack:${i}`);
+      const dir = (r.face === 'top' ? v3(0, 0, -1) : v3(0, 1, 0)).applyQuaternion(p.hit.object.parent!.getWorldQuaternion(new THREE.Quaternion())).normalize();
+      drag = { kind: 'rack', i, c0: cRef.current, origin: p.hit.point.clone(), dir, scale: new THREE.Vector3().setFromMatrixScale(p.hit.object.matrixWorld).x };
     } else if (p.tag.drw !== undefined && cRef.current.drawers?.[p.tag.drw]) {
       // drawer: dragging changes its front height (the drawers above move up)
       const i = p.tag.drw;
@@ -444,6 +467,32 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
   const applyDrag = (e: PointerEvent) => {
     const c = cRef.current;
     if (!drag) return;
+    if (drag.kind === 'rack') {
+      const s = alongAxis(e, drag.origin, drag.dir);
+      if (s === null) return;
+      const r = drag.c0.racks![drag.i];
+      const step = e.ctrlKey || e.metaKey ? 1 : 5;
+      const pos = Math.max(0, Math.round((r.pos + s / drag.scale) / step) * step);
+      const di = drag.i;
+      update({ racks: drag.c0.racks!.map((x, j) => (j === di ? { ...x, pos } : x)) }, key);
+      hudAt(e, `${r.name || `Rack ${di + 1}`}: Start ${pos} mm${r.face === 'top' ? ' ab vorne' : ' über dem Boden'}`);
+      return;
+    }
+    if (drag.kind === 'move') {
+      const s = alongAxis(e, drag.origin, drag.dir);
+      if (s === null) return;
+      const o = drag.c0.objects?.[drag.i];
+      if (!o) return;
+      const k = drag.axis === 'x' ? 0 : drag.axis === 'y' ? 1 : 2;
+      const step = e.ctrlKey || e.metaKey ? 1 : 5;
+      const raw = o.pos[k] + s / drag.scale;
+      const pos = [...o.pos] as [number, number, number];
+      pos[k] = e.altKey ? Math.round(raw) : snapObject(drag.c0, o, k, raw, step);
+      const di = drag.i;
+      update({ objects: drag.c0.objects!.map((x, j) => (j === di ? { ...x, pos } : x)) }, key);
+      hudAt(e, `${o.name}: ${pos.map((v) => Math.round(v)).join(' / ')} mm (x / y / z)`);
+      return;
+    }
     if (drag.kind === 'drw') {
       const s = alongAxis(e, drag.origin, v3(0, 1, 0));
       if (s === null) return;
@@ -509,7 +558,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
     raf = requestAnimationFrame(() => {
       raf = 0;
       const p = pick(e);
-      dom.style.cursor = p?.tag.grip && !openRef.current ? 'ns-resize' : p?.tag.hw ? 'grab' : '';
+      dom.style.cursor = p?.tag.move ? 'move' : p?.tag.grip && !openRef.current ? 'ns-resize' : p?.tag.hw ? 'grab' : '';
       setHover(p?.tag ?? null);
     });
   };
@@ -527,6 +576,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
       else if (tag?.div !== undefined) ed.select(`div:${tag.div}`);
       else if (tag?.drw !== undefined) ed.select(`drw:${tag.drw}`);
       else if (tag?.rack !== undefined) ed.select(`rack:${tag.rack}`);
+      else if (tag?.obj !== undefined) ed.select(`obj:${tag.obj}`);
       else if (tag?.part) ed.select(`part:${tag.part}`);
       const r = dom.getBoundingClientRect();
       ui.current.setMenu({ x: e.clientX - r.left, y: e.clientY - r.top, tag });
@@ -546,6 +596,7 @@ function caseEditor(api: Scene3DApi, cRef: { current: FlightCase }, editRef: { c
       else if (p.tag.div !== undefined) ed.select(`div:${p.tag.div}`);
       else if (p.tag.drw !== undefined) ed.select(`drw:${p.tag.drw}`);
       else if (p.tag.rack !== undefined) ed.select(`rack:${p.tag.rack}`);
+      else if (p.tag.obj !== undefined) ed.select(`obj:${p.tag.obj}`);
       else if (p.tag.part) ed.select(`part:${p.tag.part}`);
       return;
     }
@@ -870,6 +921,7 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?
       if (o.userData.divider !== undefined && sel === `div:${o.userData.divider}`) hits.push(o);
       if (o.userData.drawer !== undefined && sel === `drw:${o.userData.drawer}`) hits.push(o);
       if (o.userData.rack !== undefined && sel === `rack:${o.userData.rack}`) hits.push(o);
+      if (o.userData.obj !== undefined && sel === `obj:${o.userData.obj}`) hits.push(o);
     });
     if (hits.length) {
       const box = new THREE.Box3();
@@ -933,6 +985,38 @@ export function buildCase(root: THREE.Group, c: FlightCase, open: boolean, view?
       }
     }
   }
+  // free parts in outer coordinates; the selected one gets three move arrows
+  (c.objects ?? []).forEach((o, i) => {
+    if (view?.hidden?.has(`obj:${i}`)) return;
+    const b = objectBox(o);
+    const m = OBJECT_MATERIALS[o.material];
+    const mat = new THREE.MeshStandardMaterial({ color: m.color, roughness: o.material === 'alu' || o.material === 'steel' ? 0.35 : 0.75, metalness: o.material === 'alu' || o.material === 'steel' ? 0.8 : 0.05 });
+    const geo = o.shape === 'cylinder' ? new THREE.CylinderGeometry(o.size[0] / 2, o.size[0] / 2, o.size[2], 28) : boxGeo(b.x1 - b.x0, b.z1 - b.z0, b.y1 - b.y0);
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.copy(P((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2, 0)).setY(y0 + (b.z0 + b.z1) / 2);
+    if (o.shape === 'cylinder' && o.lie === 'x') mesh.rotation.z = Math.PI / 2;
+    if (o.shape === 'cylinder' && o.lie === 'y') mesh.rotation.x = Math.PI / 2;
+    mesh.userData.obj = i;
+    root.add(mesh);
+    if (view?.selected === `obj:${i}`) {
+      const gm = new THREE.MeshBasicMaterial({ color: '#22d3ee', depthTest: false, transparent: true, opacity: 0.95 });
+      gm.userData.noClip = true;
+      const centre = mesh.position.clone();
+      const axes: ['x' | 'y' | 'z', THREE.Vector3, number][] = [['x', v3(1, 0, 0), (b.x1 - b.x0) / 2], ['z', v3(0, 1, 0), (b.z1 - b.z0) / 2], ['y', v3(0, 0, -1), (b.y1 - b.y0) / 2]];
+      for (const [axis, n, half] of axes) {
+        const g = new THREE.Group();
+        g.position.copy(centre).addScaledVector(n, half + 40);
+        g.quaternion.setFromUnitVectors(v3(0, 1, 0), n);
+        const cone = new THREE.Mesh(new THREE.ConeGeometry(12, 30, 18), gm);
+        cone.position.y = 15;
+        const stem = new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.5, 36, 8), gm);
+        stem.position.y = -10;
+        for (const x of [cone, stem]) { x.renderOrder = 10; x.userData.move = { i, axis }; g.add(x); }
+        g.userData.overlay = true;
+        root.add(g);
+      }
+    }
+  });
   if (view?.dims) addOuterDims(root, c, y0);
   if (view?.measure) addMeasure(root, view.measure);
   const selDiv = /^div:(\d+)$/.exec(view?.selected ?? '');

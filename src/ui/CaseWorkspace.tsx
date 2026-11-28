@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useStore } from '../model/store';
 import type { CaseFace, CaseHardware, CaseSeam, FlightCase, HardwareKind, Project } from '../model/types';
-import { addDivider, doorSpace, newCaseRack, rackDevices, setDoorHinge, drawerBottom, drawerFree, setDrawerHeight, spreadDrawers, applyCaseType, autoHardware, DIVIDER_LABELS, dividerGaps, dividerRange, spreadDividers, type DividerAxis, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
+import { addDivider, doorSpace, newObject, objectWeight, OBJECT_MATERIALS, OBJECT_PRESETS, newCaseRack, rackDevices, setDoorHinge, drawerBottom, drawerFree, setDrawerHeight, spreadDrawers, applyCaseType, autoHardware, DIVIDER_LABELS, dividerGaps, dividerRange, spreadDividers, type DividerAxis, caseBom, caseBoxes, caseDims, caseWarnings, CASE_TYPES, doorDepths, FACE_LABELS, faceSpan, HARDWARE, hardwareInstances, hasDoors, LID_LABELS, mirrorHardware, moveHardware, OPPOSITE_FACE, newCase, newDrawerInlay, partLabelOf, removeSelection, SEAM_LABELS, type CasePartId } from '../model/cases';
 import { panelMaterial, PANEL_MATERIALS, partLabel, partsForKind, partsInGroup, profileBySku, profileLabel, profilesFor } from '../library/caseHardware';
 import { caseList, foamMaterial, FOAM_MATERIALS, inlayThickness } from '../model/inlay';
 import { formatLength } from '../model/geometry';
@@ -11,7 +11,7 @@ import { Case3D, type CaseEdit, type CaseTool } from '../three/Case3D';
 import { CaseTimeline } from './CaseTimeline';
 import { isRolledBack, setMarker, timelineMarker } from '../model/timeline';
 import { brokenExprs, evalExpr, PARAM_FIELDS, PARAM_NAME, setFieldExpr, setParams } from '../model/params';
-import type { CaseParam, CaseRack } from '../model/types';
+import type { CaseObject, CaseParam, CaseRack } from '../model/types';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Splitter } from './Splitter';
 import { DEFAULT_LAYOUT, getLayout, setLayout, useLayout } from '../model/layout';
@@ -135,6 +135,7 @@ function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; 
 
         </Section>
         <RackSection c={c} project={project} edit={edit} />
+        <ObjectSection c={c} edit={edit} />
         {hasDoors(c) ? <DoorSection c={c} /> : null}
         <Section id="case.lid" title="Deckel" defaultOpen summary={c.lidKind === 'none' ? 'ohne' : `${LID_LABELS[c.lidKind]}, ${c.lidH} mm`}>
         <div className="row gap8">
@@ -269,6 +270,46 @@ function RackSection({ c, project, edit }: { c: FlightCase; project: Project; ed
           <button className="btn sm" onClick={() => { const r = newCaseRack(c, 'front'); set([...racks, r]); edit?.select(`rack:${racks.length}`); }} title="Aufrechtes Rack, Front zur Vorderseite, so hoch wie es passt">Rack hinzufügen</button>
           <button className="btn sm" onClick={() => { const r = newCaseRack(c, 'top'); set([...racks, r]); edit?.select(`rack:${racks.length}`); }} title="Liegendes Rack, Front nach oben (z. B. unter einem Klappdeckel)">Liegendes Rack</button>
         </div>
+      ) : null}
+    </Section>
+  );
+}
+
+/** free parts: box or cylinder with size, position (outer case coordinates) and material */
+function ObjectSection({ c, edit }: { c: FlightCase; edit?: CaseEdit }) {
+  const ro = useStore((s) => s.readOnly);
+  const list = c.objects ?? [];
+  const set = (objects: CaseObject[]) => st().updateCase(c.id, { objects });
+  const setO = (i: number, p: Partial<CaseObject>) => set(list.map((o, j) => (j === i ? { ...o, ...p } : o)));
+  const num = (i: number, key: 'size' | 'pos', k: number, label: string, min?: number) => (
+    <Field label={label}><NumberInput value={list[i][key][k]} min={min} onChange={(v) => { const a = [...list[i][key]] as [number, number, number]; a[k] = min !== undefined ? Math.max(min, v) : v; setO(i, { [key]: a }); }} /></Field>
+  );
+  return (
+    <Section id="case.objects" title="Bauteile" summary={list.length ? list.map((o) => o.name).join(', ') : 'keine'}>
+      <div className="muted small">Freie Teile wie Tischplatte, Tischbeine, Display oder Rollenbretter, auch außerhalb des Cases. Lage: kleinste Ecke ab links, vorne und Unterkante des Cases (ohne Rollen). In 3D an den Pfeilen verschieben.</div>
+      {list.map((o, i) => (
+        <div key={o.id} className="rack-row">
+          <div className="row gap8">
+            <Field label="Name" grow={2}><input disabled={ro} value={o.name} onChange={(e) => setO(i, { name: e.target.value })} /></Field>
+            <Field label="Form"><select disabled={ro} value={o.shape} onChange={(e) => setO(i, { shape: e.target.value as CaseObject['shape'] })}><option value="box">Quader</option><option value="cylinder">Zylinder</option></select></Field>
+            <Field label="Material" grow={2}><select disabled={ro} value={o.material} onChange={(e) => setO(i, { material: e.target.value as CaseObject['material'] })}>{Object.entries(OBJECT_MATERIALS).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}</select></Field>
+          </div>
+          <div className="row gap8">
+            {o.shape === 'cylinder' ? <>{num(i, 'size', 0, 'Ø (mm)', 1)}{num(i, 'size', 2, 'Länge (mm)', 1)}
+              <Field label="Lage"><select disabled={ro} value={o.lie ?? ''} onChange={(e) => setO(i, { lie: (e.target.value || undefined) as CaseObject['lie'] })}><option value="">stehend</option><option value="x">liegend längs</option><option value="y">liegend quer</option></select></Field></>
+              : <>{num(i, 'size', 0, 'Länge (mm)', 1)}{num(i, 'size', 1, 'Breite (mm)', 1)}{num(i, 'size', 2, 'Höhe (mm)', 1)}</>}
+          </div>
+          <div className="row gap8">
+            {num(i, 'pos', 0, 'x (mm)')}{num(i, 'pos', 1, 'y (mm)')}{num(i, 'pos', 2, 'z (mm)')}
+            {!ro ? <button className="icon-btn" title="Bauteil entfernen" aria-label="Entfernen" onClick={() => set(list.filter((_, j) => j !== i))}>✕</button> : null}
+          </div>
+        </div>
+      ))}
+      {!ro ? (
+        <select className="tool-select" value="" onChange={(e) => { if (!e.target.value) return; const o = newObject(c, e.target.value); set([...list, o]); edit?.select(`obj:${list.length}`); }} title="Freies Bauteil hinzufügen">
+          <option value="">Bauteil hinzufügen …</option>
+          {OBJECT_PRESETS.map((p) => <option key={p.id} value={p.id}>{p.label}</option>)}
+        </select>
       ) : null}
     </Section>
   );
@@ -444,6 +485,18 @@ function SelectionBox({ c, edit }: { c: FlightCase; edit: CaseEdit }) {
       </div>
     );
   }
+  const obm = /^obj:(\d+)$/.exec(sel);
+  if (obm) {
+    const i = Number(obm[1]), o = c.objects?.[i];
+    if (!o) return null;
+    return (
+      <div className="case-sel">
+        <div><b>{o.name}</b> <span className="muted small">{`${o.shape === 'cylinder' ? `Ø ${o.size[0]} × ${o.size[2]}` : o.size.join(' × ')} mm, ca. ${String(objectWeight(o)).replace('.', ',')} kg`}</span></div>
+        <div className="muted small">An den Pfeilen ziehen verschiebt in x, y und z (rastet an Case-Außenflächen und anderen Bauteilen ein). Maße und Material im Abschnitt Bauteile.</div>
+        {!ro ? <div className="btn-group"><button className="btn sm danger" onClick={del}>Bauteil entfernen</button></div> : null}
+      </div>
+    );
+  }
   const rkm = /^rack:(\d+)$/.exec(sel);
   if (rkm) {
     const i = Number(rkm[1]), r = c.racks?.[i];
@@ -546,6 +599,8 @@ function CaseTree({ c, edit, setHidden }: { c: FlightCase; edit: CaseEdit; setHi
           ...(selRow === String(i) && pieces.length > 1 ? pieces.map((p) => node(`hw${i}:${p.k}`, `Stück ${p.k + 1}${h.at ? '' : ', verteilt'}`, `hw:${i}:${p.k}`, true)) : []),
         ];
       })}
+      {c.objects?.length ? <h4>Bauteile</h4> : null}
+      {(c.objects ?? []).map((o, i) => node(`obj${i}`, o.name, `obj:${i}`, false, `obj:${i}`))}
       {c.racks?.length ? <h4>Racks</h4> : null}
       {(c.racks ?? []).map((r, i) => node(`rack${i}`, `${r.name || `Rack ${i + 1}`}, ${r.units} HE`, `rack:${i}`, false, `rack:${i}`))}
       {c.drawers?.length ? <h4>Schubladen</h4> : null}
@@ -689,7 +744,7 @@ export function CaseWorkspace() {
           ) : null}
           {!ro ? (
             <ToolGroup>
-              <button className="btn sm" onClick={() => openCaseInlay(c)} title="Schaumstoff und Ausschnitte dieses Cases im Einlagen-Designer bearbeiten">Einlage bearbeiten</button>
+              <button className="btn sm" onClick={() => openCaseInlay(c)} title="Schaumstoff und Ausschnitte dieses Cases im Einlagen-Designer bearbeiten">Einlage</button>
             </ToolGroup>
           ) : null}
           <span className="spacer" />

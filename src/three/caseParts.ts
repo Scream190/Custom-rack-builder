@@ -423,6 +423,23 @@ export class Builder {
   /** recessed dish: vents, connector cut-outs or a cable gland */
   dish(g: THREE.Object3D, kind: string) {
     const { mats } = this;
+    if (kind === 'd-socket' || kind === 'd-panel') {
+      // D-size connectors (Neutrik): 26 × 31 mm flange with a round body, alone or four on a plate
+      const xs = kind === 'd-panel' ? [-60, -20, 20, 60] : [0];
+      if (kind === 'd-panel') {
+        this.add(g, boxGeo(180, 60, 2), mats.black, 0, 0, 1);
+        for (const sx of [-1, 1]) for (const sy of [-1, 1]) this.hwRivet(g, sx * 82, sy * 22, 2.2);
+      }
+      for (const x of xs) {
+        this.add(g, boxGeo(26, 31, 2.5), mats.black, x, 0, 2.6);
+        const ring = this.add(g, new THREE.CylinderGeometry(11.5, 11.5, 3, 28), mats.chrome, x, 0, 4.2);
+        ring.rotation.x = Math.PI / 2;
+        const face = this.add(g, new THREE.CylinderGeometry(9.5, 9.5, 3.4, 28), mats.recess, x, 0, 4.4);
+        face.rotation.x = Math.PI / 2;
+        for (const sy of [-1, 1]) this.hwRivet(g, x - 9.5 * sy, 12 * sy, 2.6);
+      }
+      return;
+    }
     const big = kind === 'dish-connector';
     const w = big ? 120 : kind === 'cable-gland' ? 70 : 100, h = big ? 80 : 70;
     this.add(g, dishGeo(w, h, 8), mats.chrome, 0, 0, -1.2);

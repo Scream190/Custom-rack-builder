@@ -188,6 +188,15 @@ const LabelHolder = () => (
   </g>
 );
 function Dish({ kind }: { kind: string }) {
+  if (kind === 'd-socket' || kind === 'd-panel') {
+    const xs = kind === 'd-panel' ? [-60, -20, 20, 60] : [0];
+    return (
+      <g>
+        {kind === 'd-panel' ? <rect x={-90} y={-30} width={180} height={60} rx={3} fill="#1b1c1f" stroke={EDGE} strokeWidth={0.8} /> : null}
+        {xs.map((x) => <g key={x}><rect x={x - 13} y={-15.5} width={26} height={31} rx={2} fill="#111" stroke="#3a3d42" /><circle cx={x} cy={0} r={11.5} fill="url(#cs-chrome)" /><circle cx={x} cy={0} r={9} fill="#202226" /></g>)}
+      </g>
+    );
+  }
   const big = kind === 'dish-connector';
   const w = big ? 120 : kind === 'cable-gland' ? 70 : 100, h = big ? 80 : 70;
   return (
@@ -266,7 +275,7 @@ function OutsideView({ c, face, w, ink }: { c: FlightCase; face: CaseFace; w: nu
     if (it.kind === 'handle-recessed') at(key, it.u, Y(it.z), <RecessedHandle />);
     else if (it.kind === 'handle-strap' || it.kind === 'handle-surface') at(key, it.u, Y(it.z), <StrapHandle />);
     else if (it.kind === 'label') at(key, it.u, Y(it.z), <LabelHolder />);
-    else if (it.kind.startsWith('dish') || it.kind === 'cable-gland') at(key, it.u, Y(it.z), <Dish kind={it.kind} />);
+    else if (it.kind.startsWith('dish') || it.kind === 'cable-gland' || it.kind.startsWith('d-')) at(key, it.u, Y(it.z), <Dish kind={it.kind} />);
   }
 
   // aluminium angles along the outer border of the face, closing profiles along the seams between shells

@@ -395,7 +395,8 @@ export type CaseFace = 'front' | 'back' | 'left' | 'right' | 'top' | 'bottom';
 export type HardwareKind =
   | 'butterfly' | 'butterfly-small' | 'handle-recessed' | 'handle-strap' | 'stack-cup' | 'hinge' | 'label'
   | 'castor' | 'castor-braked' | 'skid'
-  | 'draw-latch' | 'lid-stay' | 'piano-hinge' | 'foot' | 'dish-vent' | 'dish-connector' | 'cable-gland' | 'handle-surface';
+  | 'draw-latch' | 'lid-stay' | 'piano-hinge' | 'foot' | 'dish-vent' | 'dish-connector' | 'cable-gland' | 'handle-surface'
+  | 'd-socket' | 'd-panel';
 /** PE = polyethylene (closed cell, firm), PU = polyurethane (open cell, soft), EVA = ethylene vinyl acetate (dense, smooth) */
 export type FoamMaterial = 'PE' | 'PU' | 'EVA';
 export interface CaseHardware {
@@ -500,6 +501,8 @@ export interface FlightCase {
   doorHinge?: Partial<Record<'front' | 'back' | 'left' | 'right', 'left' | 'right' | 'top' | 'bottom'>>;
   /** shelves inside a door (storage in the door), heights from the inner bottom of the door; pos 0 = only a lip at the floor */
   doorShelves?: Partial<Record<'front' | 'back' | 'left' | 'right', { pos: number; lip: number }[]>>;
+  /** free parts (table top, legs, display, mounting blocks …): simple solids placed anywhere, also outside the case */
+  objects?: CaseObject[];
   /** user parameters (named values) that size fields refer to by formula */
   params?: CaseParam[];
   /** formulas of linked size fields by path ('inner.l', 'lidH', 'doors.left' …) */
@@ -553,3 +556,11 @@ export interface CaseParam { name: string; value: number; note?: string }
  * where the rack starts along its height (front/back racks: above the inner floor; top racks: from the inner front).
  */
 export interface CaseRack { id: string; name?: string; units: number; face: 'front' | 'back' | 'top'; inset: number; railDepth: number; pos: number; rackId?: string }
+
+/**
+ * A free part: box or cylinder (diameter = size[0], height = size[2], upright) in outer case coordinates (mm): x from the
+ * left, y from the front, z from the bottom of the case (castors not counted); `pos` is the corner with the smallest
+ * coordinates. `rotZ` turns a cylinder lying along x ('x') or y ('y') instead of upright.
+ */
+export interface CaseObject { id: string; name: string; shape: 'box' | 'cylinder'; size: [number, number, number]; pos: [number, number, number]; material: CaseObjectMaterial; lie?: 'x' | 'y' }
+export type CaseObjectMaterial = 'ply' | 'laminate' | 'alu' | 'steel' | 'black' | 'foam' | 'rubber';

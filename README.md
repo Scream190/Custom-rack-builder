@@ -435,6 +435,19 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
   hinten montierte an den hinteren Schienen. Warnung, wenn das Rack nicht in die Breite, Höhe oder Tiefe passt oder ein
   Gerät zu tief ist; die Rackschienen (Penn Elcom, Länge 44,45 mm je HE + 3,2 mm) stehen in der Stückliste. Ein Case
   mit Racks bekommt keinen Schaumstoff im Korpus, solange keine Ausschnitte gesetzt sind.
+- **Freie Bauteile:** Im Abschnitt *Bauteile* setzt du Quader oder Zylinder (stehend oder liegend) mit Name, Maß,
+  Material und Lage, auch außerhalb des Cases: Tischplatte, Tischbeine (Alurohr), Display, Rollenbretter usw. Lage =
+  kleinste Ecke ab linker, vorderer und unterer Außenkante (ohne Rollen). In 3D zeigt das ausgewählte Teil drei Pfeile;
+  Ziehen verschiebt in x, y oder z und rastet an den Außenflächen des Cases und an anderen Bauteilen ein (Strg: 1 mm,
+  Alt: frei). Rechtsklick: duplizieren, entfernen, ausblenden, isolieren. Plattenförmige Holzteile gehen in den
+  Zuschnitt, die übrigen mit Maß, Material und Gewicht (Rohre mit 2 mm Wand) in die Stückliste. Freie Teile stehen
+  fest im Raum und bewegen sich nicht mit Deckel oder Tür.
+- **Einbaublenden:** Unter *Beschlag setzen* gibt es eine D-Norm-Einbaubuchse (für powerCON, XLR, etherCON direkt in
+  der Wand) und eine Anschlussblende mit vier D-Ausschnitten; beide in 3D, Zeichnung, Bohrplan und Stückliste.
+- **Racks in 3D verschieben:** Ein Rack lässt sich anklicken und entlang seiner Höhe ziehen (aufrechte Racks hoch und
+  runter, liegende von vorne nach hinten, 5-mm-Raster).
+- **Bauform „Rack-Case mit Schwingtür“:** legt mit einem Klick ein aufrechtes 19"-Rack (so hoch wie es passt, mit
+  hinteren Schienen), eine Schwingtür vorne mit Klavierband und drei Fächern, eine Tür hinten und einen Klappdeckel an.
 - **Schwingtüren und Türfächer:** Im Abschnitt *Türen* hängt jede Tür wahlweise an einem Scharnier links, rechts, oben
   oder unten (gesehen von außen). Statt der Verschlüsse auf dieser Seite kommt ein durchgehendes Klavierband; in 3D
   schwenkt die Tür beim Öffnen nach außen auf. Fächer in der Tür: Fachboden auf einer Höhe über dem Türboden und eine
@@ -457,8 +470,8 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
   (`timeline` am Case, höchstens 100 Schritte, ältere gehen in den Ausgangszustand ein). Schaum, Ausschnitte, Name und
   Notizen gehören nicht dazu. Rückgängig/Wiederholen gilt weiter für das ganze Projekt.
 - **Bauformen:** Truhe 50/50, flacher Deckel, flache Wanne (hohe Haube), Eintür-, Doppeltür- und Dreifach-Case,
-  Klappdeckel geteilt (Clamshell), Rack-Case mit Deckel oben und Türen vorne/hinten, Production-Case mit Fachböden und
-  Schubladen-Case. Jede Bauform setzt Deckel, Türen und Verschlüsse; danach lässt sich alles einzeln ändern: Türen auf jeder
+  Klappdeckel geteilt (Clamshell), Rack-Case mit Deckel oben und Türen vorne/hinten, Production-Case mit Fachböden,
+  Rack-Case mit Schwingtür und Schubladen-Case. Jede Bauform setzt Deckel, Türen und Verschlüsse; danach lässt sich alles einzeln ändern: Türen auf jeder
   Seite mit eigener Innentiefe (vorne/hinten oder links/rechts), Türen über die ganze Höhe oder unter einem durchgehenden
   Deckel, Deckel in der Mitte geteilt, Schubladen mit Fronthöhe, Fachböden. Intern besteht jedes Case aus Teilkörpern
   (Unterteil, Deckel, Türen), daraus entstehen Zeichnung, 3D, Zuschnitt, Profile und Kugelecken. Rack-Cases und Shockmounts

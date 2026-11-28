@@ -1,4 +1,4 @@
-import type { CaseFace, CaseHardware, CaseItem, CaseRack, CaseSeam, DeviceTemplate, FlightCase, HardwareKind, PlacedDevice, Project } from './types';
+import type { CaseFace, CaseHardware, CaseItem, CaseObject, CaseObjectMaterial, CaseRack, CaseSeam, DeviceTemplate, FlightCase, HardwareKind, PlacedDevice, Project } from './types';
 import { footHeight, hardwarePart, panelMaterial, profileBySku, profileKgPerM, rackStripLength, rackStripSku, sheetOf, slideFor } from '../library/caseHardware';
 import { faceWidth, U } from './geometry';
 import { uid } from './util';
@@ -29,6 +29,8 @@ export const HARDWARE: Record<HardwareKind, { label: string; weight: number; fac
   'draw-latch': { label: 'Spannverschluss', weight: 0.15, faces: ['front', 'back', 'left', 'right', 'top'] },
   'lid-stay': { label: 'Deckelstütze', weight: 0.15, faces: ['back', 'front', 'left', 'right'] },
   'piano-hinge': { label: 'Klavierband (Meterware)', weight: 0.4, faces: ['back', 'front', 'left', 'right'] },
+  'd-socket': { label: 'Einbaubuchse D-Norm (powerCON, XLR, etherCON)', weight: 0.05, faces: ['front', 'back', 'left', 'right', 'top'] },
+  'd-panel': { label: 'Anschlussblende 4 × D-Norm', weight: 0.25, faces: ['front', 'back', 'left', 'right', 'top'] },
   foot: { label: 'Gummifuß', weight: 0.05, faces: ['bottom'] },
   'dish-vent': { label: 'Einbauschale mit Lüftung', weight: 0.2, faces: ['front', 'back', 'left', 'right', 'top'] },
   'dish-connector': { label: 'Einbauschale für Steckverbinder', weight: 0.25, faces: ['front', 'back', 'left', 'right'] },
@@ -347,6 +349,8 @@ export function removeSelection(c: FlightCase, sel: string): Partial<FlightCase>
     if (sel === 'part:lid2' || (c.lidSplit && sel === 'part:lid')) return { lidSplit: undefined, caseType: undefined };
     return { lidKind: 'none', lidH: 0, lidSplit: undefined, caseType: undefined };
   }
+  const obm = /^obj:(\d+)$/.exec(sel);
+  if (obm) return c.objects?.[Number(obm[1])] ? { objects: c.objects.filter((_, j) => j !== Number(obm[1])) } : null;
   const drw = /^drw:(\d+)$/.exec(sel);
   if (drw) { const list = c.drawers ?? []; return list[Number(drw[1])] ? { drawers: list.filter((_, j) => j !== Number(drw[1])) } : null; }
   const div = /^div:(\d+)$/.exec(sel);
@@ -523,14 +527,16 @@ export function dimChains(c: FlightCase): { L: number[]; W: number[]; H: number[
 export const HW_SIZE: Partial<Record<HardwareKind, [number, number]>> = {
   butterfly: [110, 90], 'butterfly-small': [80, 62], 'draw-latch': [70, 45], hinge: [65, 60], 'piano-hinge': [300, 25],
   'handle-recessed': [190, 115], 'handle-strap': [210, 45], 'handle-surface': [170, 40], label: [100, 64],
-  'dish-vent': [150, 150], 'dish-connector': [120, 120], 'cable-gland': [55, 55], 'stack-cup': [100, 100],
+  'dish-vent': [150, 150], 'dish-connector': [120, 120], 'cable-gland': [55, 55], 'stack-cup': [100, 100], 'd-socket': [34, 40], 'd-panel': [180, 60],
 };
 export interface HwClash { keys: string[]; text: string }
 interface HRect { u0: number; u1: number; z0: number; z1: number }
 /** rectangle of one piece in face coordinates (pieces on a vertical door seam stand upright) */
-function hwRect(it: HwInstance): HRect | null {
-  const s = HW_SIZE[it.kind];
-  if (!s) return null;
+function hwRect(it: HwInstance, seamLen?: number): HRect | null {
+  const s0 = HW_SIZE[it.kind];
+  if (!s0) return null;
+  // a piano hinge is cut to the length of its seam (between the corner profiles)
+  const s: [number, number] = it.kind === 'piano-hinge' && seamLen ? [seamLen, s0[1]] : s0;
   const [w, h] = it.vertical ? [s[1], s[0]] : s;
   return { u0: it.u - w / 2, u1: it.u + w / 2, z0: it.z - h / 2, z1: it.z + h / 2 };
 }
@@ -556,7 +562,13 @@ export function hardwareClashes(c: FlightCase): HwClash[] {
   const out: HwClash[] = [];
   const leg = c.profile === 'alu35' ? 35 : c.profile === 'alu30' ? 30 : 0;
   const closeH = 20;
-  const inst = hardwareInstances(c).map((it) => ({ it, r: hwRect(it), key: `hw:${it.i}:${it.k}`, name: HARDWARE[it.kind].label }));
+  const boxes0 = caseBoxes(c);
+  const seamLen = (it: HwInstance) => {
+    if (it.kind !== 'piano-hinge' || !it.seam || it.seam === 'lid') return undefined;
+    const door = boxes0.find((b) => b.role === 'door' && b.side === it.seam);
+    return door ? door.z1 - door.z0 - 2 * leg - 4 : undefined;
+  };
+  const inst = hardwareInstances(c).map((it) => ({ it, r: hwRect(it, seamLen(it)), key: `hw:${it.i}:${it.k}`, name: HARDWARE[it.kind].label }));
   const faces = new Map<CaseFace, ReturnType<typeof faceShellRects>>();
   const rectsOf = (f: CaseFace) => { if (!faces.has(f)) faces.set(f, faceShellRects(c, f)); return faces.get(f)!; };
   for (const a of inst) {
@@ -744,6 +756,64 @@ export function doorSpace(c: FlightCase, side: Side) {
   return { depth: (side === 'front' || side === 'back' ? bx.y1 - bx.y0 : bx.x1 - bx.x0) - t, height: bx.z1 - bx.z0 - t - (bx.open.includes('top') ? 0 : t), width: (side === 'front' || side === 'back' ? bx.x1 - bx.x0 : bx.y1 - bx.y0) - 2 * t };
 }
 
+// ------------------------------------------------------------------ free parts
+
+export const OBJECT_MATERIALS: Record<CaseObjectMaterial, { label: string; density: number; color: string }> = {
+  ply: { label: 'Sperrholz', density: 680, color: '#c9a678' },
+  laminate: { label: 'Sperrholz beschichtet', density: 700, color: '#2b2d31' },
+  alu: { label: 'Aluminium', density: 2700, color: '#b8bec6' },
+  steel: { label: 'Stahl', density: 7850, color: '#6b7280' },
+  black: { label: 'Kunststoff schwarz', density: 1200, color: '#18191c' },
+  foam: { label: 'Schaumstoff', density: 30, color: '#3f3f46' },
+  rubber: { label: 'Gummi', density: 1100, color: '#222326' },
+};
+/** ready-made parts for the add menu (sizes in mm) */
+export const OBJECT_PRESETS: { id: string; label: string; make: (c: FlightCase) => Omit<CaseObject, 'id'> }[] = [
+  { id: 'plate', label: 'Platte', make: (c) => { const d = caseDims(c); return { name: 'Platte', shape: 'box', size: [Math.round(d.L), Math.round(d.W), 18], pos: [0, 0, Math.round(d.H - d.castorH)], material: 'ply' }; } },
+  { id: 'box', label: 'Quader', make: () => ({ name: 'Quader', shape: 'box', size: [200, 150, 100], pos: [50, 50, 50], material: 'black' }) },
+  { id: 'cyl', label: 'Zylinder', make: () => ({ name: 'Zylinder', shape: 'cylinder', size: [60, 60, 200], pos: [50, 50, 50], material: 'alu' }) },
+  { id: 'leg', label: 'Tischbein (Rohr Ø 40)', make: () => ({ name: 'Tischbein', shape: 'cylinder', size: [40, 40, 900], pos: [-60, 0, 0], material: 'alu' }) },
+  { id: 'display', label: 'Display', make: (c) => { const d = caseDims(c); return { name: 'Display', shape: 'box', size: [Math.min(400, Math.round(d.L - 60)), 30, 250], pos: [30, -30, Math.round(d.H - d.castorH - 300)], material: 'black' }; } },
+  { id: 'block', label: 'Rollenbrett 180 × 180', make: () => ({ name: 'Rollenbrett', shape: 'box', size: [180, 180, 18], pos: [0, 0, -18], material: 'ply' }) },
+];
+/** outer box of a free part (outer case coordinates) */
+export function objectBox(o: CaseObject) {
+  const [a, b, h] = o.size;
+  const [x, y, z] = o.pos;
+  const sz = o.shape === 'cylinder' ? (o.lie === 'x' ? [h, a, a] : o.lie === 'y' ? [a, h, a] : [a, a, h]) : [a, b, h];
+  return { x0: x, x1: x + sz[0], y0: y, y1: y + sz[1], z0: z, z1: z + sz[2] };
+}
+/** volume (m³) and weight (kg) of a free part */
+export function objectWeight(o: CaseObject) {
+  const [a, b, h] = o.size;
+  const vol = (o.shape === 'cylinder' ? Math.PI * (a / 2) ** 2 * h : a * b * h) / 1e9;
+  // aluminium and steel cylinders are tubes (2 mm wall) unless very thin
+  const tube = o.shape === 'cylinder' && (o.material === 'alu' || o.material === 'steel') && a > 16;
+  const v = tube ? (Math.PI * ((a / 2) ** 2 - (a / 2 - 2) ** 2) * h) / 1e9 : vol;
+  return Math.round(v * OBJECT_MATERIALS[o.material].density * 100) / 100;
+}
+/**
+ * Snaps a free part moved along one axis: its lower or upper edge to the outer faces of the case (0, length / width /
+ * height), to the outer edges of the other parts, then to the grid.
+ */
+export function snapObject(c: FlightCase, o: CaseObject, k: 0 | 1 | 2, v: number, step = 5): number {
+  const { L, W, H } = shellSize(c);
+  const ob = objectBox(o);
+  const len = k === 0 ? ob.x1 - ob.x0 : k === 1 ? ob.y1 - ob.y0 : ob.z1 - ob.z0;
+  const ends = [0, k === 0 ? L : k === 1 ? W : H];
+  for (const x of c.objects ?? []) if (x.id !== o.id) { const b = objectBox(x); ends.push(k === 0 ? b.x0 : k === 1 ? b.y0 : b.z0, k === 0 ? b.x1 : k === 1 ? b.y1 : b.z1); }
+  const tol = Math.max(6, step * 1.6);
+  for (const e of ends) {
+    if (Math.abs(v - e) <= tol) return e;            // lower edge onto a face
+    if (Math.abs(v + len - e) <= tol) return e - len; // upper edge onto a face
+  }
+  return Math.round(v / step) * step;
+}
+export function newObject(c: FlightCase, preset: string): CaseObject {
+  const p = OBJECT_PRESETS.find((x) => x.id === preset) ?? OBJECT_PRESETS[1];
+  return { id: uid('obj-'), ...p.make(c) };
+}
+
 /** construction presets after the case types of common case design software */
 export interface CaseType { id: string; label: string; note: string; apply: (c: FlightCase) => Partial<FlightCase> }
 const depthOf = (n: number) => Math.max(60, Math.round(n / 10) * 10);
@@ -757,6 +827,14 @@ export const CASE_TYPES: CaseType[] = [
   { id: 'clamshell', label: 'Klappdeckel geteilt', note: 'flache Wanne, Haube in der Mitte geteilt', apply: (c) => ({ lidKind: 'removable', lidH: Math.round(c.inner.h * 0.7), doors: undefined, lidSplit: true }) },
   { id: 'rack-lids', label: 'Rack-Case mit Deckeln', note: 'durchgehender Deckel oben, darunter Türen vorne und hinten', apply: (c) => ({ lidKind: 'removable', lidH: depthOf(c.inner.h * 0.15), doors: { front: depthOf(c.inner.w * 0.12), back: depthOf(c.inner.w * 0.12), span: 'body' }, lidSplit: false }) },
   { id: 'production', label: 'Production-Case', note: 'Arbeitsplatz-Case mit Türen vorne und hinten und Fachböden', apply: (c) => ({ lidKind: 'none', lidH: 0, doors: { front: depthOf(c.inner.w * 0.12), back: depthOf(c.inner.w * 0.12), span: 'full' }, lidSplit: false, dividers: [...c.dividers.filter((d) => d.axis !== 'z'), { axis: 'z', pos: Math.round(c.inner.h / 3) }, { axis: 'z', pos: Math.round((c.inner.h * 2) / 3) }] }) },
+  { id: 'rack-swing', label: 'Rack-Case mit Schwingtür', note: 'Aufrechtes 19"-Rack, Schwingtür vorne mit Fächern, Tür hinten, Klappdeckel oben', apply: (c) => {
+    const front = depthOf(c.inner.w * 0.18), back = depthOf(c.inner.w * 0.08);
+    const h = c.inner.h;
+    const base: Partial<FlightCase> = { lidKind: 'hinged', lidH: Math.max(40, Math.min(120, Math.round(h * 0.06))), doors: { front, back, span: 'full' }, lidSplit: false, drawers: undefined, doorHinge: { front: 'left' },
+      doorShelves: { front: [{ pos: 0, lip: 120 }, { pos: Math.round(h * 0.38), lip: 100 }, { pos: Math.round(h * 0.68), lip: 100 }] } };
+    const rack = newCaseRack({ ...c, ...base } as FlightCase, 'front');
+    return { ...base, racks: [rack, ...(c.racks ?? []).filter((r) => r.face !== 'front')] };
+  } },
   { id: 'drawer-case', label: 'Schubladen-Case', note: 'Tür vorne, innen Schubladen auf Auszügen', apply: (c) => {
     const inH = c.inner.h - 30;
     const n = Math.max(1, Math.min(6, Math.floor(inH / 120)));
@@ -770,8 +848,13 @@ export function applyCaseType(c: FlightCase, id: string): Partial<FlightCase> {
   if (!ty) return {};
   const patch: Partial<FlightCase> = { ...ty.apply(c), caseType: id };
   if (!('drawers' in patch)) patch.drawers = undefined;
-  const next = { ...c, ...patch };
-  return { ...patch, hardware: [...autoHardware(next), ...c.hardware.filter((h) => h.kind.startsWith('castor') || h.kind === 'foot' || h.kind === 'skid')] };
+  if (!('doorHinge' in patch)) patch.doorHinge = undefined;
+  if (!('doorShelves' in patch)) patch.doorShelves = undefined;
+  const next = { ...c, ...patch, doorHinge: undefined } as FlightCase;
+  let out: Partial<FlightCase> = { ...patch, doorHinge: undefined, hardware: [...autoHardware(next), ...c.hardware.filter((h) => h.kind.startsWith('castor') || h.kind === 'foot' || h.kind === 'skid')] };
+  // swing doors of the preset: hang them so the hinge side gets its piano hinge
+  for (const [side, edge] of Object.entries(patch.doorHinge ?? {}) as [Side, 'left' | 'right' | 'top' | 'bottom'][]) out = { ...out, ...setDoorHinge({ ...c, ...out } as FlightCase, side, edge) };
+  return out;
 }
 
 const castorWeight = (size: number) => (size <= 75 ? 0.5 : size <= 100 ? 0.8 : 1.1);
@@ -1002,6 +1085,7 @@ export function caseWarnings(c: FlightCase): CaseWarning[] {
   for (const pr of [edge, closing]) if (pr?.panel && (c.panel < pr.panel[0] - 0.01 || c.panel > pr.panel[1] + 0.01)) out.push({ text: `Profil ${pr.sku} ist für ${String(pr.panel[0]).replace('.', ',')} bis ${String(pr.panel[1]).replace('.', ',')} mm Platte, gewählt sind ${String(c.panel).replace('.', ',')} mm` });
   if (!isDrawer(c)) for (const k of new Set(hardwareClashes(c).map((x) => x.text))) out.push({ text: k });
   for (const w of rackWarnings(c)) out.push({ text: w });
+  for (const o of c.objects ?? []) if (o.size.some((v) => !(v > 0))) out.push({ text: `${o.name}: Maße fehlen` });
   return out;
 }
 
@@ -1080,6 +1164,17 @@ export function caseBom(c: FlightCase, project?: Project): CaseBom {
     const n = r.railDepth > 0 ? 4 : 2;
     addHw(`Rackschiene ${r.units} HE (${rackStripLength(r.units)} mm)`, n, rackStripSku(r.units) ?? undefined);
     hwKg += n * r.units * 0.06;
+  }
+  // free parts: plywood plates go into the cutting list, everything else is listed with its size
+  for (const o of c.objects ?? []) {
+    const [a, b, h] = o.size;
+    if (o.shape === 'box' && (o.material === 'ply' || o.material === 'laminate') && Math.min(a, b, h) <= 30) {
+      const s = [a, b, h].sort((x, y) => y - x);
+      addPanel(o.name, s[0], s[1]);
+    } else {
+      addHw(`${o.name} (${o.shape === 'cylinder' ? `Ø ${a} × ${h}` : `${a} × ${b} × ${h}`} mm, ${OBJECT_MATERIALS[o.material].label})`, 1);
+      hwKg += objectWeight(o);
+    }
   }
   // storage in doors: shelf panels and lips across the door
   for (const s of SIDES) for (const sh of c.doorShelves?.[s] ?? []) {
