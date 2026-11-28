@@ -405,6 +405,15 @@ Pro Projekt beliebig viele Cases, gespeichert in der Projektdatei.
   Bearbeiten stehen; *Einpassen* richtet sie neu aus, *Vorne*, *Oben*, *Rechts* und *Iso* schwenken in die
   Standardansichten. *Schnitt* schneidet das Case quer zur Länge oder Breite auf (Lage per Schieberegler) und zeigt
   Wände, Schaum und Schubladen von innen.
+- **Zeitleiste (Bearbeitungshistorie):** Unter der Ansicht steht wie in parametrischen CAD-Programmen jede Änderung an
+  Maßen, Deckel, Türen, Schubladen, Einbauten, Beschlägen, Rollen und Bauweise als Schritt mit Symbol. Die Markierung
+  (blauer Strich) zeigt, bis wohin die Konstruktion abgespielt ist: Ziehen oder die Pfeile rollen sie zurück, Doppelklick
+  auf einen Schritt spielt bis dorthin. Änderungen im zurückgerollten Zustand werden an der Markierung eingefügt, die
+  späteren Schritte danach neu angewendet. Ein Schritt lässt sich unterdrücken oder löschen; was sich auf ein nicht mehr
+  vorhandenes Teil bezieht, wird gelb als „ohne Wirkung“ markiert. Klick auf einen Schritt wählt das zugehörige Teil aus.
+  Tippen in ein Feld und ein Mauszug ergeben jeweils einen Schritt. Die Zeitleiste wird mit dem Projekt gespeichert
+  (`timeline` am Case, höchstens 100 Schritte, ältere gehen in den Ausgangszustand ein). Schaum, Ausschnitte, Name und
+  Notizen gehören nicht dazu. Rückgängig/Wiederholen gilt weiter für das ganze Projekt.
 - **Bauformen:** Truhe 50/50, flacher Deckel, flache Wanne (hohe Haube), Eintür-, Doppeltür- und Dreifach-Case,
   Klappdeckel geteilt (Clamshell), Rack-Case mit Deckel oben und Türen vorne/hinten, Production-Case mit Fachböden und
   Schubladen-Case. Jede Bauform setzt Deckel, Türen und Verschlüsse; danach lässt sich alles einzeln ändern: Türen auf jeder
@@ -527,7 +536,7 @@ Während `npm run dev` läuft, zeigt `http://localhost:5173/gallery.html` alle M
 Stack: React + TypeScript + Vite, zustand (State, Undo/Redo), SVG-Rendering, three.js (3D), jsPDF + svg2pdf (PDF).
 
 ```
-src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry, cases.ts = Case-Designer,
+src/model/      Datenmodell, Geometrie & Kabellängen, Store, Blenden-Geometrie, Stecker-Registry, cases.ts = Case-Designer, timeline.ts = Zeitleiste,
                 cableBuild.ts = Kabelbau (eigene Kabel, Belegung, Arbeitsschritte),
                 rackBuild.ts = Rack-Designer (Maße, Stückliste, Gewicht),
                 inlay.ts = Einlagen (Umrisse, Griffmulden, eigene Konturen und Formvorlagen, Schaumarten, Plattenaufbau)

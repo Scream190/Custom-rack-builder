@@ -1,5 +1,6 @@
 // Case designer checks. Run: npm run test:cases
 import { addDivider, dimChains, dividerGaps, dividerRange, moveDivider, spreadDividers, DIVIDER_T, applyCaseType, bars, caseBom, caseBoxes, caseDims, caseSeams, caseWarnings, CASE_TYPES, drawerInner, faceToOuter, HARDWARE, hardwareInstances, mirrorHardware, moveHardware, newCase, snapHardware, newDrawerInlay, outerToFace, packItems, pinHardware, placeHardware, pushPull, removeSelection, shellSize, snapToSeam, splitAt, ITEM_PRESETS } from '../src/model/cases';
+import { deleteStep, describeSteps, isRolledBack, MAX_STEPS, recordStep, setMarker, timelineMarker, toggleStep } from '../src/model/timeline';
 import { HARDWARE_PARTS, PROFILES, profileBySku, profilesFor, rackStripLength, rackStripSku } from '../src/library/caseHardware';
 import { BUILTIN_DEVICES } from '../src/library/devices';
 import { CUTOUT_KINDS, CUTOUT_LIBRARY } from '../src/library/cutouts';
@@ -307,6 +308,51 @@ console.log(`cut-out library: ${CUTOUT_LIBRARY.length} templates (${CUTOUT_LIBRA
   const dcd = dimChains(door);
   ok(dcd.L.length === 3 && Math.round(dcd.L[1]) === Math.round(sv.doors!.left! + t), `a left door splits the length chain (${dcd.L.join('/')})`);
   console.log(`3D editor: push/pull, split, place, move, snap, mirror, shelves, dimensions, delete ok`);
+}
+
+// ------------------------------------------------------------------ design history (timeline)
+{
+  let c = newCase('History');
+  const l0 = c.inner.l, h0 = c.inner.h;
+  let now = 1000;
+  const rec = (patch: Partial<typeof c>, key?: string, dt = 5000) => { now += dt; c = recordStep(c, patch, key, now); };
+  rec({ inner: { ...c.inner, l: 700 } });
+  rec({ dividers: addDivider(c, 'z', 80) });
+  rec({ inner: { ...c.inner, h: 320 } });
+  ok(c.timeline!.steps.length === 3 && c.inner.l === 700 && c.inner.h === 320 && c.dividers.length === 1, 'three edits make three steps');
+  ok(describeSteps(c).map((s) => s.label).join(' | ') === 'Länge innen 700 mm | Fachboden gesetzt | Höhe innen 320 mm', `step names: ${describeSteps(c).map((s) => s.label).join(' | ')}`);
+  // typing into the same field within 1.5 s and one mouse drag merge into one step
+  rec({ inner: { ...c.inner, h: 330 } }, 'case:x:inner', 100);
+  rec({ inner: { ...c.inner, h: 340 } }, 'case:x:inner', 100);
+  ok(c.timeline!.steps.length === 4 && describeSteps(c)[3].label === 'Höhe innen 340 mm', 'continued typing merges into one step');
+  rec({ dividers: [{ ...c.dividers[0], pos: 90 }] }, 'drag:1', 3000);
+  rec({ dividers: [{ ...c.dividers[0], pos: 100 }] }, 'drag:1', 3000);
+  ok(c.timeline!.steps.length === 5 && describeSteps(c)[4].label === 'Fachboden verschoben' && c.dividers[0].pos === 100, 'a slow drag is still one step');
+  // roll back: marker after step 1 shows the state after the first edit
+  const back = setMarker(c, 1);
+  ok(back.inner.l === 700 && back.inner.h === h0 && back.dividers.length === 0 && isRolledBack(back) && timelineMarker(back) === 1, 'rolling back to step 1');
+  ok(setMarker(back, 5).inner.h === 340 && setMarker(back, 5).dividers[0].pos === 100 && !isRolledBack(setMarker(back, 5)), 'playing to the end restores everything');
+  // editing while rolled back inserts at the marker, later steps replay on top
+  let mid = recordStep(back, { inner: { ...back.inner, w: 450 } }, undefined, now + 9000);
+  ok(mid.timeline!.steps.length === 6 && timelineMarker(mid) === 2 && mid.inner.w === 450 && mid.inner.h === h0, 'an edit while rolled back is inserted at the marker');
+  mid = setMarker(mid, 6);
+  ok(mid.inner.w === 450 && mid.inner.h === 340 && mid.inner.l === 700 && mid.dividers[0].pos === 100, 'later steps replay on top of the inserted one');
+  // suppress and delete: the shelf step off -> the later move has nothing to move (no effect), shelf gone
+  const off = toggleStep(c, 1);
+  ok(off.dividers.length === 0 && off.inner.h === 340 && describeSteps(off)[4].effective === false, 'suppressing the shelf: shelf gone, the later move has no effect');
+  ok(toggleStep(off, 1).dividers[0].pos === 100, 'activating it again brings the shelf back where it was moved to');
+  const del = deleteStep(c, 0);
+  ok(del.inner.l === l0 && del.inner.h === 340 && del.timeline!.steps.length === 4, 'deleting the first step keeps the later ones');
+  // edits made outside the history become a step first, nothing is lost
+  const ext = { ...c, lidH: 80 };
+  const after = recordStep(ext, { inner: { ...ext.inner, l: 720 } }, undefined, now + 20000);
+  ok(after.lidH === 80 && after.inner.l === 720 && after.timeline!.steps.length === 7, 'an outside change is kept as its own step');
+  // untracked fields (name, foam) do not make steps, the history stays bounded
+  ok(recordStep(c, { name: 'X' }, undefined, now).timeline!.steps.length === 5, 'renaming makes no step');
+  let big = newCase('Big');
+  for (let k = 0; k < MAX_STEPS + 15; k++) big = recordStep(big, { inner: { ...big.inner, l: 600 + k } }, undefined, 1000 + k * 5000);
+  ok(big.timeline!.steps.length === MAX_STEPS && big.inner.l === 600 + MAX_STEPS + 14 && setMarker(big, 0).inner.l === 614, `old steps fold into the base (${setMarker(big, 0).inner.l})`);
+  console.log(`timeline: ${c.timeline!.steps.length} steps, roll back, insert, suppress, delete, merge ok`);
 }
 
 if (failed) { console.error('case designer: problems found'); process.exit(1); }

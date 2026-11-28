@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devicePorts } from './modules';
 import type { CustomCable, Cable, CableEnd, CableType, CaseItem, DeviceTemplate, Face, FlightCase, PlacedBox, PlacedDevice, Project, ProjectSettings, Rack, RackType } from './types';
 import { deepClone, uid } from './util';
+import { recordStep } from './timeline';
 import { connectorDef } from './connectors';
 import { DEFAULT_CABLE_TYPES } from '../library/cableTypes';
 import { BUILTIN_DEVICES } from '../library/devices';
@@ -224,6 +225,8 @@ interface State {
   setActiveInlay(id: string): void;
   addCase(c: FlightCase): void;
   updateCase(id: string, patch: Partial<FlightCase>, coalesce?: string): void;
+  /** timeline operations (marker, suppress, delete): replace the case without recording a step */
+  caseHistory(id: string, fn: (c: FlightCase) => FlightCase, coalesce?: string): void;
   removeCase(id: string): void;
   duplicateCase(id: string): void;
 
@@ -387,10 +390,20 @@ export const useStore = create<State>((set, get) => {
       else set({ activeInlayId: c.id, mode: 'inlays', selection: null });
     },
     updateCase(id, patch, coalesce) {
+      const key = coalesce ?? `case:${id}:${Object.keys(patch).join()}`;
       get().mutate((p) => {
         const c = p.cases?.find((x) => x.id === id);
-        if (c) Object.assign(c, deepClone(patch));
-      }, coalesce ?? `case:${id}:${Object.keys(patch).join()}`);
+        if (!c) return;
+        // flight cases keep a design history (timeline); drawer and free inlays do not
+        if (!c.kind || c.kind === 'case') Object.assign(c, recordStep(c, deepClone(patch), key || undefined, Date.now()));
+        else Object.assign(c, deepClone(patch));
+      }, key);
+    },
+    caseHistory(id, fn, coalesce) {
+      get().mutate((p) => {
+        const c = p.cases?.find((x) => x.id === id);
+        if (c) Object.assign(c, fn(c));
+      }, coalesce);
     },
     removeCase(id) {
       get().mutate((p) => { p.cases = (p.cases ?? []).filter((c) => c.id !== id); });

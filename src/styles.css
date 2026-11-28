@@ -480,3 +480,18 @@ tr.bad-row td { color: #fca5a5; }
 /* case designer: construction presets */
 .case-types { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
 .case-types .btn.active { border-color: var(--accent); color: var(--accent); }
+
+/* case designer: timeline (design history) */
+.timeline { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-top: 1px solid var(--line); background: var(--panel); min-height: 44px; }
+.tl-nav { display: flex; gap: 2px; flex: none; }
+.tl-strip { flex: 1; min-width: 0; display: flex; align-items: center; gap: 4px; overflow-x: auto; padding: 4px 4px; scrollbar-width: thin; }
+.tl-step { flex: none; width: 26px; height: 26px; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 3px; background: var(--panel2); color: var(--text); cursor: pointer; padding: 0; position: relative; }
+.tl-step:hover { border-color: #4b5563; }
+.tl-step.sel { border-color: var(--accent); color: var(--accent); }
+.tl-step.rolled { opacity: 0.35; }
+.tl-step.void { border-color: var(--warn); color: var(--warn); }
+.tl-step.off::after { content: ''; position: absolute; left: 3px; right: 3px; top: 50%; height: 1.5px; background: var(--muted); transform: rotate(-45deg); }
+.tl-marker { flex: none; width: 4px; height: 30px; margin: 0 -2px; border-radius: 2px; background: var(--accent); cursor: ew-resize; touch-action: none; }
+.tl-info { flex: none; display: flex; align-items: center; gap: 6px; max-width: 46%; font-size: 12px; }
+.tl-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.tl-empty { white-space: nowrap; }

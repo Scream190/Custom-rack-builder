@@ -492,6 +492,8 @@ export interface FlightCase {
   notes?: string;
   /** construction preset the case was started from (see CASE_TYPES) */
   caseType?: string;
+  /** design history (timeline): construction fields are base + replayed steps up to the marker */
+  timeline?: CaseTimeline;
   /** doors on the sides (vertical splits) */
   doors?: CaseDoors;
   /** the top lid is split in the middle into two halves (clamshell) */
@@ -523,3 +525,11 @@ export interface Project {
   /** cables designed in the cable workshop */
   customCables?: CustomCable[];
 }
+
+/**
+ * One step of a case's design history. `d` holds, per construction field, what the step changed: plain fields their new
+ * value (null = cleared), objects (inner, doors, parts) only the changed sub-keys, lists (hardware, dividers, drawers)
+ * a diff ({ add, remove, change: [old, new] }) matched by value, so a step still applies after earlier steps change.
+ */
+export interface CaseStep { id: string; t: number; key?: string; off?: boolean; d: Record<string, unknown> }
+export interface CaseTimeline { base: Partial<FlightCase>; steps: CaseStep[]; /** steps before this index are active; undefined = all */ marker?: number }

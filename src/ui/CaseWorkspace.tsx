@@ -7,6 +7,8 @@ import { caseList, foamMaterial, FOAM_MATERIALS, inlayThickness } from '../model
 import { formatLength } from '../model/geometry';
 import { CaseSheet, sheetLayout } from '../render/CaseDrawing';
 import { Case3D, type CaseEdit, type CaseTool } from '../three/Case3D';
+import { CaseTimeline } from './CaseTimeline';
+import { isRolledBack, setMarker, timelineMarker } from '../model/timeline';
 import { ErrorBoundary } from './ErrorBoundary';
 import { Splitter } from './Splitter';
 import { DEFAULT_LAYOUT, getLayout, setLayout, useLayout } from '../model/layout';
@@ -73,6 +75,12 @@ function CaseInspector({ c, project, edit }: { c: FlightCase; project: Project; 
         </dl>
         {d.castorH ? <div className="muted small">Höhe inklusive {d.castorH} mm Rollen.</div> : null}
         {warnings.length ? <div className="warn-box">{warnings.map((w, i) => <div key={i} className="warn">{w.text}</div>)}</div> : null}
+        {isRolledBack(c) ? (
+          <div className="warn-box">
+            <div className="warn">{c.timeline!.steps.length - timelineMarker(c) === 1 ? 'Zeitleiste zurückgerollt: Der letzte Schritt ist nicht aktiv. Neue Änderungen werden an der Markierung eingefügt.' : `Zeitleiste zurückgerollt: ${c.timeline!.steps.length - timelineMarker(c)} spätere Schritte sind nicht aktiv. Neue Änderungen werden an der Markierung eingefügt.`}</div>
+            {!ro ? <button className="btn sm" onClick={() => st().caseHistory(c.id, (x) => setMarker(x, x.timeline!.steps.length))} title="Alle Schritte wieder abspielen">Ans Ende</button> : null}
+          </div>
+        ) : null}
         {edit?.selected ? <SelectionBox c={c} edit={edit} /> : null}
 
         <Section id="case.inner" title="Innenmaße" defaultOpen summary={`${c.inner.l} × ${c.inner.w} × ${c.inner.h} mm`}>
@@ -461,6 +469,7 @@ export function CaseWorkspace() {
             )}
           </ErrorBoundary>
         </div>
+        <CaseTimeline c={c} edit={view === '3d' ? edit : undefined} />
         {layout.showCableList ? <div className="cable-list-wrap" style={{ maxHeight: 300 }}><PartsList c={c} project={project} /></div> : null}
       </section>
       {layout.showInspector ? (
